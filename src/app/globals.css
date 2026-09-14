@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply text-slate-100;
+  background-color: theme("colors.ink.900");
+  position: relative;
+}
+
+/* Photo d'arrière-plan floutée (aucun joueur en particulier ne doit être
+   reconnaissable) — sur un pseudo-élément séparé pour ne pas flouter le
+   contenu de la page. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(rgba(13, 12, 12, 0.82), rgba(13, 12, 12, 0.9)), var(--bg-photo, url("/backgrounds/rink-action.jpg"));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(6px);
+  transform: scale(1.05);
+}
+
+.card {
+  @apply bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-5;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg bg-gold-500 text-ink-900 px-4 py-2 text-sm font-semibold hover:bg-gold-400 transition-colors disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg bg-slate-200 text-slate-800 px-4 py-2 text-sm font-medium hover:bg-slate-300 transition-colors;
+}
+
+.btn-dark {
+  @apply inline-flex items-center justify-center rounded-lg bg-ink-800 text-white px-4 py-2 text-sm font-medium hover:bg-ink-700 transition-colors disabled:opacity-50;
+}
+
+/* .input est déclaré après les utilitaires Tailwind : sans @layer, sa règle
+   width:100% l'emporterait sur un `w-auto` posé à côté, et le champ écraserait
+   ses voisins dans un conteneur flex. La déclarer dans la couche components
+   rétablit l'ordre normal — les utilitaires gagnent. */
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-gold-500;
+    /* Force le rendu clair des contrôles natifs (date, heure, select) — sinon
+       le navigateur peut les afficher en thème sombre, illisibles sur fond blanc. */
+    color-scheme: light;
+  }
+}
+
+.label {
+  @apply block text-sm font-medium text-slate-700 mb-1;
+}
+
+.badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+/* Le menu latéral et la barre mobile ne doivent jamais apparaître à l'impression. */
+@media print {
+  aside,
+  .md\:hidden,
+  .no-print {
+    display: none !important;
+  }
+  /* Les aplats de couleur des cases du calendrier doivent survivre à
+     l'impression, sinon l'export part en noir et blanc. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  main {
+    padding-left: 0 !important;
+  }
+  body {
+    background: white !important;
+  }
+  body::before {
+    display: none !important;
+  }
+  textarea::placeholder {
+    color: transparent !important;
+  }
+
+  /* --- Export mensuel du calendrier ---
+     Le calendrier est large : en portrait, le navigateur le réduit pour le
+     faire entrer, ce qui rend le texte illisible. On force donc le paysage et
+     on fixe les tailles en points (unité d'impression) plutôt qu'en pixels,
+     pour que le résultat papier soit prévisible. Les hauteurs sont en mm afin
+     que les 6 semaines tiennent sur une seule page. */
+  /* L'orientation est injectée au moment de l'impression par
+     printWithOrientation() : paysage pour le calendrier, portrait pour la
+     feuille d'alignement. Voir src/lib/print.ts. */
+  .print-card {
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .cal-cell {
+    height: 28mm !important;
+    font-size: 8.5pt !important;
+  }
+  /* Le logo de l'adversaire est réduit à l'impression pour laisser la place
+     aux trois lignes du match (Domicile / heure / aréna) et à la note. */
+  .cal-logo {
+    height: 7mm !important;
+    width: 7mm !important;
+  }
+  .cal-date {
+    font-size: 10pt !important;
+  }
+  .cal-headers {
+    font-size: 9.5pt !important;
+  }
+  .cal-label {
+    font-size: 9pt !important;
+  }
+  .cal-sub,
+  .cal-note {
+    font-size: 7.5pt !important;
+  }
+}
