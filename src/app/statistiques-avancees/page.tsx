@@ -223,12 +223,28 @@ export default function StatistiquesAvanceesPage() {
 
   // ---- Carte de chaleur collective des mises au jeu — reproduit le
   // diagramme « Face-Offs by zones » du rapport, cumulé sur les matchs
-  // retenus par le filtre. ----
+  // retenus par le filtre, ou un seul match choisi dans le menu déroulant. ----
+  const gamesWithZoneMap = useMemo(
+    () => filteredGames.filter((g) => g.faceoff_zone_map != null).sort((a, b) => (a.game_date < b.game_date ? 1 : -1)),
+    [filteredGames]
+  );
+  const [zoneGameId, setZoneGameId] = useState<string>("all");
+
+  // Si le filtre de type de match change et fait disparaître le match choisi,
+  // on retombe sur « tous les matchs » plutôt que d'afficher une case vide.
+  useEffect(() => {
+    if (zoneGameId !== "all" && !gamesWithZoneMap.some((g) => g.id === zoneGameId)) setZoneGameId("all");
+  }, [gamesWithZoneMap, zoneGameId]);
+
   const zoneHeatmap = useMemo(() => {
-    const grids = filteredGames.map((g) => g.faceoff_zone_map).filter((z): z is NonNullable<typeof z> => z !== null);
+    if (zoneGameId !== "all") {
+      const g = gamesWithZoneMap.find((x) => x.id === zoneGameId);
+      return g?.faceoff_zone_map ? { grid: g.faceoff_zone_map, games: 1 } : null;
+    }
+    const grids = gamesWithZoneMap.map((g) => g.faceoff_zone_map).filter((z): z is NonNullable<typeof z> => z !== null);
     if (grids.length === 0) return null;
     return { grid: sumFaceoffZoneGrids(grids), games: grids.length };
-  }, [filteredGames]);
+  }, [gamesWithZoneMap, zoneGameId]);
 
   const zoneTotal = useMemo(() => {
     if (!zoneHeatmap) return { won: 0, lost: 0 };
@@ -369,17 +385,35 @@ export default function StatistiquesAvanceesPage() {
           </section>
 
           {/* Carte de chaleur collective — reproduit le diagramme « Face-Offs
-              by zones » du rapport, cumulé sur les matchs cochés ci-dessus. */}
-          {zoneHeatmap && (
+              by zones » du rapport, cumulé sur les matchs cochés ci-dessus, ou
+              un seul match choisi dans le menu déroulant. */}
+          {gamesWithZoneMap.length > 0 && (
             <section className="card space-y-2">
-              <h2 className="font-semibold">Heat map — mises au jeu par zone (équipe)</h2>
-              <p className="text-xs text-slate-500">
-                Cumulé sur {zoneHeatmap.games} match(s) avec rapport TPE. Bleu = au-dessus de 50 % de réussite, rouge
-                = en dessous.
-              </p>
-              <div className="max-w-2xl mx-auto">
-                <FaceoffZoneHeatmap grid={zoneHeatmap.grid} total={zoneTotal} />
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h2 className="font-semibold">Heat map — mises au jeu par zone (équipe)</h2>
+                <select className="input w-auto text-sm" value={zoneGameId} onChange={(e) => setZoneGameId(e.target.value)}>
+                  <option value="all">Tous les matchs ({gamesWithZoneMap.length})</option>
+                  {gamesWithZoneMap.map((g) => {
+                    const team = findTeamByOpponent(g.opponent);
+                    return (
+                      <option key={g.id} value={g.id}>
+                        {g.game_date} — {team?.name ?? g.opponent}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
+              <p className="text-xs text-slate-500">
+                {zoneGameId === "all"
+                  ? `Cumulé sur ${zoneHeatmap?.games ?? 0} match(s) avec rapport TPE.`
+                  : "Un seul match."}{" "}
+                Bleu = au-dessus de 50 % de réussite, rouge = en dessous.
+              </p>
+              {zoneHeatmap && (
+                <div className="max-w-2xl mx-auto">
+                  <FaceoffZoneHeatmap grid={zoneHeatmap.grid} total={zoneTotal} />
+                </div>
+              )}
             </section>
           )}
         </>

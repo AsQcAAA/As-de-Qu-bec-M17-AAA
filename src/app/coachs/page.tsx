@@ -14,6 +14,7 @@ export default function CoachsPage() {
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   async function load() {
     const {
@@ -47,6 +48,29 @@ export default function CoachsPage() {
     setMessage({ kind: "ok", text: `Invitation envoyée à ${form.email}.` });
     setForm(emptyForm);
     load();
+  }
+
+  async function handleResend(coachId: string) {
+    setResendingId(coachId);
+    setMessage(null);
+    const res = await fetch("/api/invite/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coachId }),
+    });
+    setResendingId(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage({ kind: "error", text: data.error || "Échec de l'envoi." });
+      return;
+    }
+    setMessage({
+      kind: "ok",
+      text:
+        data.mode === "invite"
+          ? "Invitation renvoyée."
+          : "Cette personne avait déjà un mot de passe — un lien de réinitialisation lui a été envoyé à la place.",
+    });
   }
 
   const isHeadCoach = me?.role === "head_coach";
@@ -119,6 +143,7 @@ export default function CoachsPage() {
               <th className="py-2 pr-4">Nom</th>
               <th className="py-2 pr-4">Rôle</th>
               <th className="py-2 pr-4">Depuis</th>
+              {isHeadCoach && <th className="py-2 pr-4"></th>}
             </tr>
           </thead>
           <tbody>
@@ -131,6 +156,19 @@ export default function CoachsPage() {
                   </span>
                 </td>
                 <td className="py-2 pr-4">{c.created_at?.slice(0, 10)}</td>
+                {isHeadCoach && (
+                  <td className="py-2 pr-4">
+                    {c.id !== me?.id && (
+                      <button
+                        onClick={() => handleResend(c.id)}
+                        disabled={resendingId === c.id}
+                        className="text-xs text-ink-800 hover:underline"
+                      >
+                        {resendingId === c.id ? "Envoi..." : "Renvoyer l'invitation"}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
