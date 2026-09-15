@@ -17,6 +17,7 @@ const TABS = [
   { href: "/pointeurs", label: "Statistiques individuelles" },
   { href: "/statistiques-equipe", label: "Statistiques d'équipe" },
   { href: "/statistiques-avancees", label: "Statistiques avancées" },
+  { href: "/statistiques-avancees/pre-scout", label: "Pre-Scout" },
   { href: "/responsabilites", label: "Responsabilités" },
   { href: "/farandole", label: "Farandole" },
   { href: "/tests-physiques", label: "Tests physiques" },

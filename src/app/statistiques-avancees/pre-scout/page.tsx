@@ -31,9 +31,6 @@ export default function PreScoutPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/statistiques-avancees" className="text-sm text-ink-800 hover:text-gold-700 font-medium hover:underline">
-        ← Statistiques avancées
-      </Link>
       <div>
         <h1 className="text-2xl font-bold">Pre-Scout</h1>
         <p className="text-slate-500 text-sm">

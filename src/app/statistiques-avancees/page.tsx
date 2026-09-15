@@ -464,10 +464,6 @@ export default function StatistiquesAvanceesPage() {
         )}
       </section>
 
-      <Link href="/statistiques-avancees/pre-scout" className="card hover:border-gold-400 transition-colors block">
-        <h2 className="font-semibold mb-1">🔍 Pre-Scout</h2>
-        <p className="text-sm text-slate-500">Les 20 équipes M17 AAA de la LHEQ, notes et fiches par adversaire.</p>
-      </Link>
     </div>
   );
 }
