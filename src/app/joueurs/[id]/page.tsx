@@ -8,7 +8,7 @@ import Modal from "@/components/Modal";
 import PhysioConsultations from "@/components/PhysioConsultations";
 import { ABSENCE_REASON_LABEL, EXCUSED_REASONS, REASON_EMOJI } from "@/lib/absenceReasons";
 import { format } from "date-fns";
-import { OFFICIAL_CATEGORIES, buildRosterByDate, gamesPlayedFor, goalieTotals, recordLabel, skaterTotals } from "@/lib/playerStats";
+import { OFFICIAL_CATEGORIES, buildRosterByDate, gamesPlayedFor, goalieTotals, recordLabel, regulationMinutes, skaterTotals } from "@/lib/playerStats";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { parsePenaltyCode } from "@/lib/penalties";
 import { averageToi, formatNet, secondsToToi, shootingPct } from "@/lib/tpeReport";
@@ -16,6 +16,31 @@ import { EVENT_TYPE_LABEL } from "@/lib/eventTypes";
 import { formatHeight } from "@/lib/height";
 import { useCoachDirectory } from "@/lib/useCoach";
 import type { Absence, EventType, Game, GameCategory, GameEvent, Meeting, Player, PlayerGameAdvancedStat, PlayerGameStat, PlayerTestResult } from "@/lib/types";
+
+/** Moyenne d'un gardien pour UN match (buts alloués ramenés à un match complet). */
+function goalieGameAverage(row: {
+  game: Game;
+  toi_minutes: number | null;
+  toi_seconds: number | null;
+  goals_against: number | null;
+}): string {
+  const minutes = row.toi_minutes ?? (row.toi_seconds != null ? row.toi_seconds / 60 : null);
+  if (!minutes || row.goals_against == null) return "-";
+  const gamesEquivalent = minutes / regulationMinutes(row.game);
+  if (gamesEquivalent <= 0) return "-";
+  return (row.goals_against / gamesEquivalent).toFixed(2);
+}
+
+/**
+ * % d'efficacité d'un gardien pour UN match — les tirs reçus viennent du
+ * rapport TPE (colonne « Shots on goal » de sa ligne, qui représente les tirs
+ * auxquels il a fait face), les buts alloués de la feuille de match.
+ */
+function goalieGameSavePct(row: { shots_on_goal: number | null; goals_against: number | null }): string {
+  if (!row.shots_on_goal || row.goals_against == null) return "-";
+  const saves = row.shots_on_goal - row.goals_against;
+  return `${((saves / row.shots_on_goal) * 100).toFixed(1)}%`;
+}
 
 /** Date + logo de l'adversaire — le logo se repère plus vite qu'une abréviation. */
 function GameCell({ game }: { game: Game }) {
@@ -311,6 +336,19 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   );
   const goalie = useMemo(() => goalieTotals(filteredStats, gamesById), [filteredStats, gamesById]);
 
+  /**
+   * % d'efficacité (arrêts / tirs reçus) — l'inverse du % de tirs des
+   * patineurs : les buts alloués viennent de la feuille de match (fiable),
+   * les tirs reçus du rapport TPE (colonne « Shots on goal » de la ligne du
+   * gardien, qui représente les tirs auxquels il a fait face).
+   */
+  const savePercentage = useMemo(() => {
+    const shotsFaced = filteredAdvanced.reduce((n, a) => n + (a.shots_on_goal ?? 0), 0);
+    if (shotsFaced <= 0) return "—";
+    const saves = shotsFaced - goalie.goalsAgainst;
+    return `${((saves / shotsFaced) * 100).toFixed(1)}%`;
+  }, [filteredAdvanced, goalie.goalsAgainst]);
+
   const opponents = useMemo(() => {
     const seen = new Map<string, string>();
     for (const gs of gameStats) {
@@ -372,6 +410,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
           toi_minutes: gs?.toi_minutes ?? null,
           toi_seconds: adv?.toi_seconds ?? null,
           shots_on_goal: adv?.shots_on_goal ?? gs?.shots_on_goal ?? null,
+          goals_against: gs?.goals_against ?? null,
           plus_minus: adv?.plus_minus ?? null,
           pim: pimByGame.get(g.id) ?? 0,
         };
@@ -527,6 +566,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                 <Stat label="Fiche" value={recordLabel(goalie)} />
                 <Stat label="BA" value={goalie.goalsAgainst} />
                 <Stat label="Moy." value={goalie.average === null ? "-" : goalie.average.toFixed(2)} />
+                <Stat label="Eff. %" value={savePercentage} />
               </>
             ) : (
               <>
@@ -535,9 +575,9 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                 <Stat label="P" value={totals.assists} />
                 <Stat label="PTS" value={totals.points} highlight />
                 <Stat label="+/-" value={formatNet(plusMinus)} />
+                <Stat label="MIN. PUN." value={penaltyMinutes} />
               </>
             )}
-            <Stat label="MIN. PUN." value={penaltyMinutes} />
             {!isGoalie && filteredAdvanced.length > 0 && (
               <button
                 type="button"
@@ -589,7 +629,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
         {isGoalie && (
           <section className="card space-y-3">
             <h2 className="font-semibold">Fiche du gardien</h2>
-            <dl className="grid grid-cols-4 gap-2 text-sm">
+            <dl className="grid grid-cols-5 gap-2 text-sm">
               <div>
                 <dt className="text-slate-500">Fiche</dt>
                 <dd className="font-bold text-lg">{recordLabel(goalie)}</dd>
@@ -605,6 +645,10 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
               <div>
                 <dt className="text-slate-500">Moyenne</dt>
                 <dd className="font-bold text-lg">{goalie.average === null ? "-" : goalie.average.toFixed(2)}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Eff. %</dt>
+                <dd className="font-bold text-lg">{savePercentage}</dd>
               </div>
             </dl>
             <p className="text-xs text-slate-400">
@@ -916,13 +960,25 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
               <thead>
                 <tr className="text-left text-slate-500 border-b">
                   <th className="py-1.5 pr-4">Match</th>
-                  <th className="py-1.5 pr-4">B</th>
-                  <th className="py-1.5 pr-4">A</th>
-                  <th className="py-1.5 pr-4">P</th>
-                  <th className="py-1.5 pr-4">+/-</th>
-                  <th className="py-1.5 pr-4">TOI</th>
-                  <th className="py-1.5 pr-4">Tirs</th>
-                  <th className="py-1.5 pr-4">Tirs %</th>
+                  {isGoalie ? (
+                    <>
+                      <th className="py-1.5 pr-4">TOI</th>
+                      <th className="py-1.5 pr-4">Tirs</th>
+                      <th className="py-1.5 pr-4">BA</th>
+                      <th className="py-1.5 pr-4">Moy.</th>
+                      <th className="py-1.5 pr-4">Eff. %</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="py-1.5 pr-4">B</th>
+                      <th className="py-1.5 pr-4">A</th>
+                      <th className="py-1.5 pr-4">P</th>
+                      <th className="py-1.5 pr-4">+/-</th>
+                      <th className="py-1.5 pr-4">TOI</th>
+                      <th className="py-1.5 pr-4">Tirs</th>
+                      <th className="py-1.5 pr-4">Tirs %</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -932,15 +988,29 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                       <td className="py-1.5 pr-4">
                         <GameCell game={row.game} />
                       </td>
-                      <td className="py-1.5 pr-4">{row.goals}</td>
-                      <td className="py-1.5 pr-4">{row.assists}</td>
-                      <td className="py-1.5 pr-4 font-medium">{row.goals + row.assists}</td>
-                      <td className="py-1.5 pr-4">{row.plus_minus != null ? formatNet(row.plus_minus) : "-"}</td>
-                      <td className="py-1.5 pr-4">
-                        {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
-                      </td>
-                      <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
-                      <td className="py-1.5 pr-4">{shootingPct(row.goals, row.shots_on_goal ?? 0)}</td>
+                      {isGoalie ? (
+                        <>
+                          <td className="py-1.5 pr-4">
+                            {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
+                          </td>
+                          <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
+                          <td className="py-1.5 pr-4">{row.goals_against ?? "-"}</td>
+                          <td className="py-1.5 pr-4">{goalieGameAverage(row)}</td>
+                          <td className="py-1.5 pr-4">{goalieGameSavePct(row)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-1.5 pr-4">{row.goals}</td>
+                          <td className="py-1.5 pr-4">{row.assists}</td>
+                          <td className="py-1.5 pr-4 font-medium">{row.goals + row.assists}</td>
+                          <td className="py-1.5 pr-4">{row.plus_minus != null ? formatNet(row.plus_minus) : "-"}</td>
+                          <td className="py-1.5 pr-4">
+                            {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
+                          </td>
+                          <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
+                          <td className="py-1.5 pr-4">{shootingPct(row.goals, row.shots_on_goal ?? 0)}</td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
@@ -968,14 +1038,26 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                       <thead>
                         <tr className="text-left text-slate-500 border-b">
                           <th className="py-1.5 pr-4">Match</th>
-                          <th className="py-1.5 pr-4">B</th>
-                          <th className="py-1.5 pr-4">A</th>
-                          <th className="py-1.5 pr-4">P</th>
-                          <th className="py-1.5 pr-4">+/-</th>
-                          <th className="py-1.5 pr-4">TOI</th>
-                          <th className="py-1.5 pr-4">Tirs</th>
-                          <th className="py-1.5 pr-4">Tirs %</th>
-                          <th className="py-1.5 pr-4" title="Minutes de punition">MIN</th>
+                          {isGoalie ? (
+                            <>
+                              <th className="py-1.5 pr-4">TOI</th>
+                              <th className="py-1.5 pr-4">Tirs</th>
+                              <th className="py-1.5 pr-4">BA</th>
+                              <th className="py-1.5 pr-4">Moy.</th>
+                              <th className="py-1.5 pr-4">Eff. %</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="py-1.5 pr-4">B</th>
+                              <th className="py-1.5 pr-4">A</th>
+                              <th className="py-1.5 pr-4">P</th>
+                              <th className="py-1.5 pr-4">+/-</th>
+                              <th className="py-1.5 pr-4">TOI</th>
+                              <th className="py-1.5 pr-4">Tirs</th>
+                              <th className="py-1.5 pr-4">Tirs %</th>
+                              <th className="py-1.5 pr-4" title="Minutes de punition">MIN</th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -984,16 +1066,30 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                             <td className="py-1.5 pr-4">
                               <GameCell game={row.game} />
                             </td>
-                            <td className="py-1.5 pr-4">{row.goals}</td>
-                            <td className="py-1.5 pr-4">{row.assists}</td>
-                            <td className="py-1.5 pr-4 font-medium">{row.goals + row.assists}</td>
-                            <td className="py-1.5 pr-4">{row.plus_minus != null ? formatNet(row.plus_minus) : "-"}</td>
-                            <td className="py-1.5 pr-4">
-                              {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
-                            </td>
-                            <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
-                            <td className="py-1.5 pr-4">{shootingPct(row.goals, row.shots_on_goal ?? 0)}</td>
-                            <td className="py-1.5 pr-4">{row.pim || "-"}</td>
+                            {isGoalie ? (
+                              <>
+                                <td className="py-1.5 pr-4">
+                                  {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
+                                </td>
+                                <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
+                                <td className="py-1.5 pr-4">{row.goals_against ?? "-"}</td>
+                                <td className="py-1.5 pr-4">{goalieGameAverage(row)}</td>
+                                <td className="py-1.5 pr-4">{goalieGameSavePct(row)}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-1.5 pr-4">{row.goals}</td>
+                                <td className="py-1.5 pr-4">{row.assists}</td>
+                                <td className="py-1.5 pr-4 font-medium">{row.goals + row.assists}</td>
+                                <td className="py-1.5 pr-4">{row.plus_minus != null ? formatNet(row.plus_minus) : "-"}</td>
+                                <td className="py-1.5 pr-4">
+                                  {row.toi_minutes != null ? `${row.toi_minutes} min` : secondsToToi(row.toi_seconds)}
+                                </td>
+                                <td className="py-1.5 pr-4">{row.shots_on_goal ?? "-"}</td>
+                                <td className="py-1.5 pr-4">{shootingPct(row.goals, row.shots_on_goal ?? 0)}</td>
+                                <td className="py-1.5 pr-4">{row.pim || "-"}</td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>
