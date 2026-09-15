@@ -8,10 +8,18 @@ import Crest from "@/components/Crest";
 // Landing page for Supabase invite links. @supabase/ssr's browser client
 // picks up the session from the URL automatically (detectSessionInUrl),
 // so we just wait for a session then let the person choose their password.
+// Le lien d'invitation/réinitialisation expire, ou peut avoir déjà été
+// utilisé (ex. ouvert deux fois, ou un ancien courriel après un "Renvoyer
+// l'invitation"). Sans limite de temps, un lien mort laissait la page
+// tourner sur "Vérification..." indéfiniment, sans jamais rien dire à la
+// personne — dix secondes suffisent largement à un échange de session normal.
+const SESSION_TIMEOUT_MS = 10_000;
+
 export default function DefinirMotDePassePage() {
   const supabase = createClient();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +27,17 @@ export default function DefinirMotDePassePage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    // Supabase renvoie parfois une erreur directement dans l'URL (lien expiré
+    // ou déjà utilisé) plutôt que de simplement ne rien établir — dans ce cas
+    // pas besoin d'attendre, on le sait tout de suite.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlErrorDescription = hashParams.get("error_description") || searchParams.get("error_description");
+    if (urlErrorDescription) {
+      setLinkError(decodeURIComponent(urlErrorDescription.replace(/\+/g, " ")));
+      return;
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -27,7 +46,20 @@ export default function DefinirMotDePassePage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
     });
-    return () => subscription.unsubscribe();
+    const timeout = window.setTimeout(() => {
+      setReady((already) => {
+        if (!already) {
+          setLinkError(
+            "Ce lien n'a pas pu être vérifié — il est probablement expiré ou déjà utilisé."
+          );
+        }
+        return already;
+      });
+    }, SESSION_TIMEOUT_MS);
+    return () => {
+      subscription.unsubscribe();
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -63,7 +95,15 @@ export default function DefinirMotDePassePage() {
           <h1 className="text-lg font-bold text-ink-900 leading-tight">Bienvenue chez les As</h1>
         </div>
 
-        {!ready ? (
+        {linkError ? (
+          <div className="space-y-1.5">
+            <p className="text-sm text-red-600">{linkError}</p>
+            <p className="text-sm text-slate-500">
+              Demande à ton entraîneur-chef de te renvoyer l&apos;invitation (bouton « Renvoyer l&apos;invitation » dans
+              Utilisateurs), puis utilise le lien du courriel le plus récent.
+            </p>
+          </div>
+        ) : !ready ? (
           <p className="text-sm text-slate-500">Vérification de l'invitation...</p>
         ) : done ? (
           <p className="text-sm text-green-700">Mot de passe enregistré, redirection...</p>
