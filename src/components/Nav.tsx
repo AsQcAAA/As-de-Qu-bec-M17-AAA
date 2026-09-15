@@ -25,7 +25,6 @@ const TABS = [
   { href: "/reunions", label: "Meeting" },
   { href: "/medical", label: "Médical" },
   { href: "/remplacants", label: "Remplaçants" },
-  { href: "/canva", label: "Canva" },
   { href: "/coachs", label: "Utilisateurs" },
 ];
 
