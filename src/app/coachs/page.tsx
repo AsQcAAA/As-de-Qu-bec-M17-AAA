@@ -2,9 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Modal from "@/components/Modal";
 import type { CoachProfile, CoachRole } from "@/lib/types";
 
 const emptyForm = { email: "", full_name: "", role: "assistant" as CoachRole };
+
+// Un mot de passe temporaire facile à dicter au téléphone ou par texto —
+// lisible, sans caractères ambigus (0/O, 1/l), assez long pour rester sûr.
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
 
 export default function CoachsPage() {
   const supabase = createClient();
@@ -15,6 +25,10 @@ export default function CoachsPage() {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<CoachProfile | null>(null);
+  const [tempPassword, setTempPassword] = useState("");
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordSetOk, setPasswordSetOk] = useState(false);
 
   async function load() {
     const {
@@ -71,6 +85,29 @@ export default function CoachsPage() {
           ? "Invitation renvoyée."
           : "Cette personne avait déjà un mot de passe — un lien de réinitialisation lui a été envoyé à la place.",
     });
+  }
+
+  function openPasswordModal(coach: CoachProfile) {
+    setPasswordTarget(coach);
+    setTempPassword(generateTempPassword());
+    setPasswordSetOk(false);
+  }
+
+  async function handleSetPassword() {
+    if (!passwordTarget) return;
+    setSettingPassword(true);
+    const res = await fetch("/api/invite/set-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coachId: passwordTarget.id, password: tempPassword }),
+    });
+    setSettingPassword(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage({ kind: "error", text: data.error || "Échec de l'enregistrement." });
+      return;
+    }
+    setPasswordSetOk(true);
   }
 
   const isHeadCoach = me?.role === "head_coach";
@@ -159,13 +196,18 @@ export default function CoachsPage() {
                 {isHeadCoach && (
                   <td className="py-2 pr-4">
                     {c.id !== me?.id && (
-                      <button
-                        onClick={() => handleResend(c.id)}
-                        disabled={resendingId === c.id}
-                        className="text-xs text-ink-800 hover:underline"
-                      >
-                        {resendingId === c.id ? "Envoi..." : "Renvoyer l'invitation"}
-                      </button>
+                      <span className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleResend(c.id)}
+                          disabled={resendingId === c.id}
+                          className="text-xs text-ink-800 hover:underline"
+                        >
+                          {resendingId === c.id ? "Envoi..." : "Renvoyer l'invitation"}
+                        </button>
+                        <button onClick={() => openPasswordModal(c)} className="text-xs text-ink-800 hover:underline">
+                          Définir un mot de passe
+                        </button>
+                      </span>
                     )}
                   </td>
                 )}
@@ -174,6 +216,70 @@ export default function CoachsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Contournement du courriel d'invitation : utile quand un fournisseur
+          (compte pro Outlook/Google Workspace) scanne automatiquement les
+          liens reçus, ce qui grille le lien à usage unique avant que la
+          personne ne clique. Le mot de passe se transmet à la main, jamais
+          par courriel — pour la même raison. */}
+      {passwordTarget && (
+        <Modal
+          onClose={() => {
+            setPasswordTarget(null);
+            setPasswordSetOk(false);
+          }}
+        >
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">Définir un mot de passe — {passwordTarget.full_name}</h2>
+              <p className="text-sm text-slate-400">
+                À utiliser si le courriel d&apos;invitation ne fonctionne pas (souvent un lien grillé par un scan de
+                sécurité automatique). Transmets ce mot de passe toi-même — texto, appel, en personne — jamais par
+                courriel.
+              </p>
+            </div>
+
+            {passwordSetOk ? (
+              <p className="text-sm text-green-400">
+                ✓ Mot de passe enregistré. Donne-le à {passwordTarget.full_name} pour qu&apos;il/elle se connecte.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <label className="label">Mot de passe temporaire</label>
+                <div className="flex gap-2">
+                  <input
+                    className="input font-mono"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                  />
+                  <button type="button" className="btn-secondary shrink-0" onClick={() => setTempPassword(generateTempPassword())}>
+                    ↻ Régénérer
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">Au moins 8 caractères. Généré au hasard, modifiable si tu préfères.</p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {!passwordSetOk && (
+                <button type="button" className="btn" disabled={settingPassword} onClick={handleSetPassword}>
+                  {settingPassword ? "Enregistrement..." : "Définir ce mot de passe"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setPasswordTarget(null);
+                  setPasswordSetOk(false);
+                }}
+              >
+                {passwordSetOk ? "Fermer" : "Annuler"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
