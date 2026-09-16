@@ -128,8 +128,10 @@ export default function CalendrierPage() {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [weeklyThemes, setWeeklyThemes] = useState<WeeklyTheme[]>([]);
-  /** Thème saisi dans le rapport quotidien, par date de pratique. */
-  const [practiceThemes, setPracticeThemes] = useState<{ report_date: string; practice_theme: string | null }[]>([]);
+  /** Thèmes de pratique et de meeting saisis dans le rapport quotidien. */
+  const [practiceThemes, setPracticeThemes] = useState<
+    { report_date: string; practice_theme: string | null; meeting_theme: string | null }[]
+  >([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -139,7 +141,7 @@ export default function CalendrierPage() {
       supabase.from("schedule_events").select("*").order("event_date"),
       supabase.from("games").select("*"),
       supabase.from("weekly_themes").select("*"),
-      supabase.from("daily_reports").select("report_date, practice_theme"),
+      supabase.from("daily_reports").select("report_date, practice_theme, meeting_theme"),
     ]);
     setEvents(evts ?? []);
     setGames(gms ?? []);
@@ -177,6 +179,14 @@ export default function CalendrierPage() {
     const map = new Map<string, string>();
     for (const r of practiceThemes) {
       if (r.practice_theme) map.set(r.report_date, r.practice_theme);
+    }
+    return map;
+  }, [practiceThemes]);
+
+  const meetingThemeByDate = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of practiceThemes) {
+      if (r.meeting_theme) map.set(r.report_date, r.meeting_theme);
     }
     return map;
   }, [practiceThemes]);
@@ -350,6 +360,10 @@ export default function CalendrierPage() {
           // Un match l'emporte toujours, même sans case "game" dans l'horaire
           // du jour (ex. seulement des meetings créés à la main ce jour-là) :
           // sans quoi la case affichait un meeting au lieu du résultat.
+          // Même logique que pour les matchs : un thème de pratique saisi dans
+          // le rapport quotidien doit se voir même quand aucune case
+          // "pratique" n'a été créée dans l'horaire ce jour-là (ex. pratique
+          // ajoutée sur le tas, sans passer par le calendrier).
           const primary = gameByDate.get(key)
             ? (dayEvents.find((e) => e.event_type === "game") ?? {
                 id: `game-${key}`,
@@ -361,7 +375,19 @@ export default function CalendrierPage() {
                 location: null,
                 notes: null,
               })
-            : primaryEvent(dayEvents);
+            : (primaryEvent(dayEvents) ??
+              (practiceThemeByDate.get(key)
+                ? {
+                    id: `practice-${key}`,
+                    event_date: key,
+                    event_type: "practice" as const,
+                    title: "Pratique",
+                    start_time: null,
+                    end_time: null,
+                    location: null,
+                    notes: null,
+                  }
+                : null));
           const menageEvent = dayEvents.find((e) => isMenage(e.title) && e.id !== primary?.id);
           const inMonth = isSameMonth(day, month);
           const dow = day.getDay();
@@ -480,6 +506,13 @@ export default function CalendrierPage() {
                       <div className="font-bold text-base leading-tight break-words">
                         {holidayLabel(primary.title) ?? (isRedWeekTrigger(primary.title) ? redWeekLabel(primary.title) : primary.title)}
                       </div>
+                      {/* Thème du meeting — sous « Pratique », comme le thème
+                          de pratique est au-dessus. */}
+                      {primary.event_type === "practice" && meetingThemeByDate.get(key) && (
+                        <div className="text-[10px] font-black uppercase tracking-wide leading-tight break-words opacity-90">
+                          {meetingThemeByDate.get(key)}
+                        </div>
+                      )}
                       {menageEvent && <div className="text-[10px] font-medium opacity-90 leading-tight break-words">{menageEvent.title}</div>}
                     </div>
                   )}
