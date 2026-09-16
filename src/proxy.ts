@@ -8,7 +8,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 // /logos ne contient que des écussons d'équipes de la ligue, publics par
 // nature : sans cette exception, la requête d'image passait par le mur d'auth
 // et repartait en redirection vers /login au lieu de servir le fichier.
-const PUBLIC_PATHS = ["/login", "/definir-mot-de-passe", "/api/reminders", "/logos"];
+const PUBLIC_PATHS = ["/login", "/definir-mot-de-passe", "/api/reminders", "/api/absences/inbound-email", "/logos"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
