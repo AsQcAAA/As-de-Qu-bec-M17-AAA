@@ -360,6 +360,11 @@ export default function CalendrierPage() {
           // Un match l'emporte toujours, même sans case "game" dans l'horaire
           // du jour (ex. seulement des meetings créés à la main ce jour-là) :
           // sans quoi la case affichait un meeting au lieu du résultat.
+          // Le Multisport du vendredi l'emporte aussi toujours, même si une
+          // pratique sur glace est ajoutée le même jour : sans quoi la
+          // priorité normale (pratique avant "training") ferait disparaître
+          // la mention Multisport de la case.
+          const multisportEvent = dayEvents.find((e) => isMultisport(e.title));
           // Même logique que pour les matchs : un thème de pratique saisi dans
           // le rapport quotidien doit se voir même quand aucune case
           // "pratique" n'a été créée dans l'horaire ce jour-là (ex. pratique
@@ -375,7 +380,8 @@ export default function CalendrierPage() {
                 location: null,
                 notes: null,
               })
-            : (primaryEvent(dayEvents) ??
+            : multisportEvent ??
+              (primaryEvent(dayEvents) ??
               (practiceThemeByDate.get(key)
                 ? {
                     id: `practice-${key}`,
