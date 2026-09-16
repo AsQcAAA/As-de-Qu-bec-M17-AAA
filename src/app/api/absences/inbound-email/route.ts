@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Webhook } from "svix";
+import crypto from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { matchPlayerName } from "@/lib/physio";
 import {
@@ -34,6 +34,32 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/**
+ * Vérifie une signature Svix (format Standard Webhooks) sans dépendre du
+ * paquet "svix" — celui-ci exige Node ≥22, ce que le runtime serverless de
+ * Vercel ne garantit pas, et provoquait un crash silencieux au chargement du
+ * module (500 sans corps de réponse). Le calcul lui-même est un simple
+ * HMAC-SHA256, documenté publiquement par Svix et Standard Webhooks.
+ */
+function verifySvixSignature(
+  secret: string,
+  svixId: string,
+  svixTimestamp: string,
+  svixSignature: string,
+  body: string
+): boolean {
+  const secretBytes = Buffer.from(secret.startsWith("whsec_") ? secret.slice(6) : secret, "base64");
+  const signedContent = `${svixId}.${svixTimestamp}.${body}`;
+  const expected = crypto.createHmac("sha256", secretBytes).update(signedContent).digest("base64");
+  const expectedBuf = Buffer.from(expected, "base64");
+  return svixSignature.split(" ").some((entry) => {
+    const [, value] = entry.split(",");
+    if (!value) return false;
+    const candidate = Buffer.from(value, "base64");
+    return candidate.length === expectedBuf.length && crypto.timingSafeEqual(candidate, expectedBuf);
+  });
+}
+
 async function handle(req: NextRequest) {
   const rawBody = await req.text();
 
@@ -50,17 +76,11 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "En-têtes de signature manquants." }, { status: 400 });
   }
 
-  let event: { type: string; data: { email_id: string; subject: string } };
-  try {
-    const wh = new Webhook(secret);
-    event = wh.verify(rawBody, {
-      "svix-id": svixId,
-      "svix-timestamp": svixTimestamp,
-      "svix-signature": svixSignature,
-    }) as unknown as typeof event;
-  } catch {
+  if (!verifySvixSignature(secret, svixId, svixTimestamp, svixSignature, rawBody)) {
     return NextResponse.json({ error: "Signature invalide." }, { status: 401 });
   }
+
+  const event = JSON.parse(rawBody) as { type: string; data: { email_id: string; subject: string } };
 
   if (event.type !== "email.received") {
     return NextResponse.json({ ok: true, skipped: "event_type" });
