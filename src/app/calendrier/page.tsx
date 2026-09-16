@@ -88,9 +88,19 @@ function redWeekLabel(title: string): string {
   return beforePlus || "Challenge";
 }
 
+// Thèmes de pratique qui se distinguent du bleu habituel — repérés d'un coup
+// d'œil dans le calendrier mensuel plutôt que par le texte du thème seul.
+const ORANGE_PRACTICE_THEME_KEYWORDS = ["skills francis", "pratique par position"];
+
+function isOrangePracticeTheme(theme: string | undefined): boolean {
+  if (!theme) return false;
+  const normalized = stripAccents(theme.toLowerCase());
+  return ORANGE_PRACTICE_THEME_KEYWORDS.some((k) => normalized.includes(k));
+}
+
 // Vert pour congés/fériés/pédago/fête, jaune/gris pour matchs locaux/extérieur,
 // sinon la couleur pleine habituelle du type d'évènement.
-function cellColor(event: ScheduleEvent, game: Game | undefined): string {
+function cellColor(event: ScheduleEvent, game: Game | undefined, practiceTheme?: string): string {
   if (event.event_type === "game") {
     if (game?.is_home === false) return "bg-slate-400 text-ink-900";
     return "bg-gold-500 text-ink-900";
@@ -98,6 +108,7 @@ function cellColor(event: ScheduleEvent, game: Game | undefined): string {
   if (isHoliday(event.title)) return "bg-green-500 text-white";
   if (isMultisport(event.title)) return "bg-blue-500 text-white";
   if (isRedWeekTrigger(event.title)) return "bg-red-600 text-white";
+  if (event.event_type === "practice" && isOrangePracticeTheme(practiceTheme)) return "bg-orange-500 text-white";
   return EVENT_TYPE_SOLID_COLOR[event.event_type];
 }
 
@@ -367,7 +378,7 @@ export default function CalendrierPage() {
               onClick={locked ? undefined : () => setSelectedDate(key)}
               className={`flex flex-col h-[150px] sm:h-[165px] rounded-lg border p-2 text-sm text-left transition-colors overflow-hidden ${
                 primary
-                  ? `${cellColor(primary, gameByDate.get(key))} border-transparent ${locked ? "cursor-default" : "hover:brightness-110"}`
+                  ? `${cellColor(primary, gameByDate.get(key), practiceThemeByDate.get(key))} border-transparent ${locked ? "cursor-default" : "hover:brightness-110"}`
                   : redLabel
                     ? "bg-red-600 text-white border-transparent hover:brightness-110"
                     : isCongeFallback
