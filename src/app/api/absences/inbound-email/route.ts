@@ -27,14 +27,8 @@ export async function POST(req: NextRequest) {
     // d'erreur Vercel générique sans corps — impossible à diagnostiquer
     // depuis le panneau "Response body" du webhook Resend.
     console.error("[absences/inbound-email] Erreur non gérée.", error);
-    // Trace complète temporairement renvoyée dans la réponse — seul le
-    // panneau Resend (accessible qu'au coach) peut la voir, et c'est le seul
-    // moyen de diagnostiquer sans accès aux logs Vercel depuis ce contexte.
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Erreur inconnue.",
-        stack: error instanceof Error ? error.stack : undefined,
-      },
+      { error: error instanceof Error ? error.message : "Erreur inconnue." },
       { status: 500 }
     );
   }
