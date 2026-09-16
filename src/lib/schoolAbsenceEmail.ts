@@ -51,6 +51,18 @@ export function extractConvokedPlayerName(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+/**
+ * « ...à une période étoilée le 22 septembre... » → « Période étoilée ».
+ * Le type de période varie d'une école à l'autre (étoilée, de retenue,
+ * dirigée...) — plus précis que la seule raison générique « École ».
+ */
+export function extractPeriodType(text: string): string | null {
+  const m = text.match(/à une période\s+([a-zàâäéèêëïîôöùûüç]+)/i);
+  if (!m) return null;
+  const word = m[1].toLowerCase();
+  return `Période ${word}`;
+}
+
 /** Enlève les balises HTML d'un corps de courriel — pour le cas où seul le HTML est fourni. */
 export function stripHtml(html: string): string {
   return html

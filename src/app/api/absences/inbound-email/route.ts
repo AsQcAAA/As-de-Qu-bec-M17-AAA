@@ -5,6 +5,7 @@ import { matchPlayerName } from "@/lib/physio";
 import {
   extractConvokedPlayerName,
   extractFrenchDate,
+  extractPeriodType,
   isSchoolActivityAbsenceEmail,
   stripHtml,
 } from "@/lib/schoolAbsenceEmail";
@@ -130,6 +131,7 @@ async function handle(req: NextRequest) {
     player_id: match.id,
     absence_date: date,
     reason: "ecole",
+    detail: extractPeriodType(body),
   });
   if (error) {
     console.error("[absences/inbound-email] Échec de l'insertion.", error);

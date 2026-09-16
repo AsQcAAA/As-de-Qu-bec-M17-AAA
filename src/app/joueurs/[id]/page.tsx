@@ -898,6 +898,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                     {(a.reason === "blesse" || a.reason === "sans_contact") && injuryTypeOn(a.absence_date) && (
                       <span className="text-red-700"> ({injuryTypeOn(a.absence_date)})</span>
                     )}
+                    {a.reason === "ecole" && a.detail && <span className="text-slate-500"> ({a.detail})</span>}
                     {/* Le sans-contact n'est pas une absence du tout : le joueur
                         était présent, il a patiné. On le dit autrement. */}
                     {a.reason === "sans_contact" ? (

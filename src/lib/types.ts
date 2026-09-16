@@ -293,6 +293,8 @@ export interface Absence {
   player_id: string;
   absence_date: string;
   reason: AbsenceReason | null;
+  /** Précision optionnelle (ex. « Période étoilée »), remplie par le webhook d'absence scolaire. */
+  detail: string | null;
   created_at: string;
 }
 
