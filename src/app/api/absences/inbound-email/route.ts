@@ -20,6 +20,21 @@ import {
  * joueur ou de date dans son dossier serait pire que ne rien faire.
  */
 export async function POST(req: NextRequest) {
+  try {
+    return await handle(req);
+  } catch (error) {
+    // Filet de sécurité : sans ça, une exception imprévue renvoie une page
+    // d'erreur Vercel générique sans corps — impossible à diagnostiquer
+    // depuis le panneau "Response body" du webhook Resend.
+    console.error("[absences/inbound-email] Erreur non gérée.", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erreur inconnue." },
+      { status: 500 }
+    );
+  }
+}
+
+async function handle(req: NextRequest) {
   const rawBody = await req.text();
 
   const secret = process.env.RESEND_WEBHOOK_SECRET;
