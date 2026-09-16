@@ -95,8 +95,14 @@ async function handle(req: NextRequest) {
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
   });
   if (!emailRes.ok) {
-    console.error("[absences/inbound-email] Échec de récupération du courriel", await emailRes.text());
-    return NextResponse.json({ error: "Courriel introuvable chez Resend." }, { status: 502 });
+    const detail = await emailRes.text();
+    console.error("[absences/inbound-email] Échec de récupération du courriel", detail);
+    // Détail temporairement inclus dans la réponse pour diagnostiquer depuis
+    // le panneau Resend, faute d'accès direct aux logs Vercel ici.
+    return NextResponse.json(
+      { error: "Courriel introuvable chez Resend.", resend_status: emailRes.status, resend_detail: detail },
+      { status: 502 }
+    );
   }
   const email = (await emailRes.json()) as { text: string | null; html: string | null };
   const body = email.text || (email.html ? stripHtml(email.html) : "");
