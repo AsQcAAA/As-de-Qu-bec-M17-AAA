@@ -495,22 +495,16 @@ export default function CalendrierPage() {
                     })()
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center gap-1">
-                      {/* Thème de la pratique — saisi dans le rapport quotidien
-                          une fois la pratique tenue, affiché au-dessus du mot
-                          « Pratique » pour se repérer d'un coup d'œil. */}
-                      {primary.event_type === "practice" && practiceThemeByDate.get(key) && (
-                        <div className="text-[10px] font-black uppercase tracking-wide leading-tight break-words opacity-90">
-                          {practiceThemeByDate.get(key)}
-                        </div>
-                      )}
                       <div className="font-bold text-base leading-tight break-words">
-                        {holidayLabel(primary.title) ?? (isRedWeekTrigger(primary.title) ? redWeekLabel(primary.title) : primary.title)}
+                        {primary.event_type === "practice" && practiceThemeByDate.get(key)
+                          ? `Pratique : ${practiceThemeByDate.get(key)}`
+                          : (holidayLabel(primary.title) ?? (isRedWeekTrigger(primary.title) ? redWeekLabel(primary.title) : primary.title))}
                       </div>
-                      {/* Thème du meeting — sous « Pratique », comme le thème
-                          de pratique est au-dessus. */}
+                      {/* Thème du meeting — sous la pratique, saisi dans le
+                          même rapport quotidien. */}
                       {primary.event_type === "practice" && meetingThemeByDate.get(key) && (
                         <div className="text-[10px] font-black uppercase tracking-wide leading-tight break-words opacity-90">
-                          {meetingThemeByDate.get(key)}
+                          Meeting : {meetingThemeByDate.get(key)}
                         </div>
                       )}
                       {menageEvent && <div className="text-[10px] font-medium opacity-90 leading-tight break-words">{menageEvent.title}</div>}
