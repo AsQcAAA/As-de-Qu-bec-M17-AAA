@@ -86,6 +86,14 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
   const plusMinus = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.plus_minus ?? 0), 0), [officialAdvanced]);
   const averageToiLabel = useMemo(() => averageToi(officialAdvanced.map((a) => a.toi_seconds)), [officialAdvanced]);
   const totalXg = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.xg ?? 0), 0), [officialAdvanced]);
+  const totalToiSeconds = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.toi_seconds ?? 0), 0), [officialAdvanced]);
+  // Recalculé à partir du total de la saison plutôt que moyenné match par
+  // match, pour la même raison que partout ailleurs dans l'app : la colonne
+  // « xg per 20 » du rapport TPE n'est pas fiable telle quelle.
+  const xgPer20Season = useMemo(
+    () => (totalToiSeconds > 0 ? ((totalXg * 1200) / totalToiSeconds).toFixed(2) : "-"),
+    [totalXg, totalToiSeconds]
+  );
   const totalShots = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.shots_on_goal ?? 0), 0), [officialAdvanced]);
   const shootingPercentage = useMemo(() => shootingPct(totals.goals, totalShots), [totals.goals, totalShots]);
   const faceoffPct = useMemo(() => {
@@ -100,15 +108,14 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
     return `${((saves / shotsFaced) * 100).toFixed(1)}%`;
   }, [officialAdvanced, goalie.goalsAgainst]);
 
-  /** 5 matchs officiels les plus récents — un aperçu de la forme actuelle, sans détail d'absence. */
-  const recentGames = useMemo(() => {
+  /** Game log complet des matchs officiels — un recruteur veut voir toute la saison, pas un aperçu. */
+  const gameLog = useMemo(() => {
     const statByGame = new Map(officialStats.map((gs) => [gs.game_id, gs]));
     const advByGame = new Map(officialAdvanced.map((a) => [a.game_id, a]));
     return [...statByGame.keys()]
       .map((gameId) => ({ game: gamesById.get(gameId)!, gs: statByGame.get(gameId)!, adv: advByGame.get(gameId) }))
       .filter((r) => r.game)
-      .sort((a, b) => (b.game.game_date > a.game.game_date ? 1 : -1))
-      .slice(0, 5);
+      .sort((a, b) => (b.game.game_date > a.game.game_date ? 1 : -1));
   }, [officialStats, officialAdvanced, gamesById]);
 
   /** Dernier résultat de chaque test physique — un recruteur veut l'état actuel, pas l'historique. */
@@ -192,16 +199,32 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
         {!isGoalie && officialAdvanced.length > 0 && (
           <div>
             <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">Statistiques avancées</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex justify-between border-b border-dashed pb-1">
-                <span className="text-slate-500">Tirs au but (saison)</span>
-                <span className="font-medium">{totalShots}</span>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-slate-500">TOI moyen</dt>
+                <dd className="font-medium text-base">{averageToiLabel}</dd>
               </div>
-              <div className="flex justify-between border-b border-dashed pb-1">
-                <span className="text-slate-500">XG (saison)</span>
-                <span className="font-medium">{totalXg.toFixed(1)}</span>
+              <div>
+                <dt className="text-slate-500">Tirs au but (saison)</dt>
+                <dd className="font-medium text-base">{totalShots}</dd>
               </div>
-            </div>
+              <div>
+                <dt className="text-slate-500">XG (saison)</dt>
+                <dd className="font-medium text-base">{totalXg.toFixed(1)}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">XG per 20</dt>
+                <dd className="font-medium text-base">{xgPer20Season}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">% Mises en jeu</dt>
+                <dd className="font-medium text-base">{faceoffPct}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">% de tirs</dt>
+                <dd className="font-medium text-base">{shootingPercentage}</dd>
+              </div>
+            </dl>
           </div>
         )}
 
@@ -222,9 +245,11 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
           </div>
         )}
 
-        {recentGames.length > 0 && (
+        {gameLog.length > 0 && (
           <div>
-            <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">5 derniers matchs</h2>
+            <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">
+              Game log ({gameLog.length} matchs)
+            </h2>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500 border-b">
@@ -240,12 +265,13 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                       <th className="py-1 pr-3">B</th>
                       <th className="py-1 pr-3">A</th>
                       <th className="py-1 pr-3">P</th>
+                      <th className="py-1 pr-3">+/-</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {recentGames.map(({ game, gs, adv }) => {
+                {gameLog.map(({ game, gs, adv }) => {
                   const team = findTeamByOpponent(game.opponent);
                   const minutes = gs.toi_minutes ?? (adv?.toi_seconds != null ? adv.toi_seconds / 60 : null);
                   const gamesEquiv = minutes ? minutes / regulationMinutes(game) : 0;
@@ -269,6 +295,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                           <td className="py-1 pr-3">{gs.goals}</td>
                           <td className="py-1 pr-3">{gs.assists}</td>
                           <td className="py-1 pr-3 font-medium">{gs.goals + gs.assists}</td>
+                          <td className="py-1 pr-3">{adv?.plus_minus != null ? formatNet(adv.plus_minus) : "-"}</td>
                         </>
                       )}
                     </tr>
