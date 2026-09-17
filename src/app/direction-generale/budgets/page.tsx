@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import type { BudgetCategory, BudgetExpense, BudgetTeam } from "@/lib/types";
 
 const TEAM_LABEL: Record<BudgetTeam, string> = { as: "As de Québec", chevaliers: "Chevaliers" };
 
 const emptyCategoryForm = { name: "", allocated_amount: "" };
-const emptyExpenseForm = { description: "", amount: "" };
+const emptyExpenseForm = () => ({
+  description: "",
+  amount: "",
+  supplier: "",
+  expense_date: format(new Date(), "yyyy-MM-dd"),
+});
 
 function money(n: number): string {
   return n.toLocaleString("fr-CA", { style: "currency", currency: "CAD" });
@@ -29,7 +35,7 @@ export default function BudgetsPage() {
   const [savingCategory, setSavingCategory] = useState(false);
 
   const [expenseTargetId, setExpenseTargetId] = useState<string | null>(null);
-  const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
+  const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
   const [savingExpense, setSavingExpense] = useState(false);
 
   async function load() {
@@ -90,11 +96,15 @@ export default function BudgetsPage() {
     const amount = Number(expenseForm.amount);
     if (!expenseForm.description.trim() || Number.isNaN(amount)) return;
     setSavingExpense(true);
-    await supabase
-      .from("budget_expenses")
-      .insert({ category_id: expenseTargetId, description: expenseForm.description.trim(), amount });
+    await supabase.from("budget_expenses").insert({
+      category_id: expenseTargetId,
+      description: expenseForm.description.trim(),
+      amount,
+      supplier: expenseForm.supplier.trim() || null,
+      expense_date: expenseForm.expense_date,
+    });
     setSavingExpense(false);
-    setExpenseForm(emptyExpenseForm);
+    setExpenseForm(emptyExpenseForm());
     setExpenseTargetId(null);
     load();
   }
@@ -212,7 +222,7 @@ export default function BudgetsPage() {
                       className="btn-secondary text-sm"
                       onClick={() => {
                         setExpenseTargetId(expenseTargetId === cat.id ? null : cat.id);
-                        setExpenseForm(emptyExpenseForm);
+                        setExpenseForm(emptyExpenseForm());
                       }}
                     >
                       {expenseTargetId === cat.id ? "Annuler" : "+ Dépense"}
@@ -224,7 +234,7 @@ export default function BudgetsPage() {
                 </div>
 
                 {expenseTargetId === cat.id && (
-                  <form onSubmit={addExpense} className="grid sm:grid-cols-3 gap-3 items-end border-t pt-3">
+                  <form onSubmit={addExpense} className="grid sm:grid-cols-4 gap-3 items-end border-t pt-3">
                     <div className="sm:col-span-2">
                       <label className="label">Description</label>
                       <input
@@ -233,6 +243,14 @@ export default function BudgetsPage() {
                         onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
                         required
                         autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Fournisseur</label>
+                      <input
+                        className="input"
+                        value={expenseForm.supplier}
+                        onChange={(e) => setExpenseForm({ ...expenseForm, supplier: e.target.value })}
                       />
                     </div>
                     <div>
@@ -246,7 +264,17 @@ export default function BudgetsPage() {
                         required
                       />
                     </div>
-                    <div className="sm:col-span-3">
+                    <div>
+                      <label className="label">Date</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={expenseForm.expense_date}
+                        onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="sm:col-span-4">
                       <button type="submit" className="btn" disabled={savingExpense}>
                         {savingExpense ? "Enregistrement..." : "Ajouter la dépense"}
                       </button>
@@ -261,6 +289,7 @@ export default function BudgetsPage() {
                         <span>
                           <span className="text-slate-400 tabular-nums mr-2">{e.expense_date}</span>
                           {e.description}
+                          {e.supplier && <span className="text-slate-400"> — {e.supplier}</span>}
                         </span>
                         <span className="flex items-center gap-3 shrink-0">
                           <span className="font-medium tabular-nums">{money(e.amount)}</span>

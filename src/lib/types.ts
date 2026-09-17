@@ -387,6 +387,7 @@ export interface BudgetExpense {
   description: string;
   amount: number;
   expense_date: string;
+  supplier: string | null;
   created_at: string;
 }
 
