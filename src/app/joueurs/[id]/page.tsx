@@ -580,6 +580,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                 <Stat label="P" value={totals.assists} />
                 <Stat label="PTS" value={totals.points} highlight />
                 <Stat label="+/-" value={formatNet(plusMinus)} />
+                <Stat label="TOI Moy." value={averageToiLabel} />
                 <Stat label="MIN. PUN." value={penaltyMinutes} />
               </>
             )}
