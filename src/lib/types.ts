@@ -371,6 +371,25 @@ export interface DgNote {
   updated_at: string;
 }
 
+export type BudgetTeam = "as" | "chevaliers";
+
+export interface BudgetCategory {
+  id: string;
+  team: BudgetTeam;
+  name: string;
+  allocated_amount: number;
+  created_at: string;
+}
+
+export interface BudgetExpense {
+  id: string;
+  category_id: string;
+  description: string;
+  amount: number;
+  expense_date: string;
+  created_at: string;
+}
+
 export type GameDocumentType = "feuille_match" | "stats_avancees" | "plus_moins";
 
 export interface GameDocument {

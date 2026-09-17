@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
@@ -77,9 +78,14 @@ export default function DirectionGeneralePage() {
             adjoints invités sur le reste de la plateforme.
           </p>
         </div>
-        <button className="btn" onClick={() => (showForm ? setShowForm(false) : startNew())}>
-          {showForm ? "Annuler" : "+ Nouvelle note"}
-        </button>
+        <div className="flex gap-2">
+          <Link href="/direction-generale/budgets" className="btn-secondary">
+            💰 Budgets
+          </Link>
+          <button className="btn" onClick={() => (showForm ? setShowForm(false) : startNew())}>
+            {showForm ? "Annuler" : "+ Nouvelle note"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
