@@ -512,9 +512,14 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
-      <Link href="/joueurs" className="text-sm text-ink-800 hover:text-gold-700 font-medium hover:underline">
-        ← Joueurs
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/joueurs" className="text-sm text-ink-800 hover:text-gold-700 font-medium hover:underline">
+          ← Joueurs
+        </Link>
+        <Link href={`/joueurs/${id}/export`} target="_blank" className="btn-secondary text-sm">
+          📄 Fiche de recrutement
+        </Link>
+      </div>
 
       <div className="card flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
