@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { lastName } from "@/lib/players";
 import { EVENT_TYPE_LABEL, EVENT_TYPE_ORDER } from "@/lib/eventTypes";
 import { isDayOff, isNoPracticeDay } from "@/lib/dayType";
+import { ABSENCE_REASON_LABEL, REASON_EMOJI } from "@/lib/absenceReasons";
 import { RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import GamePlanEditor from "@/components/GamePlanEditor";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
@@ -52,6 +53,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [reportUpdatedBy, setReportUpdatedBy] = useState<string | null>(null);
   const [savingReport, setSavingReport] = useState(false);
   const [injuredIds, setInjuredIds] = useState<Set<string>>(new Set());
+  const [knownAbsences, setKnownAbsences] = useState<Absence[]>([]);
 
   async function load() {
     const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pblocks }, { data: gm }, { data: report }, { data: abs }] =
@@ -63,13 +65,18 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
         supabase.from("practice_blocks").select("*").eq("practice_date", date).order("position"),
         supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
         supabase.from("daily_reports").select("*").eq("report_date", date).maybeSingle(),
-        supabase.from("absences").select("*").eq("absence_date", date).eq("reason", "blesse"),
+        supabase.from("absences").select("*").eq("absence_date", date),
       ]);
     setAllPlayers(pls ?? []);
     setEvents(evts ?? []);
     setMeetings(mts ?? []);
     setBlocks(pblocks ?? []);
-    setInjuredIds(new Set(((abs ?? []) as Absence[]).map((a) => a.player_id)));
+    const dayAbsences = (abs ?? []) as Absence[];
+    setInjuredIds(new Set(dayAbsences.filter((a) => a.reason === "blesse").map((a) => a.player_id)));
+    // Absences connues d'avance (école, suspension, remplacement M18...) — à
+    // distinguer des blessures (case à cocher ci-dessous) et du sans-contact
+    // (le joueur est présent, juste sans mise en échec).
+    setKnownAbsences(dayAbsences.filter((a) => a.reason && a.reason !== "blesse" && a.reason !== "sans_contact"));
     setGame(gm ?? null);
     setReportForm(
       report
@@ -240,6 +247,25 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
           )}
         </div>
       </div>
+
+      {/* Absences connues d'avance (école, suspension, remplacement M18...) —
+          visibles dès l'ouverture de la journée, pas seulement une fois la
+          pratique/le match commencé. */}
+      {knownAbsences.length > 0 && (
+        <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-2 text-sm text-amber-900 flex flex-wrap gap-x-4 gap-y-1">
+          {knownAbsences.map((a) => {
+            const p = playerById.get(a.player_id);
+            if (!p) return null;
+            return (
+              <span key={a.id}>
+                {a.reason && REASON_EMOJI[a.reason]} <strong>{p.full_name}</strong> —{" "}
+                {a.reason && ABSENCE_REASON_LABEL[a.reason]}
+                {a.detail ? ` (${a.detail})` : ""}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Congé ou pédago : aucune activité, donc rien à saisir. Afficher les
           formulaires laisserait croire qu'il y a quelque chose à remplir. */}
