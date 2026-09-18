@@ -16,6 +16,39 @@ const emptyExpenseForm = () => ({
   expense_date: format(new Date(), "yyyy-MM-dd"),
 });
 
+/** Mots significatifs d'un nom de poste, pour retrouver son équivalent chez l'autre équipe. */
+function nameTokens(name: string): Set<string> {
+  return new Set(
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\(.*?\)/g, " ")
+      .replace(/\/ ?\d+ equipes/g, " ")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && w !== "frais")
+  );
+}
+
+/** Poste de l'autre équipe qui ressemble le plus (mots en commun), ou null si rien de convaincant. */
+function bestMatchingCategory(name: string, candidates: BudgetCategory[]): BudgetCategory | null {
+  const a = nameTokens(name);
+  let best: BudgetCategory | null = null;
+  let bestScore = 0.4;
+  for (const c of candidates) {
+    const b = nameTokens(c.name);
+    const inter = [...a].filter((w) => b.has(w)).length;
+    const union = new Set([...a, ...b]).size;
+    const score = union === 0 ? 0 : inter / union;
+    if (score > bestScore) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function money(n: number): string {
   return n.toLocaleString("fr-CA", { style: "currency", currency: "CAD" });
 }
@@ -38,6 +71,12 @@ export default function BudgetsPage() {
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
   const [savingExpense, setSavingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(emptyExpenseForm());
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState("");
+  const [rowError, setRowError] = useState<string | null>(null);
 
   async function load() {
     const [{ data: cats }, { data: exps }] = await Promise.all([
@@ -112,6 +151,64 @@ export default function BudgetsPage() {
     }
     setExpenseForm(emptyExpenseForm());
     setExpenseTargetId(null);
+    load();
+  }
+
+  function startEdit(e: BudgetExpense) {
+    setMovingId(null);
+    setRowError(null);
+    setEditingId(e.id);
+    setEditForm({
+      description: e.description,
+      amount: String(e.amount),
+      supplier: e.supplier ?? "",
+      expense_date: e.expense_date,
+    });
+  }
+
+  async function saveEdit(id: string, ev: React.FormEvent) {
+    ev.preventDefault();
+    const amount = Number(editForm.amount);
+    if (!editForm.description.trim() || Number.isNaN(amount)) return;
+    const { error } = await supabase
+      .from("budget_expenses")
+      .update({
+        description: editForm.description.trim(),
+        amount,
+        supplier: editForm.supplier.trim() || null,
+        expense_date: editForm.expense_date,
+      })
+      .eq("id", id);
+    if (error) {
+      setRowError(error.message);
+      return;
+    }
+    setEditingId(null);
+    setRowError(null);
+    load();
+  }
+
+  // Envoyer une dépense chez l'autre équipe : le poste équivalent est
+  // présélectionné d'après le nom, mais reste modifiable — les deux équipes
+  // n'appellent pas toujours un même poste de la même façon.
+  function startMove(e: BudgetExpense, from: BudgetCategory) {
+    setEditingId(null);
+    setRowError(null);
+    const otherTeam: BudgetTeam = from.team === "as" ? "chevaliers" : "as";
+    const match = bestMatchingCategory(from.name, categories.filter((c) => c.team === otherTeam));
+    setMovingId(e.id);
+    setMoveTargetId(match?.id ?? "");
+  }
+
+  async function confirmMove(id: string) {
+    if (!moveTargetId) return;
+    const { error } = await supabase.from("budget_expenses").update({ category_id: moveTargetId }).eq("id", id);
+    if (error) {
+      setRowError(error.message);
+      return;
+    }
+    setMovingId(null);
+    setRowError(null);
     load();
   }
 
@@ -291,23 +388,113 @@ export default function BudgetsPage() {
 
                 {catExpenses.length > 0 && (
                   <ul className="text-sm divide-y border-t pt-2">
-                    {catExpenses.map((e) => (
-                      <li key={e.id} className="flex items-center justify-between py-1.5 gap-2">
-                        <span>
-                          <span className="text-slate-400 tabular-nums mr-2">{e.expense_date}</span>
-                          {e.description}
-                          {e.supplier && <span className="text-slate-400"> — {e.supplier}</span>}
-                        </span>
-                        <span className="flex items-center gap-3 shrink-0">
-                          <span className="font-medium tabular-nums">{money(e.amount)}</span>
-                          <button className="text-xs text-red-600 hover:underline" onClick={() => removeExpense(e.id)}>
-                            Retirer
-                          </button>
-                        </span>
-                      </li>
-                    ))}
+                    {catExpenses.map((e) => {
+                      const otherTeam: BudgetTeam = cat.team === "as" ? "chevaliers" : "as";
+                      return (
+                        <li key={e.id} className="py-1.5 space-y-2">
+                          {editingId === e.id ? (
+                            <form onSubmit={(ev) => saveEdit(e.id, ev)} className="grid sm:grid-cols-4 gap-2 items-end">
+                              <div className="sm:col-span-2">
+                                <label className="label">Description</label>
+                                <input
+                                  className="input"
+                                  value={editForm.description}
+                                  onChange={(ev) => setEditForm({ ...editForm, description: ev.target.value })}
+                                  required
+                                  autoFocus
+                                />
+                              </div>
+                              <div>
+                                <label className="label">Fournisseur</label>
+                                <input
+                                  className="input"
+                                  value={editForm.supplier}
+                                  onChange={(ev) => setEditForm({ ...editForm, supplier: ev.target.value })}
+                                />
+                              </div>
+                              <div>
+                                <label className="label">Montant ($)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  className="input"
+                                  value={editForm.amount}
+                                  onChange={(ev) => setEditForm({ ...editForm, amount: ev.target.value })}
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="label">Date</label>
+                                <input
+                                  type="date"
+                                  className="input"
+                                  value={editForm.expense_date}
+                                  onChange={(ev) => setEditForm({ ...editForm, expense_date: ev.target.value })}
+                                  required
+                                />
+                              </div>
+                              <div className="sm:col-span-3 flex gap-2">
+                                <button type="submit" className="btn">
+                                  Enregistrer
+                                </button>
+                                <button type="button" className="btn-secondary" onClick={() => setEditingId(null)}>
+                                  Annuler
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <span>
+                                <span className="text-slate-400 tabular-nums mr-2">{e.expense_date}</span>
+                                {e.description}
+                                {e.supplier && <span className="text-slate-400"> — {e.supplier}</span>}
+                              </span>
+                              <span className="flex items-center gap-3 shrink-0">
+                                <span className="font-medium tabular-nums">{money(e.amount)}</span>
+                                <button className="text-xs text-ink-800 hover:underline" onClick={() => startEdit(e)}>
+                                  Modifier
+                                </button>
+                                <button className="text-xs text-ink-800 hover:underline" onClick={() => startMove(e, cat)}>
+                                  → {TEAM_LABEL[otherTeam]}
+                                </button>
+                                <button className="text-xs text-red-600 hover:underline" onClick={() => removeExpense(e.id)}>
+                                  Retirer
+                                </button>
+                              </span>
+                            </div>
+                          )}
+
+                          {movingId === e.id && (
+                            <div className="flex flex-wrap items-center gap-2 rounded-md bg-slate-100 px-3 py-2">
+                              <span className="text-xs text-slate-600">Envoyer chez {TEAM_LABEL[otherTeam]}, au poste :</span>
+                              <select
+                                className="input w-auto"
+                                value={moveTargetId}
+                                onChange={(ev) => setMoveTargetId(ev.target.value)}
+                              >
+                                <option value="">— Choisir un poste —</option>
+                                {categories
+                                  .filter((c) => c.team === otherTeam)
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                              </select>
+                              <button className="btn" disabled={!moveTargetId} onClick={() => confirmMove(e.id)}>
+                                Envoyer
+                              </button>
+                              <button className="btn-secondary" onClick={() => setMovingId(null)}>
+                                Annuler
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
+                {rowError && <p className="text-sm text-red-600">{rowError}</p>}
               </div>
             );
           })}
