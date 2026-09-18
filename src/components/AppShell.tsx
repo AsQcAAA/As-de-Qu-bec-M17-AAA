@@ -12,11 +12,11 @@ const WIDE_ROUTES = ["/calendrier"];
 // la précédente) à chaque changement de page, pour que le fond varie en
 // naviguant dans l'app plutôt que de rester figé sur une seule photo.
 const BACKGROUNDS = [
-  "/backgrounds/rink-action.jpg",
+  "/backgrounds/bg-1.jpg",
+  "/backgrounds/bg-2.jpg",
+  "/backgrounds/bg-3.jpg",
   "/backgrounds/bg-4.jpg",
-  "/backgrounds/bg-6.jpg",
-  "/backgrounds/bg-7.jpg",
-  "/backgrounds/bg-8.jpg",
+  "/backgrounds/bg-5.jpg",
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
