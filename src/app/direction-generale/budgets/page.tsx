@@ -37,6 +37,7 @@ export default function BudgetsPage() {
   const [expenseTargetId, setExpenseTargetId] = useState<string | null>(null);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
   const [savingExpense, setSavingExpense] = useState(false);
+  const [expenseError, setExpenseError] = useState<string | null>(null);
 
   async function load() {
     const [{ data: cats }, { data: exps }] = await Promise.all([
@@ -96,7 +97,8 @@ export default function BudgetsPage() {
     const amount = Number(expenseForm.amount);
     if (!expenseForm.description.trim() || Number.isNaN(amount)) return;
     setSavingExpense(true);
-    await supabase.from("budget_expenses").insert({
+    setExpenseError(null);
+    const { error } = await supabase.from("budget_expenses").insert({
       category_id: expenseTargetId,
       description: expenseForm.description.trim(),
       amount,
@@ -104,6 +106,10 @@ export default function BudgetsPage() {
       expense_date: expenseForm.expense_date,
     });
     setSavingExpense(false);
+    if (error) {
+      setExpenseError(error.message);
+      return;
+    }
     setExpenseForm(emptyExpenseForm());
     setExpenseTargetId(null);
     load();
@@ -278,6 +284,7 @@ export default function BudgetsPage() {
                       <button type="submit" className="btn" disabled={savingExpense}>
                         {savingExpense ? "Enregistrement..." : "Ajouter la dépense"}
                       </button>
+                      {expenseError && <p className="text-sm text-red-600 mt-2">{expenseError}</p>}
                     </div>
                   </form>
                 )}
