@@ -20,7 +20,7 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(6px);
+  filter: blur(3px);
   transform: scale(1.05);
 }
 
