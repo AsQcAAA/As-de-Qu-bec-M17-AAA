@@ -89,6 +89,16 @@ export default function TestsPhysiquesPage() {
     return [...latestByPlayer.values()].sort((a, b) => (higherIsBetter ? b.value - a.value : a.value - b.value));
   }, [selectedTest, results]);
 
+  /**
+   * Rang de chaque ligne du classement. Des résultats égaux partagent le même
+   * rang, et le suivant saute d'autant (1, 2, 2, 4) plutôt que de compter 1, 2, 3, 4.
+   */
+  const ranks = useMemo(() => {
+    const out: number[] = [];
+    ranking.forEach((r, i) => out.push(i > 0 && r.value === ranking[i - 1].value ? out[i - 1] : i + 1));
+    return out;
+  }, [ranking]);
+
   /** Séances du test choisi, de la plus ancienne à la plus récente. */
   const sessionDates = useMemo(
     () => [...new Set(results.filter((r) => r.test_name === selectedTest).map((r) => r.test_date))].sort(),
@@ -366,7 +376,7 @@ export default function TestsPhysiquesPage() {
                   const player = nameById.get(r.player_id);
                   return (
                     <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-bold text-ink-900">{i + 1}</td>
+                      <td className="py-2 pr-4 font-bold text-ink-900">{ranks[i]}</td>
                       <td className="py-2 pr-4">
                         <Link href={`/joueurs/${r.player_id}`} className="hover:text-gold-700 hover:underline">
                           {player?.jersey_number ? `#${player.jersey_number} ` : ""}
