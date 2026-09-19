@@ -86,11 +86,27 @@ export default function TestsPhysiquesPage() {
     return [...latestByPlayer.values()].sort((a, b) => (higherIsBetter ? b.value - a.value : a.value - b.value));
   }, [selectedTest, results]);
 
-  /** Séances de test plus anciennes que la plus récente, de la plus récente à la plus ancienne. */
-  const olderDates = useMemo(() => {
-    const dates = [...new Set(results.filter((r) => r.test_name === selectedTest).map((r) => r.test_date))].sort().reverse();
-    return dates.slice(1);
-  }, [selectedTest, results]);
+  /** Séances du test choisi, de la plus ancienne à la plus récente. */
+  const sessionDates = useMemo(
+    () => [...new Set(results.filter((r) => r.test_name === selectedTest).map((r) => r.test_date))].sort(),
+    [selectedTest, results]
+  );
+
+  /**
+   * Titre de colonne d'une séance : la saison plutôt que la date exacte
+   * (A25 = automne 2025, H26 = hiver 2026, É26 = été 2026). Si deux séances
+   * tombent dans la même saison, on retombe sur la date pour les distinguer.
+   */
+  const sessionLabels = useMemo(() => {
+    const seasonOf = (date: string) => {
+      const month = Number(date.slice(5, 7));
+      const letter = month >= 8 ? "A" : month <= 4 ? "H" : "É";
+      return `${letter}${date.slice(2, 4)}`;
+    };
+    const counts = new Map<string, number>();
+    for (const d of sessionDates) counts.set(seasonOf(d), (counts.get(seasonOf(d)) ?? 0) + 1);
+    return new Map(sessionDates.map((d) => [d, (counts.get(seasonOf(d)) ?? 0) > 1 ? d : seasonOf(d)]));
+  }, [sessionDates]);
 
   /** Résultat d'un joueur à une date précise pour le test choisi. */
   const resultAt = useMemo(() => {
@@ -333,14 +349,12 @@ export default function TestsPhysiquesPage() {
                 <tr className="text-left text-slate-500 border-b">
                   <th className="py-2 pr-4">#</th>
                   <th className="py-2 pr-4">Joueur</th>
-                  <th className="py-2 pr-4">Résultat</th>
-                  <th className="py-2 pr-4">Date</th>
-                  {olderDates.map((d) => (
+                  {sessionDates.map((d) => (
                     <th key={d} className="py-2 pr-4" title={noteByDate.get(d)}>
-                      {d}
+                      {sessionLabels.get(d)}
                     </th>
                   ))}
-                  {olderDates.length > 0 && <th className="py-2 pr-4">Évolution</th>}
+                  {sessionDates.length > 1 && <th className="py-2 pr-4">Évolution</th>}
                 </tr>
               </thead>
               <tbody>
@@ -356,19 +370,16 @@ export default function TestsPhysiquesPage() {
                           {player?.full_name ?? "?"}
                         </Link>
                       </td>
-                      <td className="py-2 pr-4 font-medium">
-                        {r.value} {r.unit ?? ""}
-                      </td>
-                      <td className="py-2 pr-4 text-slate-500">{r.test_date}</td>
-                      {olderDates.map((d) => {
-                        const old = resultAt.get(`${r.player_id}|${d}`);
+                      {sessionDates.map((d) => {
+                        const res = resultAt.get(`${r.player_id}|${d}`);
+                        const isLatest = d === sessionDates[sessionDates.length - 1];
                         return (
-                          <td key={d} className="py-2 pr-4">
-                            {old ? `${old.value} ${old.unit ?? ""}` : "-"}
+                          <td key={d} className={`py-2 pr-4 ${isLatest ? "font-bold" : ""}`}>
+                            {res ? `${res.value} ${res.unit ?? ""}` : "-"}
                           </td>
                         );
                       })}
-                      {olderDates.length > 0 && (
+                      {sessionDates.length > 1 && (
                         <td
                           className={`py-2 pr-4 font-medium ${
                             !evo || evo.delta === 0 ? "text-slate-400" : evo.better ? "text-green-600" : "text-red-600"
