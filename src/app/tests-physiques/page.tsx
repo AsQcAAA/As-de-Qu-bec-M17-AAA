@@ -86,6 +86,39 @@ export default function TestsPhysiquesPage() {
     return [...latestByPlayer.values()].sort((a, b) => (higherIsBetter ? b.value - a.value : a.value - b.value));
   }, [selectedTest, results]);
 
+  /** Séances de test plus anciennes que la plus récente, de la plus récente à la plus ancienne. */
+  const olderDates = useMemo(() => {
+    const dates = [...new Set(results.filter((r) => r.test_name === selectedTest).map((r) => r.test_date))].sort().reverse();
+    return dates.slice(1);
+  }, [selectedTest, results]);
+
+  /** Résultat d'un joueur à une date précise pour le test choisi. */
+  const resultAt = useMemo(() => {
+    const map = new Map<string, PlayerTestResult>();
+    for (const r of results) if (r.test_name === selectedTest) map.set(`${r.player_id}|${r.test_date}`, r);
+    return map;
+  }, [selectedTest, results]);
+
+  /** Note associée à une séance (ex. « Tests de l'automne 2025 »), pour l'infobulle de l'en-tête. */
+  const noteByDate = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of results) if (r.test_name === selectedTest && r.notes) map.set(r.test_date, r.notes);
+    return map;
+  }, [selectedTest, results]);
+
+  /** Écart entre le résultat le plus récent d'un joueur et celui qui le précède. */
+  function evolution(r: PlayerTestResult) {
+    let previous: PlayerTestResult | null = null;
+    for (const other of results) {
+      if (other.test_name !== selectedTest || other.player_id !== r.player_id || other.test_date >= r.test_date) continue;
+      if (!previous || other.test_date > previous.test_date) previous = other;
+    }
+    if (!previous) return null;
+    const delta = Math.round((r.value - previous.value) * 100) / 100;
+    const better = r.higher_is_better ? delta > 0 : delta < 0;
+    return { delta, better };
+  }
+
   async function handleFile(file: File) {
     setImporting(true);
     const ExcelJS = (await import("exceljs")).default;
@@ -302,10 +335,17 @@ export default function TestsPhysiquesPage() {
                   <th className="py-2 pr-4">Joueur</th>
                   <th className="py-2 pr-4">Résultat</th>
                   <th className="py-2 pr-4">Date</th>
+                  {olderDates.map((d) => (
+                    <th key={d} className="py-2 pr-4" title={noteByDate.get(d)}>
+                      {d}
+                    </th>
+                  ))}
+                  {olderDates.length > 0 && <th className="py-2 pr-4">Évolution</th>}
                 </tr>
               </thead>
               <tbody>
                 {ranking.map((r, i) => {
+                  const evo = evolution(r);
                   const player = nameById.get(r.player_id);
                   return (
                     <tr key={r.id} className="border-b last:border-0">
@@ -320,6 +360,23 @@ export default function TestsPhysiquesPage() {
                         {r.value} {r.unit ?? ""}
                       </td>
                       <td className="py-2 pr-4 text-slate-500">{r.test_date}</td>
+                      {olderDates.map((d) => {
+                        const old = resultAt.get(`${r.player_id}|${d}`);
+                        return (
+                          <td key={d} className="py-2 pr-4">
+                            {old ? `${old.value} ${old.unit ?? ""}` : "-"}
+                          </td>
+                        );
+                      })}
+                      {olderDates.length > 0 && (
+                        <td
+                          className={`py-2 pr-4 font-medium ${
+                            !evo || evo.delta === 0 ? "text-slate-400" : evo.better ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {evo ? `${evo.delta > 0 ? "+" : ""}${evo.delta}` : "-"}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
