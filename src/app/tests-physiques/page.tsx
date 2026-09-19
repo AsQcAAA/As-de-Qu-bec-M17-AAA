@@ -37,6 +37,9 @@ function matchPlayer(raw: string, players: Player[]): Player | null {
   return byFullName ?? null;
 }
 
+/** Note marquant un résultat obtenu par un joueur blessé — affiché par un emoji dans le tableau. */
+const INJURED_NOTE = "Blessé lors du test";
+
 export default function TestsPhysiquesPage() {
   const supabase = createClient();
   const [players, setPlayers] = useState<Player[]>([]);
@@ -118,7 +121,7 @@ export default function TestsPhysiquesPage() {
   /** Note associée à une séance (ex. « Tests de l'automne 2025 »), pour l'infobulle de l'en-tête. */
   const noteByDate = useMemo(() => {
     const map = new Map<string, string>();
-    for (const r of results) if (r.test_name === selectedTest && r.notes) map.set(r.test_date, r.notes);
+    for (const r of results) if (r.test_name === selectedTest && r.notes && r.notes !== INJURED_NOTE) map.set(r.test_date, r.notes);
     return map;
   }, [selectedTest, results]);
 
@@ -376,6 +379,11 @@ export default function TestsPhysiquesPage() {
                         return (
                           <td key={d} className={`py-2 pr-4 ${isLatest ? "font-bold" : ""}`}>
                             {res ? `${res.value} ${res.unit ?? ""}` : "-"}
+                            {res?.notes === INJURED_NOTE && (
+                              <span title={INJURED_NOTE} className="ml-1">
+                                🩹
+                              </span>
+                            )}
                           </td>
                         );
                       })}
@@ -393,6 +401,9 @@ export default function TestsPhysiquesPage() {
                 })}
               </tbody>
             </table>
+            {results.some((r) => r.test_name === selectedTest && r.notes === INJURED_NOTE) && (
+              <p className="text-xs text-slate-500 pt-2">🩹 Blessé lors du test</p>
+            )}
           </div>
         </>
       )}
