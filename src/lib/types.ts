@@ -268,15 +268,6 @@ export interface TeamBuildingLog {
   created_at: string;
 }
 
-export interface PracticeBlock {
-  id: string;
-  practice_date: string;
-  position: number;
-  title: string | null;
-  duration_minutes: number | null;
-  description: string | null;
-}
-
 export interface ScoutNote {
   id: string;
   team_slug: string;

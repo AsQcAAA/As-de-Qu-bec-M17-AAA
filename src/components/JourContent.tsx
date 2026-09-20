@@ -14,7 +14,7 @@ import GamePlanEditor from "@/components/GamePlanEditor";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { useCoachDirectory } from "@/lib/useCoach";
-import type { Absence, EventType, Game, Lineup, LineupUnit, Meeting, Player, PracticeBlock, ScheduleEvent } from "@/lib/types";
+import type { Absence, EventType, Game, Lineup, LineupUnit, Meeting, Player, ScheduleEvent } from "@/lib/types";
 
 const emptyEventForm = { start_time: "", event_type: "practice" as EventType, title: "", location: "" };
 /** Panneaux de l'effectif, pour le résumé d'alignement d'après-match. */
@@ -43,10 +43,10 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [lineup, setLineup] = useState<Lineup | null>(null);
   const [units, setUnits] = useState<LineupUnit[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [blocks, setBlocks] = useState<PracticeBlock[]>([]);
 
   const [eventForm, setEventForm] = useState(emptyEventForm);
-  const [blockDrafts, setBlockDrafts] = useState<Record<number, { title: string; duration_minutes: string; description: string }>>({});
+  const [practiceNotes, setPracticeNotes] = useState("");
+  const [notesStatus, setNotesStatus] = useState<"idle" | "saving" | "saved" | string>("idle");
   const [game, setGame] = useState<Game | null>(null);
   const [reportForm, setReportForm] = useState(emptyReportForm);
   /** Qui a écrit/modifié ce rapport en dernier — affiché à l'entraîneur-chef seulement. */
@@ -56,13 +56,13 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [knownAbsences, setKnownAbsences] = useState<Absence[]>([]);
 
   async function load() {
-    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pblocks }, { data: gm }, { data: report }, { data: abs }] =
+    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gm }, { data: report }, { data: abs }] =
       await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
         supabase.from("lineups").select("*").eq("lineup_date", date).limit(1),
         supabase.from("meetings").select("*").eq("meeting_date", date).eq("meeting_type", "individual"),
-        supabase.from("practice_blocks").select("*").eq("practice_date", date).order("position"),
+        supabase.from("practice_notes").select("content").eq("practice_date", date).maybeSingle(),
         supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
         supabase.from("daily_reports").select("*").eq("report_date", date).maybeSingle(),
         supabase.from("absences").select("*").eq("absence_date", date),
@@ -70,7 +70,8 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     setAllPlayers(pls ?? []);
     setEvents(evts ?? []);
     setMeetings(mts ?? []);
-    setBlocks(pblocks ?? []);
+    setPracticeNotes(pnotes?.content ?? "");
+    setNotesStatus("idle");
     const dayAbsences = (abs ?? []) as Absence[];
     setInjuredIds(new Set(dayAbsences.filter((a) => a.reason === "blesse").map((a) => a.player_id)));
     // Absences connues d'avance (école, suspension, remplacement M18...) — à
@@ -101,16 +102,6 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
       setUnits([]);
     }
 
-    const drafts: Record<number, { title: string; duration_minutes: string; description: string }> = {};
-    for (let pos = 1; pos <= 7; pos++) {
-      const existing = (pblocks ?? []).find((b) => b.position === pos);
-      drafts[pos] = {
-        title: existing?.title ?? "",
-        duration_minutes: existing?.duration_minutes?.toString() ?? "",
-        description: existing?.description ?? "",
-      };
-    }
-    setBlockDrafts(drafts);
     setLoading(false);
   }
 
@@ -176,19 +167,14 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     load();
   }
 
-  async function saveBlock(position: number) {
-    const draft = blockDrafts[position];
-    await supabase.from("practice_blocks").upsert(
-      {
-        practice_date: date,
-        position,
-        title: draft.title || null,
-        duration_minutes: draft.duration_minutes ? Number(draft.duration_minutes) : null,
-        description: draft.description || null,
-      },
-      { onConflict: "practice_date,position" }
-    );
-    load();
+  // Enregistrée en quittant la case : une pratique se note d'un trait, sans
+  // bouton à chercher.
+  async function savePracticeNotes() {
+    setNotesStatus("saving");
+    const { error } = await supabase
+      .from("practice_notes")
+      .upsert({ practice_date: date, content: practiceNotes, updated_at: new Date().toISOString() }, { onConflict: "practice_date" });
+    setNotesStatus(error ? error.message : "saved");
   }
 
   if (loading) return <p className="text-slate-500">Chargement...</p>;
@@ -516,52 +502,24 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
           /* Pratique du jour — absente les vendredis */
           <section className="card space-y-3">
             <h2 className="font-semibold">Pratique du jour</h2>
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5, 6, 7].map((pos) => (
-                <div key={pos} className="flex gap-2 items-start border-b last:border-0 pb-2">
-                  <span className="mt-2 h-6 w-6 shrink-0 rounded-full bg-ink-900 text-gold-400 text-xs font-bold flex items-center justify-center">
-                    {pos}
-                  </span>
-                  <div className="flex-1 grid grid-cols-3 gap-1.5">
-                    <input
-                      className="input col-span-2"
-                      placeholder="Exercice"
-                      value={blockDrafts[pos]?.title ?? ""}
-                      onChange={(e) =>
-                        setBlockDrafts({ ...blockDrafts, [pos]: { ...blockDrafts[pos], title: e.target.value } })
-                      }
-                      onBlur={() => saveBlock(pos)}
-                    />
-                    <input
-                      className="input"
-                      placeholder="Min."
-                      type="number"
-                      value={blockDrafts[pos]?.duration_minutes ?? ""}
-                      onChange={(e) =>
-                        setBlockDrafts({
-                          ...blockDrafts,
-                          [pos]: { ...blockDrafts[pos], duration_minutes: e.target.value },
-                        })
-                      }
-                      onBlur={() => saveBlock(pos)}
-                    />
-                    <textarea
-                      className="input col-span-3"
-                      rows={1}
-                      placeholder="Détails"
-                      value={blockDrafts[pos]?.description ?? ""}
-                      onChange={(e) =>
-                        setBlockDrafts({
-                          ...blockDrafts,
-                          [pos]: { ...blockDrafts[pos], description: e.target.value },
-                        })
-                      }
-                      onBlur={() => saveBlock(pos)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <textarea
+              className="input"
+              rows={12}
+              placeholder="Liste tes exercices, un par ligne (ex. Flow 1 — 10 min)..."
+              value={practiceNotes}
+              onChange={(e) => {
+                setPracticeNotes(e.target.value);
+                setNotesStatus("idle");
+              }}
+              onBlur={savePracticeNotes}
+            />
+            <p className="text-xs text-slate-500 h-4">
+              {notesStatus === "saving" && "Enregistrement..."}
+              {notesStatus === "saved" && "✓ Enregistré"}
+              {notesStatus !== "idle" && notesStatus !== "saving" && notesStatus !== "saved" && (
+                <span className="text-red-600">{notesStatus}</span>
+              )}
+            </p>
           </section>
         )}
       </div>
