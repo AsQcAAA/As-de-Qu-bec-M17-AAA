@@ -758,7 +758,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                     {filled}/{t.slots}
                   </span>
                 </header>
-                <div className={`grid ${t.gridCols} gap-x-3 gap-y-6 p-4 pt-5 justify-items-center`}>
+                <div className={`grid ${t.gridCols} gap-x-3 gap-y-10 p-4 pt-5 justify-items-center`}>
                   {slotValues.map((value, i) => {
                     // Un défenseur peut jouer à l'attaque (et l'inverse) : les
                     // cases de patineurs acceptent les deux positions. Les
