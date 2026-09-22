@@ -734,7 +734,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
 
       {/* ---- Effectif (+ cinq partant à droite les jours de match) ---- */}
       <div className={`grid gap-4 ${isGameDay ? "xl:grid-cols-[minmax(0,1fr)_19rem]" : ""}`}>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(10rem,1fr)]">
           {ROSTER_TEMPLATE.map((t) => {
             const u = rosterUnit(t.label);
             const slotValues = Array.from({ length: t.slots }, (_, i) => u?.player_ids[i] ?? "");
@@ -758,7 +758,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                     {filled}/{t.slots}
                   </span>
                 </header>
-                <div className={`grid ${t.gridCols} gap-x-3 gap-y-10 p-4 pt-5 justify-items-center`}>
+                <div className={`grid ${t.gridCols} gap-x-4 gap-y-12 p-5 pt-6 justify-items-center`}>
                   {slotValues.map((value, i) => {
                     // Un défenseur peut jouer à l'attaque (et l'inverse) : les
                     // cases de patineurs acceptent les deux positions. Les
