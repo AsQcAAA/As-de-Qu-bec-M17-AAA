@@ -733,7 +733,14 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
       )}
 
       {/* ---- Effectif (+ cinq partant à droite les jours de match) ---- */}
-      <div className={`grid gap-4 ${isGameDay ? "xl:grid-cols-[minmax(0,1fr)_19rem]" : ""}`}>
+      {/*
+        La colonne de droite (cinq partant / blessés) doit garder une largeur
+        fixe peu importe le jour : sans gabarit de colonnes explicite, un
+        élément placé en xl:col-start-2 crée sa propre colonne implicite,
+        aussi large que son contenu — c'est ce qui la faisait déborder sur la
+        moitié de la page les jours de pratique.
+      */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(10rem,1fr)]">
           {ROSTER_TEMPLATE.map((t) => {
             const u = rosterUnit(t.label);

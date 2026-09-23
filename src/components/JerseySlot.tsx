@@ -120,7 +120,7 @@ export default function JerseySlot({
   const outOfPosition = Boolean(selected && expectedPosition && selected.position !== expectedPosition);
 
   return (
-    <div className="group/slot flex flex-col items-center gap-1.5 w-28">
+    <div className="group/slot flex flex-col items-center gap-1.5 w-32">
       <span
         className={`block text-xs font-black uppercase tracking-wide text-center truncate w-full min-h-[1rem] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] ${
           selected ? "text-white" : "text-white/25"
