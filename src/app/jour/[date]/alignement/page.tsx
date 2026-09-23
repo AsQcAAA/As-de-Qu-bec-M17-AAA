@@ -758,56 +758,74 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                     {filled}/{t.slots}
                   </span>
                 </header>
-                <div className={`grid ${t.gridCols} gap-x-4 gap-y-12 p-5 pt-6 justify-items-center`}>
-                  {slotValues.map((value, i) => {
-                    // Un défenseur peut jouer à l'attaque (et l'inverse) : les
-                    // cases de patineurs acceptent les deux positions. Les
-                    // gardiens restent isolés.
-                    const eligible = (p: Player) =>
-                      t.position === "G" ? p.position === "G" : p.position === "F" || p.position === "D";
-                    const options = regulars.filter(
-                      (p) => (p.id === value || !allSelected.has(p.id)) && eligible(p)
-                    );
-                    const groupable = !isGameDay && t.position !== "G" && !!value;
-                    // Les patineurs circulent librement entre le panneau des
-                    // attaquants et celui des défenseurs ; les gardiens non.
-                    const sameFamily =
-                      dragFrom &&
-                      (dragFrom.position === "G" || t.position === "G"
-                        ? dragFrom.position === t.position
-                        : true);
-                    const dropState: "idle" | "source" | "target" | "blocked" = !dragFrom
-                      ? "idle"
-                      : dragFrom.label === t.label && dragFrom.index === i
-                        ? "source"
-                        : sameFamily
-                          ? "target"
-                          : "blocked";
-                    return (
-                      <JerseySlot
-                        key={i}
-                        value={value}
-                        onChange={(playerId) => setRosterSlot(t.label, t.slots, i, playerId)}
-                        options={options}
-                        callUpOptions={callUps.filter((p) => eligible(p) && (p.id === value || !allSelected.has(p.id)))}
-                        expectedPosition={t.position}
-                        absentLabels={absentLabels}
-                        presentStatusIds={presentStatusIds}
-                        color={t.color}
-                        ring={groupable ? playerGroupColor(value, t.position as "F" | "D") : matchSkin}
-                        onRingClick={groupable ? () => cyclePlayerColor(value, t.position as "F" | "D") : undefined}
-                        starting={starters.includes(value)}
-                        onStartingClick={isGameDay && value ? () => toggleStarter(value) : undefined}
-                        dropState={dropState}
-                        onDragStartSlot={() => setDragFrom({ label: t.label, index: i, position: t.position })}
-                        onDragEndSlot={() => setDragFrom(null)}
-                        onDropSlot={() => {
-                          if (dragFrom) moveSlot(dragFrom, { label: t.label, index: i });
-                          setDragFrom(null);
-                        }}
-                      />
-                    );
-                  })}
+                <div className="flex flex-col gap-5 p-5">
+                  {(() => {
+                    // Chaque ligne (trio d'attaquants, paire de défenseurs...)
+                    // dans son propre encadré : plus facile à distinguer d'un
+                    // coup d'œil qu'une simple grille continue.
+                    const cols = Number(t.gridCols.match(/grid-cols-(\d+)/)?.[1] ?? 1);
+                    const rows: { value: string; i: number }[][] = [];
+                    slotValues.forEach((value, i) => {
+                      const r = Math.floor(i / cols);
+                      (rows[r] ??= []).push({ value, i });
+                    });
+                    return rows.map((row, rowIndex) => (
+                      <div
+                        key={rowIndex}
+                        className={`grid ${t.gridCols} gap-x-4 gap-y-3 justify-items-center rounded-xl border border-white/10 bg-white/[0.02] p-4`}
+                      >
+                        {row.map(({ value, i }) => {
+                          // Un défenseur peut jouer à l'attaque (et l'inverse) : les
+                          // cases de patineurs acceptent les deux positions. Les
+                          // gardiens restent isolés.
+                          const eligible = (p: Player) =>
+                            t.position === "G" ? p.position === "G" : p.position === "F" || p.position === "D";
+                          const options = regulars.filter(
+                            (p) => (p.id === value || !allSelected.has(p.id)) && eligible(p)
+                          );
+                          const groupable = !isGameDay && t.position !== "G" && !!value;
+                          // Les patineurs circulent librement entre le panneau des
+                          // attaquants et celui des défenseurs ; les gardiens non.
+                          const sameFamily =
+                            dragFrom &&
+                            (dragFrom.position === "G" || t.position === "G"
+                              ? dragFrom.position === t.position
+                              : true);
+                          const dropState: "idle" | "source" | "target" | "blocked" = !dragFrom
+                            ? "idle"
+                            : dragFrom.label === t.label && dragFrom.index === i
+                              ? "source"
+                              : sameFamily
+                                ? "target"
+                                : "blocked";
+                          return (
+                            <JerseySlot
+                              key={i}
+                              value={value}
+                              onChange={(playerId) => setRosterSlot(t.label, t.slots, i, playerId)}
+                              options={options}
+                              callUpOptions={callUps.filter((p) => eligible(p) && (p.id === value || !allSelected.has(p.id)))}
+                              expectedPosition={t.position}
+                              absentLabels={absentLabels}
+                              presentStatusIds={presentStatusIds}
+                              color={t.color}
+                              ring={groupable ? playerGroupColor(value, t.position as "F" | "D") : matchSkin}
+                              onRingClick={groupable ? () => cyclePlayerColor(value, t.position as "F" | "D") : undefined}
+                              starting={starters.includes(value)}
+                              onStartingClick={isGameDay && value ? () => toggleStarter(value) : undefined}
+                              dropState={dropState}
+                              onDragStartSlot={() => setDragFrom({ label: t.label, index: i, position: t.position })}
+                              onDragEndSlot={() => setDragFrom(null)}
+                              onDropSlot={() => {
+                                if (dragFrom) moveSlot(dragFrom, { label: t.label, index: i });
+                                setDragFrom(null);
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    ));
+                  })()}
                 </div>
               </section>
             );
