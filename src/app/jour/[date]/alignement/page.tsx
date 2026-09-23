@@ -975,50 +975,13 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         )}
       </div>
 
-      {/* ---- Trios et duos : pratiques seulement ---- */}
-      {isGameDay ? (
+      {/* ---- Trios et duos : pratiques seulement, message jour de match ---- */}
+      {isGameDay && (
         <p className="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-300">
           🥅 <strong className="text-white">Jour de match.</strong> Les groupes de couleur servent à opposer deux
           camps à l&apos;entraînement — ils ne s&apos;appliquent pas ici, l&apos;équipe joue contre{" "}
           {opponentTeam?.name ?? game!.opponent}.
         </p>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {[
-            { title: "Trios d'attaquants", list: trios, empty: "Clique un chandail d'attaquant ci-dessus pour commencer un trio." },
-            { title: "Duos de défenseurs", list: duos, empty: "Clique un chandail de défenseur ci-dessus pour commencer un duo." },
-          ].map((section) => (
-            <section key={section.title} className="rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm overflow-hidden">
-              <header className="border-b border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-black uppercase tracking-widest text-gold-400">
-                {section.title}
-              </header>
-              <div className="p-3 space-y-2">
-                {section.list.length === 0 ? (
-                  <p className="text-xs text-slate-400 px-1 py-2">{section.empty}</p>
-                ) : (
-                  section.list.map((u) => (
-                    <div
-                      key={u.id}
-                      className="flex items-center gap-3 rounded-lg bg-white/[0.04] pl-0 pr-3 py-2 overflow-hidden"
-                    >
-                      {/* Liseré de couleur : identifie le camp d'un coup d'œil. */}
-                      <span
-                        className={`w-1.5 self-stretch shrink-0 ${u.color_group === "gris" ? "bg-slate-400" : "bg-gold-400"}`}
-                        aria-hidden
-                      />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 shrink-0 w-20">
-                        {u.unit_label}
-                      </span>
-                      <span className="text-sm font-bold text-white truncate">
-                        {u.player_ids.map((id) => (byId.get(id) ? lastName(byId.get(id)!.full_name) : "?")).join(" · ")}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
       )}
     </div>
 
