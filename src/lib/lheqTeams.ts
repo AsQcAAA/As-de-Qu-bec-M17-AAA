@@ -47,6 +47,20 @@ export function teamColor(slug: string | undefined): string {
   return (slug && TEAM_COLOR[slug]) || DEFAULT_TEAM_COLOR;
 }
 
+/**
+ * Pages de classement de la LHEQ (M17 AAA, saison régulière). Le classement des
+ * équipes vient de l'adresse fournie par le coach ; joueurs et gardiens
+ * partagent l'onglet « stats » de la même catégorie — à remplacer par l'adresse
+ * exacte si la LHEQ en sépare les vues.
+ */
+const LHEQ_M17_BASE =
+  "https://masculin.lheq.ca/fr/schedule-stats-standings/c1ea7fa9-3838-4f60-b551-933c56b18b15?__cd_rewrite=1&categoryId=c1ea7fa9-3838-4f60-b551-933c56b18b15&scheduleId=194865";
+export const LHEQ_RANKINGS = {
+  teams: `${LHEQ_M17_BASE}&tab=standings`,
+  players: `${LHEQ_M17_BASE}&tab=stats`,
+  goalies: `${LHEQ_M17_BASE}&tab=stats`,
+};
+
 export const LHEQ_M17_AAA_TEAMS: LheqTeam[] = [
   { slug: "albatros", name: "Albatros", logo: "https://logos.hisports.app/1782178532011.png", lheqUrl: "https://masculin.lheq.ca/fr/teams/180235", tpeTeamId: 9149 },
   { slug: "as-de-quebec", name: "As de Québec", logo: "https://logos.hisports.app/1782179426138.png", lheqUrl: "https://masculin.lheq.ca/fr/teams/180217", tpeTeamId: 9147 },

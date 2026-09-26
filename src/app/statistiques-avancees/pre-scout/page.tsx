@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
+import { LHEQ_RANKINGS, OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { recordsByOpponent, recordLabel } from "@/lib/playerStats";
 import type { Game } from "@/lib/types";
 
@@ -31,12 +31,25 @@ export default function PreScoutPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Pre-Scout</h1>
-        <p className="text-slate-500 text-sm">
-          Les 20 équipes M17 AAA de la LHEQ, avec notre fiche contre chacune. Clique une équipe pour noter tes
-          observations et voir sa fiche.
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Pre-Scout</h1>
+          <p className="text-slate-500 text-sm">
+            Les 20 équipes M17 AAA de la LHEQ, avec notre fiche contre chacune. Clique une équipe pour noter tes
+            observations et voir sa fiche.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <a href={LHEQ_RANKINGS.teams} target="_blank" rel="noreferrer" className="btn-dark">
+            🏆 Classement des équipes
+          </a>
+          <a href={LHEQ_RANKINGS.players} target="_blank" rel="noreferrer" className="btn-dark">
+            🏒 Classement des joueurs
+          </a>
+          <a href={LHEQ_RANKINGS.goalies} target="_blank" rel="noreferrer" className="btn-dark">
+            🥅 Classement des gardiens
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
