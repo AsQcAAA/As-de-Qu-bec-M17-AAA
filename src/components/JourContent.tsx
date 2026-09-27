@@ -150,8 +150,36 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     await supabase
       .from("daily_reports")
       .upsert({ report_date: date, ...reportForm, updated_by: myId }, { onConflict: "report_date" });
+    await syncTeamMeeting(reportForm.meeting_theme);
     setSavingReport(false);
     load();
+  }
+
+  /**
+   * Le thème du meeting saisi dans le rapport quotidien crée/tient à jour la
+   * rencontre collective de l'onglet Meeting — pour ne pas avoir à le noter
+   * deux fois. S'il y a plusieurs rencontres collectives ce jour-là (ajoutées
+   * à la main dans l'onglet Meeting), seule la plus ancienne est synchronisée.
+   */
+  async function syncTeamMeeting(theme: string) {
+    const topic = theme.trim();
+    const { data: existing } = await supabase
+      .from("meetings")
+      .select("id")
+      .eq("meeting_date", date)
+      .eq("meeting_type", "collective")
+      .order("created_at")
+      .limit(1);
+    const current = existing?.[0];
+    if (!topic) {
+      if (current) await supabase.from("meetings").delete().eq("id", current.id);
+      return;
+    }
+    if (current) {
+      await supabase.from("meetings").update({ topic, updated_by: myId }).eq("id", current.id);
+    } else {
+      await supabase.from("meetings").insert({ meeting_date: date, meeting_type: "collective", topic, updated_by: myId });
+    }
   }
 
   // Marque/démarque un joueur blessé pour la journée — enregistré comme une

@@ -44,8 +44,36 @@ export default function DailyReportPopupContent({
     await supabase
       .from("daily_reports")
       .upsert({ report_date: todayStr(), ...form, updated_by: myId }, { onConflict: "report_date" });
+    await syncTeamMeeting(form.meeting_theme);
     setSaving(false);
     setSaved(true);
+  }
+
+  /**
+   * Même synchronisation que sur la page du jour : le thème du meeting crée
+   * ou met à jour la rencontre collective de l'onglet Meeting, pour ne pas
+   * avoir à le saisir deux fois.
+   */
+  async function syncTeamMeeting(theme: string) {
+    const topic = theme.trim();
+    const date = todayStr();
+    const { data: existingRows } = await supabase
+      .from("meetings")
+      .select("id")
+      .eq("meeting_date", date)
+      .eq("meeting_type", "collective")
+      .order("created_at")
+      .limit(1);
+    const current = existingRows?.[0];
+    if (!topic) {
+      if (current) await supabase.from("meetings").delete().eq("id", current.id);
+      return;
+    }
+    if (current) {
+      await supabase.from("meetings").update({ topic, updated_by: myId }).eq("id", current.id);
+    } else {
+      await supabase.from("meetings").insert({ meeting_date: date, meeting_type: "collective", topic, updated_by: myId });
+    }
   }
 
   return (
