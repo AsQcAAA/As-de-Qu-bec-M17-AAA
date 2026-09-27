@@ -398,7 +398,10 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
         (pimByGame.get(pen.game_id) ?? 0) + parsePenaltyCode(pen.penalty_code ?? "").minutes
       );
     }
+    // Un gardien habillé sans avoir joué n'a pas de ligne dans son game log.
+    const goaliePlayed = (gameId: string) => (statByGame.get(gameId)?.toi_minutes ?? 0) > 0;
     return gamesPlayedFor(id, games, rosterByDate, activeCategories)
+      .filter((g) => !isGoalie || goaliePlayed(g.id))
       .map((g) => {
         const gs = statByGame.get(g.id);
         const adv = advByGame.get(g.id);
@@ -416,7 +419,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
         };
       })
       .sort((a, b) => (b.game.game_date > a.game.game_date ? 1 : -1));
-  }, [id, games, rosterByDate, statFilter, gameStats, advancedStats, penalties]);
+  }, [id, isGoalie, games, rosterByDate, statFilter, gameStats, advancedStats, penalties]);
 
   const last5 = useMemo(() => gameLog.slice(0, 5), [gameLog]);
 

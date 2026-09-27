@@ -193,7 +193,15 @@ export default function PointeursPage() {
       .map((player) => {
         const t = tally.get(player.id) ?? { goals: 0, assists: 0 };
         const sit = situational.get(player.id) ?? { ppG: 0, ppA: 0, shG: 0, shA: 0 };
-        const gp = gamesPlayedFor(player.id, games, rosterByDate, cats).length;
+        // Un gardien habillé qui n'a pas quitté le banc n'a pas « joué » : seuls
+        // les matchs où du temps de glace lui est attribué comptent.
+        const gp =
+          player.position === "G"
+            ? stats.filter((st) => {
+                const g = gameById.get(st.game_id);
+                return st.player_id === player.id && (st.toi_minutes ?? 0) > 0 && !!g?.result && categories.has(g.category);
+              }).length
+            : gamesPlayedFor(player.id, games, rosterByDate, cats).length;
         if (gp === 0 && t.goals + t.assists === 0) return null;
         return {
           player,
