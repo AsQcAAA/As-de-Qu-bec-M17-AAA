@@ -370,7 +370,9 @@ export default function GameDetailPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setAdvancedError(body.error ?? "Lecture impossible.");
+        // Détail temporairement affiché pour diagnostiquer un échec qui ne se
+        // reproduit pas en local — à retirer une fois la cause trouvée.
+        setAdvancedError(`${body.error ?? "Lecture impossible."} ${body.debug ? JSON.stringify(body.debug) : ""}`);
         return;
       }
       setParsedAdvanced(body as ParsedAdvancedReport);

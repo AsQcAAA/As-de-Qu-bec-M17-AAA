@@ -32,8 +32,13 @@ export async function POST(req: NextRequest) {
     // renvoyé au navigateur ne suffit pas à diagnostiquer une vraie panne du
     // lecteur PDF (à distinguer d'un fichier qui n'est simplement pas le bon).
     console.error("[advanced-stats/extract]", error);
+    // Détail temporairement inclus dans la réponse pour diagnostiquer un échec
+    // qui ne se reproduit pas en local — à retirer une fois la cause trouvée.
     return NextResponse.json(
-      { error: "Lecture impossible — le fichier n'est peut-être pas un rapport TPE valide (PDF texte attendu, pas une image scannée)." },
+      {
+        error: "Lecture impossible — le fichier n'est peut-être pas un rapport TPE valide (PDF texte attendu, pas une image scannée).",
+        debug: error instanceof Error ? { message: error.message, stack: error.stack } : String(error),
+      },
       { status: 422 }
     );
   }
