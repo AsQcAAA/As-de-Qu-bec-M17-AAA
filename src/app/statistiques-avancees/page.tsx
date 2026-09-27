@@ -112,6 +112,11 @@ export default function StatistiquesAvanceesPage() {
   const [loading, setLoading] = useState(true);
   const [sortF, setSortF] = useState<{ key: HeatSortKey; desc: boolean }>({ key: "shots", desc: true });
   const [sortD, setSortD] = useState<{ key: HeatSortKey; desc: boolean }>({ key: "shots", desc: true });
+  const [showCallUps, setShowCallUps] = useState(true);
+  // "xg" = xG individuel (tirs du joueur) ; "for"/"against" = xG sur glace
+  // (tout ce qui se produit pendant ses présences, peu importe qui tire).
+  const [xgMode, setXgMode] = useState<"xg" | "for" | "against">("xg");
+  const xgLabel = xgMode === "for" ? "xG sur glace pour" : xgMode === "against" ? "xG sur glace contre" : "xG";
 
   function toggleSort(current: { key: HeatSortKey; desc: boolean }, set: (s: { key: HeatSortKey; desc: boolean }) => void, k: HeatSortKey) {
     if (current.key === k) set({ key: k, desc: !current.desc });
@@ -184,24 +189,31 @@ export default function StatistiquesAvanceesPage() {
   // vient de l'intensité de la couleur selon le total du joueur, pas d'une
   // position sur la patinoire. ----
   const playerHeat = useMemo(() => {
-    const byPlayer = new Map<string, { shots: number; xg: number; faceoffsWon: number; faceoffsLost: number; games: number }>();
+    const byPlayer = new Map<
+      string,
+      { shots: number; xg: number; xgFor: number; xgAgainst: number; faceoffsWon: number; faceoffsLost: number; games: number }
+    >();
     for (const a of filteredStats) {
-      const cur = byPlayer.get(a.player_id) ?? { shots: 0, xg: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
+      const cur = byPlayer.get(a.player_id) ?? { shots: 0, xg: 0, xgFor: 0, xgAgainst: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
       cur.shots += a.shots_on_goal ?? 0;
       cur.xg += a.xg ?? 0;
+      cur.xgFor += a.on_ice_xg_for ?? 0;
+      cur.xgAgainst += a.on_ice_xg_against ?? 0;
       cur.faceoffsWon += a.faceoffs_won ?? 0;
       cur.faceoffsLost += a.faceoffs_lost ?? 0;
       cur.games += 1;
       byPlayer.set(a.player_id, cur);
     }
     const rows: HeatRow[] = players
+      .filter((p) => showCallUps || !p.is_call_up)
       .map((p) => {
         const t = byPlayer.get(p.id);
         if (!t) return null;
+        const xg = xgMode === "for" ? t.xgFor : xgMode === "against" ? t.xgAgainst : t.xg;
         return {
           player: p,
           shots: t.shots,
-          xg: t.xg,
+          xg,
           faceoffsWon: t.faceoffsWon,
           faceoffPct: t.faceoffsWon + t.faceoffsLost > 0 ? (t.faceoffsWon / (t.faceoffsWon + t.faceoffsLost)) * 100 : null,
           games: t.games,
@@ -227,7 +239,7 @@ export default function StatistiquesAvanceesPage() {
       maxShotsD: maxShots(defense),
       maxXgD: maxXg(defense),
     };
-  }, [filteredStats, players]);
+  }, [filteredStats, players, showCallUps, xgMode]);
 
   // ---- Carte de chaleur collective des mises au jeu — reproduit le
   // diagramme « Face-Offs by zones » du rapport, cumulé sur les matchs
@@ -321,6 +333,21 @@ export default function StatistiquesAvanceesPage() {
               clique une colonne pour trier.
             </p>
 
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={showCallUps} onChange={(e) => setShowCallUps(e.target.checked)} />
+                Inclure les remplaçants
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span className="text-slate-500">Colonne xG :</span>
+                <select className="input w-auto text-sm" value={xgMode} onChange={(e) => setXgMode(e.target.value as typeof xgMode)}>
+                  <option value="xg">xG (tirs du joueur)</option>
+                  <option value="for">xG sur glace pour</option>
+                  <option value="against">xG sur glace contre</option>
+                </select>
+              </label>
+            </div>
+
             <div>
               <h3 className="text-xs font-black uppercase tracking-widest text-gold-700 mb-1">Attaquants</h3>
               {playerHeat.forwards.length === 0 ? (
@@ -333,7 +360,7 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
-                        <SortHeader label="xG" k="xg" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label={xgLabel} k="xg" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="MAJ gagnées" k="faceoffsWon" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="MAJ %" k="faceoffPct" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                       </tr>
@@ -373,7 +400,7 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
-                        <SortHeader label="xG" k="xg" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label={xgLabel} k="xg" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                       </tr>
                     </thead>
                     <tbody>
