@@ -7,7 +7,7 @@ import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { computeMeetingStatuses } from "@/lib/meetings";
 import { EVENT_TYPE_COLOR, EVENT_TYPE_LABEL } from "@/lib/eventTypes";
-import { isDayOff } from "@/lib/dayType";
+import { isDayOff, isWeekendDay } from "@/lib/dayType";
 import { RESULT_LABEL, gameScoreLine, scoreInDisplayOrder } from "@/lib/gameResults";
 import { findTeamByOpponent, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTeams";
 import Modal from "@/components/Modal";
@@ -129,9 +129,16 @@ export default function DashboardPage() {
         .select("event_type, title")
         .eq("event_date", today);
 
+      // Une fin de semaine sans rien de prévu (aucun match, aucun évènement à
+      // l'horaire) est un congé implicite — même logique que la page du jour
+      // et la case blanche du calendrier mensuel.
+      const impliedDayOff =
+        isDayOff(todayScheduleEvents ?? []) ||
+        (isWeekendDay(today) && (todayScheduleEvents ?? []).length === 0 && !gameToday);
+
       const afterAbsenceTime =
         now.getHours() > ABSENCE_POPUP_HOUR || (now.getHours() === ABSENCE_POPUP_HOUR && now.getMinutes() >= ABSENCE_POPUP_MINUTE);
-      if (afterAbsenceTime && !gameToday && !isDayOff(todayScheduleEvents ?? [])) {
+      if (afterAbsenceTime && !gameToday && !impliedDayOff) {
         const { data } = await supabase.from("daily_checks").select("check_date").eq("check_date", today).maybeSingle();
         if (!data) {
           setShowAbsencePopup(true);
