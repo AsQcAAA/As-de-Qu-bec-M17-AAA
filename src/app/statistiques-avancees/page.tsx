@@ -44,7 +44,7 @@ function HeatCell({ value, intensity, suffix = "" }: { value: number | string; i
   );
 }
 
-type HeatSortKey = "jersey" | "name" | "games" | "shots" | "faceoffsWon" | "faceoffPct";
+type HeatSortKey = "jersey" | "name" | "games" | "shots" | "xg" | "faceoffsWon" | "faceoffPct";
 
 /** En-tête de colonne cliquable, avec indicateur de sens (▲▼↕). */
 function SortHeader({
@@ -74,6 +74,7 @@ function SortHeader({
 interface HeatRow {
   player: Player;
   shots: number;
+  xg: number;
   faceoffsWon: number;
   faceoffPct: number | null;
   games: number;
@@ -90,6 +91,8 @@ function sortHeatRows(rows: HeatRow[], sort: { key: HeatSortKey; desc: boolean }
         return a.games - b.games;
       case "shots":
         return a.shots - b.shots;
+      case "xg":
+        return a.xg - b.xg;
       case "faceoffsWon":
         return a.faceoffsWon - b.faceoffsWon;
       case "faceoffPct":
@@ -181,10 +184,11 @@ export default function StatistiquesAvanceesPage() {
   // vient de l'intensité de la couleur selon le total du joueur, pas d'une
   // position sur la patinoire. ----
   const playerHeat = useMemo(() => {
-    const byPlayer = new Map<string, { shots: number; faceoffsWon: number; faceoffsLost: number; games: number }>();
+    const byPlayer = new Map<string, { shots: number; xg: number; faceoffsWon: number; faceoffsLost: number; games: number }>();
     for (const a of filteredStats) {
-      const cur = byPlayer.get(a.player_id) ?? { shots: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
+      const cur = byPlayer.get(a.player_id) ?? { shots: 0, xg: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
       cur.shots += a.shots_on_goal ?? 0;
+      cur.xg += a.xg ?? 0;
       cur.faceoffsWon += a.faceoffs_won ?? 0;
       cur.faceoffsLost += a.faceoffs_lost ?? 0;
       cur.games += 1;
@@ -197,6 +201,7 @@ export default function StatistiquesAvanceesPage() {
         return {
           player: p,
           shots: t.shots,
+          xg: t.xg,
           faceoffsWon: t.faceoffsWon,
           faceoffPct: t.faceoffsWon + t.faceoffsLost > 0 ? (t.faceoffsWon / (t.faceoffsWon + t.faceoffsLost)) * 100 : null,
           games: t.games,
@@ -211,13 +216,16 @@ export default function StatistiquesAvanceesPage() {
     const defense = rows.filter((r) => r.player.position === "D");
     const maxShots = (group: HeatRow[]) => Math.max(1, ...group.map((r) => r.shots));
     const maxFaceoffs = (group: HeatRow[]) => Math.max(1, ...group.map((r) => r.faceoffsWon));
+    const maxXg = (group: HeatRow[]) => Math.max(0.1, ...group.map((r) => r.xg));
 
     return {
       forwards,
       defense,
       maxShotsF: maxShots(forwards),
+      maxXgF: maxXg(forwards),
       maxFaceoffsF: maxFaceoffs(forwards),
       maxShotsD: maxShots(defense),
+      maxXgD: maxXg(defense),
     };
   }, [filteredStats, players]);
 
@@ -325,12 +333,13 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label="xG" k="xg" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="MAJ gagnées" k="faceoffsWon" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="MAJ %" k="faceoffPct" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                       </tr>
                     </thead>
                     <tbody>
-                      {sortHeatRows(playerHeat.forwards, sortF).map(({ player, shots, faceoffsWon, faceoffPct, games }) => (
+                      {sortHeatRows(playerHeat.forwards, sortF).map(({ player, shots, xg, faceoffsWon, faceoffPct, games }) => (
                         <tr key={player.id} className="border-b border-slate-100 last:border-0">
                           <td className="py-1.5 pr-3 font-medium whitespace-nowrap">
                             <Link href={`/joueurs/${player.id}`} className="hover:text-gold-700 hover:underline">
@@ -339,6 +348,7 @@ export default function StatistiquesAvanceesPage() {
                           </td>
                           <td className="py-1.5 px-3 text-center text-slate-500">{games}</td>
                           <HeatCell value={shots} intensity={shots / playerHeat.maxShotsF} />
+                          <HeatCell value={xg.toFixed(1)} intensity={xg / playerHeat.maxXgF} />
                           <HeatCell value={faceoffsWon} intensity={faceoffsWon / playerHeat.maxFaceoffsF} />
                           <td className="py-1.5 px-3 text-center text-slate-600">
                             {faceoffPct === null ? "-" : `${faceoffPct.toFixed(0)} %`}
@@ -363,10 +373,11 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label="xG" k="xg" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                       </tr>
                     </thead>
                     <tbody>
-                      {sortHeatRows(playerHeat.defense, sortD).map(({ player, shots, games }) => (
+                      {sortHeatRows(playerHeat.defense, sortD).map(({ player, shots, xg, games }) => (
                         <tr key={player.id} className="border-b border-slate-100 last:border-0">
                           <td className="py-1.5 pr-3 font-medium whitespace-nowrap">
                             <Link href={`/joueurs/${player.id}`} className="hover:text-gold-700 hover:underline">
@@ -375,6 +386,7 @@ export default function StatistiquesAvanceesPage() {
                           </td>
                           <td className="py-1.5 px-3 text-center text-slate-500">{games}</td>
                           <HeatCell value={shots} intensity={shots / playerHeat.maxShotsD} />
+                          <HeatCell value={xg.toFixed(1)} intensity={xg / playerHeat.maxXgD} />
                         </tr>
                       ))}
                     </tbody>
