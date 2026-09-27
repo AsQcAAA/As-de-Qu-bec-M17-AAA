@@ -7,7 +7,7 @@ import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { lastName } from "@/lib/players";
 import { EVENT_TYPE_LABEL, EVENT_TYPE_ORDER } from "@/lib/eventTypes";
-import { isDayOff, isNoPracticeDay } from "@/lib/dayType";
+import { isDayOff, isNoPracticeDay, isWeekendDay } from "@/lib/dayType";
 import { ABSENCE_REASON_LABEL, REASON_EMOJI } from "@/lib/absenceReasons";
 import { RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import GamePlanEditor from "@/components/GamePlanEditor";
@@ -214,7 +214,10 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const meetingPlayerIds = new Set(meetings.map((m) => m.player_id));
   // Vendredi : jamais de pratique/alignement (sauf s'il y a un match ce jour-là).
   const noPractice = isNoPracticeDay(date) && !game;
-  const dayOff = isDayOff(events);
+  // Une fin de semaine sans rien de prévu (pas de match, pas d'évènement) est
+  // un congé implicite, même sans case "congé" créée dans l'horaire — même
+  // logique que la case blanche du calendrier mensuel.
+  const dayOff = isDayOff(events) || (isWeekendDay(date) && events.length === 0 && !game);
 
   return (
     <div className="space-y-6">

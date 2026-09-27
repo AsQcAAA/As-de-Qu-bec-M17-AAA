@@ -23,3 +23,8 @@ export function isDayOff(events: Pick<ScheduleEvent, "event_type" | "title">[]):
     (e) => e.event_type === "other" && DAY_OFF_KEYWORDS.some((k) => stripAccents((e.title ?? "").toLowerCase()).includes(k))
   );
 }
+
+export function isWeekendDay(dateStr: string): boolean {
+  const dow = getDay(parseISO(dateStr));
+  return dow === 0 || dow === 6;
+}
