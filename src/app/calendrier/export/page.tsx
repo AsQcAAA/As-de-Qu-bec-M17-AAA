@@ -51,7 +51,7 @@ function isHoliday(title: string) {
 //  - les tâches internes à l'équipe, comme le ménage du gym ;
 //  - les rencontres d'équipe et individuelles, qui relèvent du staff.
 // Tout le reste garde son nom : Multisport, Challenge, match intra-équipe, etc.
-const SILENT_EVENT_TYPES = new Set<EventType>(["team_meeting", "individual_meeting", "pp_meeting"]);
+const SILENT_EVENT_TYPES = new Set<EventType>(["team_meeting", "individual_meeting", "pp_meeting", "team_building"]);
 const SILENT_EXACT = new Set(["pratique", "training"]);
 const SILENT_KEYWORDS = ["menage", "meeting"];
 
@@ -223,7 +223,7 @@ export default function CalendrierExportPage() {
               return (
                 <div
                   key={key}
-                  className={`cal-cell relative flex flex-col h-[138px] overflow-hidden rounded-md border p-1 text-[11px] font-semibold text-center ${cellColor(primary, label, game, freeWeekend, highlighted)} ${
+                  className={`cal-cell relative flex flex-col h-[152px] overflow-hidden rounded-md border p-1 text-[11px] font-semibold text-center ${cellColor(primary, label, game, freeWeekend, highlighted)} ${
                     highlighted ? "border-red-500" : inMonth ? "border-slate-200" : "border-slate-100 opacity-40"
                   }`}
                 >
