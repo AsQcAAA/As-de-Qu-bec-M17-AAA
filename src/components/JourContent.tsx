@@ -313,7 +313,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
               </h2>
             </div>
             {game.bus_departure_time && !game.result && (
-              <p className="text-sm font-bold">🚌 Départ Aréna Duberger : {game.bus_departure_time.slice(0, 5)}</p>
+              <p className="text-sm font-bold">🚌 Départ de Québec : {game.bus_departure_time.slice(0, 5)}</p>
             )}
             {game.result && (
               <span className="badge bg-gold-100 text-ink-800">

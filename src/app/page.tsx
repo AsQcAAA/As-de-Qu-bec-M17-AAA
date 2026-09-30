@@ -431,7 +431,7 @@ export default function DashboardPage() {
               )}
               {todayGame.bus_departure_time && !todayGame.result && (
                 <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 font-semibold text-slate-200">
-                  🚌 Départ Duberger {todayGame.bus_departure_time.slice(0, 5)}
+                  🚌 Départ de Québec {todayGame.bus_departure_time.slice(0, 5)}
                 </span>
               )}
             </div>

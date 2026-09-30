@@ -270,7 +270,7 @@ export default function ResultatsPage() {
                 <th className="py-2 pr-4">Type</th>
                 <th className="py-2 pr-4">Domicile/Visiteur</th>
                 <th className="py-2 pr-4">Aréna</th>
-                <th className="py-2 pr-4">🚌 Départ Duberger</th>
+                <th className="py-2 pr-4">🚌 Départ de Québec</th>
                 <th className="py-2 pr-4">Résultat</th>
                 <th className="py-2 pr-4">Score</th>
                 <th className="py-2 pr-4">Lien</th>

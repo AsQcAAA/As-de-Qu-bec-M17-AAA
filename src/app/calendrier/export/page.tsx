@@ -255,6 +255,11 @@ export default function CalendrierExportPage() {
                       <div className="cal-label font-extrabold leading-tight">{game.is_home ? "Domicile" : "Visiteur"}</div>
                       {primary.start_time && <div className="cal-label font-bold leading-tight">{primary.start_time.slice(0, 5)}</div>}
                       {game.location && <div className="cal-label font-bold leading-tight">{game.location}</div>}
+                      {!game.is_home && game.bus_departure_time && (
+                        <div className="cal-label text-[9px] font-semibold leading-tight">
+                          🚌 Départ de Québec {game.bus_departure_time.slice(0, 5)}
+                        </div>
+                      )}
                     </div>
                   )}
                   {freeWeekend && inMonth && (

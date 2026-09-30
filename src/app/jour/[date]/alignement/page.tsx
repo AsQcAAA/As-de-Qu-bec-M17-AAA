@@ -1139,7 +1139,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               {game?.bus_departure_time && (
                 <li className="flex gap-3">
                   <span className="font-black w-16 shrink-0">{game.bus_departure_time.slice(0, 5)}</span>
-                  <span className="font-semibold">Départ de l&apos;autobus — Aréna Duberger</span>
+                  <span className="font-semibold">Départ de l&apos;autobus — Québec</span>
                 </li>
               )}
               {events.map((e) => (
