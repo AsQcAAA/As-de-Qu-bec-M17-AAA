@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { computeMeetingStatuses, OVERDUE_DAYS } from "@/lib/meetings";
 import { useCoachDirectory } from "@/lib/useCoach";
 import type { Meeting, MeetingType, Player, TeamBuildingLog } from "@/lib/types";
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
+
+/** "2026-09-30" → "mer. 2026-09-30". */
+function withWeekday(dateStr: string): string {
+  return `${format(parseISO(dateStr), "EEE", { locale: fr })}. ${dateStr}`;
+}
 
 type LogType = MeetingType | "team_building";
 
@@ -28,6 +34,9 @@ export default function ReunionsPage() {
   const [teamBuildingLogs, setTeamBuildingLogs] = useState<TeamBuildingLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
+  const [individualFilter, setIndividualFilter] = useState("all");
+  const [showTbForm, setShowTbForm] = useState(false);
+  const [tbDraft, setTbDraft] = useState({ log_date: todayStr(), theme: "", notes: "" });
 
   async function load() {
     const [{ data: pls }, { data: mts }, { data: tbl }] = await Promise.all([
@@ -72,6 +81,16 @@ export default function ReunionsPage() {
     load();
   }
 
+  async function addTeamBuildingLog(e: React.FormEvent) {
+    e.preventDefault();
+    await supabase
+      .from("team_building_log")
+      .upsert({ log_date: tbDraft.log_date, theme: tbDraft.theme || null, notes: tbDraft.notes || null }, { onConflict: "log_date" });
+    setTbDraft({ log_date: todayStr(), theme: "", notes: "" });
+    setShowTbForm(false);
+    load();
+  }
+
   async function removeTeamBuildingLog(logDate: string) {
     await supabase.from("team_building_log").delete().eq("log_date", logDate);
     load();
@@ -103,7 +122,9 @@ export default function ReunionsPage() {
     () => [...statuses].sort((a, b) => (a.player.jersey_number ?? 999) - (b.player.jersey_number ?? 999)),
     [statuses]
   );
-  const individualMeetings = meetings.filter((m) => m.meeting_type === "individual");
+  const individualMeetings = meetings
+    .filter((m) => m.meeting_type === "individual")
+    .filter((m) => individualFilter === "all" || m.player_id === individualFilter);
   const collectiveMeetings = meetings.filter((m) => m.meeting_type === "collective");
 
   function renderMeetingItem(m: Meeting) {
@@ -159,7 +180,7 @@ export default function ReunionsPage() {
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-sm text-slate-500">{m.meeting_date}</span>
+          <span className="text-sm text-slate-500">{withWeekday(m.meeting_date)}</span>
           <button onClick={() => startEdit(m)} className="text-xs text-ink-800 hover:underline">
             Modifier
           </button>
@@ -309,7 +330,24 @@ export default function ReunionsPage() {
         <h2 className="font-semibold mb-3">Historique</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-400">Individuelles</h3>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h3 className="text-sm font-semibold text-slate-400">Individuelles</h3>
+              <select
+                className="input w-auto text-sm"
+                value={individualFilter}
+                onChange={(e) => setIndividualFilter(e.target.value)}
+              >
+                <option value="all">Tous les joueurs</option>
+                {players
+                  .filter((p) => p.active)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.jersey_number ? `#${p.jersey_number} ` : ""}
+                      {p.full_name}
+                    </option>
+                  ))}
+              </select>
+            </div>
             {individualMeetings.length === 0 ? (
               <p className="text-xs text-slate-400">Aucune rencontre individuelle enregistrée.</p>
             ) : (
@@ -328,7 +366,48 @@ export default function ReunionsPage() {
       </div>
 
       <div>
-        <h2 className="font-semibold mb-3">Team Building — thèmes et notes</h2>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+          <h2 className="font-semibold">Team Building — thèmes et notes</h2>
+          <button className="btn-secondary text-sm" onClick={() => setShowTbForm((s) => !s)}>
+            {showTbForm ? "Annuler" : "+ Ajouter un Team Building"}
+          </button>
+        </div>
+        {showTbForm && (
+          <form onSubmit={addTeamBuildingLog} className="card grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="label">Date</label>
+              <input
+                type="date"
+                required
+                className="input"
+                value={tbDraft.log_date}
+                onChange={(e) => setTbDraft({ ...tbDraft, log_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Thème</label>
+              <input
+                className="input"
+                value={tbDraft.theme}
+                onChange={(e) => setTbDraft({ ...tbDraft, theme: e.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Notes</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={tbDraft.notes}
+                onChange={(e) => setTbDraft({ ...tbDraft, notes: e.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <button type="submit" className="btn">
+                Enregistrer
+              </button>
+            </div>
+          </form>
+        )}
         {teamBuildingLogs.length === 0 ? (
           <p className="text-sm text-slate-500">Aucune activité Team Building enregistrée.</p>
         ) : (
@@ -340,7 +419,7 @@ export default function ReunionsPage() {
                   {t.notes ? <span className="text-slate-500"> — {t.notes}</span> : null}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-slate-500">{t.log_date}</span>
+                  <span className="text-sm text-slate-500">{withWeekday(t.log_date)}</span>
                   <button onClick={() => removeTeamBuildingLog(t.log_date)} className="text-xs text-red-600 hover:underline">
                     Retirer
                   </button>
