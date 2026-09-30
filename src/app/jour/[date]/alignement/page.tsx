@@ -678,7 +678,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               {/* Traçabilité — entraîneur-chef seulement, jamais sur l'export
                   imprimé (print:hidden couvre toute cette section) ni la vue TV
                   (TvDayBoard ne reçoit jamais cette donnée). */}
-              {isHeadCoach && authorLabel(lineup?.updated_by ?? null) && (
+              {isHeadCoach && lineup?.updated_by && lineup.updated_by !== myId && authorLabel(lineup.updated_by) && (
                 <span className="text-xs text-slate-400" title="Dernière modification de cet alignement">
                   Modifié par {authorLabel(lineup?.updated_by ?? null)}
                 </span>

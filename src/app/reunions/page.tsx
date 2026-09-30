@@ -175,7 +175,7 @@ export default function ReunionsPage() {
         <div>
           <span className="font-medium">{m.meeting_type === "individual" ? nameById.get(m.player_id ?? "") ?? "?" : "Équipe"}</span>
           {m.topic ? <span className="text-slate-500"> — {m.topic}</span> : null}
-          {isHeadCoach && authorLabel(m.updated_by) && (
+          {isHeadCoach && m.updated_by !== myId && authorLabel(m.updated_by) && (
             <span className="text-xs text-slate-400"> · par {authorLabel(m.updated_by)}</span>
           )}
         </div>

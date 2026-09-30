@@ -847,7 +847,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                       <div className="flex items-baseline gap-2">
                         <span className="font-semibold text-ink-900">{m.meeting_date}</span>
                         {m.topic && <span className="font-medium text-ink-700">{m.topic}</span>}
-                        {isHeadCoach && authorLabel(m.updated_by) && (
+                        {isHeadCoach && m.updated_by !== myId && authorLabel(m.updated_by) && (
                           <span className="text-xs text-slate-400">· par {authorLabel(m.updated_by)}</span>
                         )}
                       </div>

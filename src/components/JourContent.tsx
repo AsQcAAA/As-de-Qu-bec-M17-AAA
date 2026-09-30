@@ -380,7 +380,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
         <section className="card space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">Rapport quotidien</h2>
-            {isHeadCoach && authorLabel(reportUpdatedBy) && (
+            {isHeadCoach && reportUpdatedBy && reportUpdatedBy !== myId && authorLabel(reportUpdatedBy) && (
               <span className="text-xs text-slate-400">Écrit par {authorLabel(reportUpdatedBy)}</span>
             )}
           </div>
