@@ -96,14 +96,14 @@ export default function EmailComposer({
   const calendarReady = !includeCalendar || calendarHtml !== null;
   const canSend = n > 0 && subject.trim() !== "" && message.trim() !== "" && calendarReady;
 
-  async function send() {
+  async function send(testOnly = false) {
     setSending(true);
     setResult(null);
     try {
       const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, subject, message, extraHtml, copyToMe, onlyEmails }),
+        body: JSON.stringify({ playerIds, subject, message, extraHtml, copyToMe, onlyEmails, testOnly }),
       });
       const data = (await res.json()) as SendResult;
       setResult(res.ok ? data : { ok: false, sent: [], skipped: [], failed: [], error: data.error ?? "Échec de l'envoi." });
@@ -204,7 +204,7 @@ export default function EmailComposer({
           </button>
         ) : (
           <>
-            <button type="button" className="btn" disabled={sending} onClick={send}>
+            <button type="button" className="btn" disabled={sending} onClick={() => send()}>
               {sending ? "Envoi en cours…" : `Confirmer l'envoi à ${n} famille${n > 1 ? "s" : ""}`}
             </button>
             <button type="button" className="btn-secondary" disabled={sending} onClick={() => setConfirming(false)}>
@@ -212,6 +212,15 @@ export default function EmailComposer({
             </button>
           </>
         )}
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={sending || subject.trim() === "" || message.trim() === "" || !calendarReady}
+          onClick={() => send(true)}
+          title="Reçois ce courriel toi-même, sans rien envoyer aux familles"
+        >
+          🧪 M&apos;envoyer un essai
+        </button>
         {!canSend && <span className="text-xs text-slate-500">Il faut au moins un destinataire, un objet et un message.</span>}
       </div>
     </div>

@@ -42,12 +42,13 @@ export async function POST(req: NextRequest) {
     extraHtml?: string;
     copyToMe?: boolean;
     onlyEmails?: string[];
+    testOnly?: boolean;
   };
   const subject = (body.subject ?? "").trim();
   const message = (body.message ?? "").trim();
   const playerIds = [...new Set(body.playerIds ?? [])];
   if (!subject || !message) return NextResponse.json({ error: "Objet et message requis." }, { status: 400 });
-  if (playerIds.length === 0) return NextResponse.json({ error: "Aucun destinataire." }, { status: 400 });
+  if (playerIds.length === 0 && !body.testOnly) return NextResponse.json({ error: "Aucun destinataire." }, { status: 400 });
   if (playerIds.length > MAX_RECIPIENTS) {
     return NextResponse.json({ error: `Maximum ${MAX_RECIPIENTS} destinataires par envoi.` }, { status: 400 });
   }
@@ -82,6 +83,14 @@ export async function POST(req: NextRequest) {
       return error.message;
     }
     return "Limite d'envoi de Resend atteinte, réessaie dans un instant.";
+  }
+
+  // Essai : un seul courriel, à Jean seulement, exactement comme le recevraient les familles.
+  if (body.testOnly) {
+    const sample = (players ?? [])[0]?.full_name.trim().split(/\s+/)[0] ?? "[prénom du joueur]";
+    const err = await sendOne([coachEmail], message.replaceAll("{joueur}", sample), `[TEST] ${subject.replaceAll("{joueur}", sample)}`);
+    if (err) return NextResponse.json({ ok: false, sent: [], skipped: [], failed: [{ name: "Essai", error: err }] });
+    return NextResponse.json({ ok: true, sent: ["Toi (essai)"], skipped: [], failed: [] });
   }
 
   const sent: string[] = [];
