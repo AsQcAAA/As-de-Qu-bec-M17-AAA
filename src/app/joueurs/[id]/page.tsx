@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
 import PhysioConsultations from "@/components/PhysioConsultations";
+import PlayerContactModal from "@/components/PlayerContactModal";
+import EmailComposer from "@/components/EmailComposer";
 import { ABSENCE_REASON_LABEL, EXCUSED_REASONS, REASON_EMOJI } from "@/lib/absenceReasons";
 import { format } from "date-fns";
 import { OFFICIAL_CATEGORIES, buildRosterByDate, gamesPlayedFor, goalieTotals, recordLabel, regulationMinutes, skaterTotals } from "@/lib/playerStats";
@@ -15,7 +17,7 @@ import { averageToi, formatNet, secondsToToi, shootingPct } from "@/lib/tpeRepor
 import { EVENT_TYPE_LABEL } from "@/lib/eventTypes";
 import { formatHeight } from "@/lib/height";
 import { useCoachDirectory } from "@/lib/useCoach";
-import type { Absence, EventType, Game, GameCategory, GameEvent, Meeting, Player, PlayerGameAdvancedStat, PlayerGameStat, PlayerTestResult } from "@/lib/types";
+import type { Absence, EventType, PlayerContact, Game, GameCategory, GameEvent, Meeting, Player, PlayerGameAdvancedStat, PlayerGameStat, PlayerTestResult } from "@/lib/types";
 
 /** Moyenne d'un gardien pour UN match (buts alloués ramenés à un match complet). */
 function goalieGameAverage(row: {
@@ -97,6 +99,9 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFoundFlag, setNotFoundFlag] = useState(false);
+  const [contact, setContact] = useState<PlayerContact | null>(null);
+  const [showContact, setShowContact] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
 
   const [vsOpponent, setVsOpponent] = useState("");
   const [showAllGames, setShowAllGames] = useState(false);
@@ -152,7 +157,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   const inFilter = (category: GameCategory | undefined) => !!category && activeCategories.includes(category);
 
   async function load() {
-    const [{ data: p }, { data: pls }, { data: mts }, { data: abs }, { data: pgs }, { data: gms }, { data: tests }, { data: pens }, { data: lus }, { data: lunits }, { data: goals }, { data: sched }, { data: inotes }, { data: adv }] = await Promise.all([
+    const [{ data: p }, { data: pls }, { data: mts }, { data: abs }, { data: pgs }, { data: gms }, { data: tests }, { data: pens }, { data: lus }, { data: lunits }, { data: goals }, { data: sched }, { data: inotes }, { data: adv }, { data: ctc }] = await Promise.all([
       supabase.from("players").select("*").eq("id", id).maybeSingle(),
       supabase.from("players").select("*"),
       supabase.from("meetings").select("*").eq("player_id", id).eq("meeting_type", "individual").order("meeting_date", { ascending: false }),
@@ -167,6 +172,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
       supabase.from("schedule_events").select("event_date, event_type"),
       supabase.from("injury_notes").select("start_date, injury_type").eq("player_id", id),
       supabase.from("player_game_advanced_stats").select("*").eq("player_id", id),
+      supabase.from("player_contacts").select("*").eq("player_id", id).maybeSingle(),
     ]);
 
     if (!p) {
@@ -176,6 +182,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     }
 
     setPlayer(p);
+    setContact((ctc as PlayerContact | null) ?? null);
     setAllPlayers(pls ?? []);
     setMeetings(mts ?? []);
     setAbsences(abs ?? []);
@@ -548,6 +555,16 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
             <p className="text-slate-500 text-sm">
               {formatHeight(player.height_cm) ?? "Taille ?"} · {player.weight_lbs ? `${player.weight_lbs} lb` : "Poids ?"}
             </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button type="button" className="btn-secondary text-sm" onClick={() => setShowContact(true)}>
+                📇 Infos de contact
+              </button>
+              {isHeadCoach && (
+                <button type="button" className="btn-secondary text-sm" onClick={() => setShowEmail(true)}>
+                  ✉️ Écrire un courriel
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1388,6 +1405,35 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
           )}
         </section>
       </div>
+
+      {showContact && <PlayerContactModal player={player} contact={contact} onClose={() => setShowContact(false)} />}
+
+      {showEmail && (
+        <Modal onClose={() => setShowEmail(false)}>
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white">Écrire à la famille de {player.full_name}</h2>
+                <p className="text-sm text-slate-400">
+                  {contact && contact.emails.length > 0
+                    ? `Destinataires : ${contact.emails.join(", ")}`
+                    : "Aucun courriel enregistré pour ce joueur — rien ne pourra être envoyé."}
+                </p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setShowEmail(false)}>
+                ✕ Fermer
+              </button>
+            </div>
+            <div className="card">
+              <EmailComposer
+                playerIds={[player.id]}
+                defaultSubject={`${player.full_name} — As de Québec M17 AAA`}
+                defaultMessage={"Bonjour,\n\n"}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

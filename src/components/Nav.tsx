@@ -31,7 +31,10 @@ const TABS = [
 // Onglet visible uniquement pour l'entraîneur-chef — la protection réelle
 // est côté RLS (voir migration_014.sql), ceci évite juste de l'afficher
 // aux entraîneurs adjoints invités.
-const HEAD_COACH_ONLY_TAB = { href: "/direction-generale", label: "Direction générale" };
+const HEAD_COACH_ONLY_TABS = [
+  { href: "/courriel", label: "Envoyer un courriel" },
+  { href: "/direction-generale", label: "Direction générale" },
+];
 
 export default function Nav() {
   const pathname = usePathname();
@@ -56,7 +59,7 @@ export default function Nav() {
     checkRole();
   }, []);
 
-  const tabs = isHeadCoach ? [...TABS, HEAD_COACH_ONLY_TAB] : TABS;
+  const tabs = isHeadCoach ? [...TABS, ...HEAD_COACH_ONLY_TABS] : TABS;
 
   if (pathname === "/login" || pathname === "/definir-mot-de-passe") return null;
 

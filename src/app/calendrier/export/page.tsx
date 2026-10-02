@@ -16,85 +16,33 @@ import {
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
-import type { EventType, Game, ScheduleEvent } from "@/lib/types";
+import type { Game, ScheduleEvent } from "@/lib/types";
 import { printWithOrientation } from "@/lib/print";
+import Modal from "@/components/Modal";
+import EmailComposer from "@/components/EmailComposer";
+import RecipientPicker from "@/components/RecipientPicker";
+import { buildCalendarEmailHtml } from "@/lib/calendarExport";
+import { usePlayerContacts } from "@/lib/usePlayerContacts";
+import { useCoachDirectory } from "@/lib/useCoach";
 
-const PRIORITY: EventType[] = ["game", "practice", "team_meeting", "pp_meeting", "team_building", "individual_meeting", "other"];
+import {
+  cellKind,
+  holidayLabel,
+  isFreeWeekend,
+  labelEvent,
+  primaryEvent,
+  type CellKind,
+} from "@/lib/calendarExport";
 
-function primaryEvent(events: ScheduleEvent[]): ScheduleEvent | null {
-  if (events.length === 0) return null;
-  return [...events].sort((a, b) => PRIORITY.indexOf(a.event_type) - PRIORITY.indexOf(b.event_type))[0];
-}
-
-const HOLIDAY_LABELS: { keyword: string; label: string }[] = [
-  { keyword: "pedago", label: "P\u00e9dago" },
-  { keyword: "ferie", label: "F\u00e9ri\u00e9" },
-  { keyword: "fete", label: "F\u00eate" },
-  { keyword: "conge", label: "Cong\u00e9" },
-];
-
-function stripAccents(s: string) {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
-function holidayLabel(title: string): string | null {
-  const normalized = stripAccents(title);
-  return HOLIDAY_LABELS.find((h) => normalized.includes(h.keyword))?.label ?? null;
-}
-
-function isHoliday(title: string) {
-  return holidayLabel(title) !== null;
-}
-
-// L'export s'adresse aux joueurs et aux parents. Trois choses n'y figurent pas :
-//  - les pratiques régulières, implicites (la case dit « Encadrement Sport-Études ») ;
-//  - les tâches internes à l'équipe, comme le ménage du gym ;
-//  - les rencontres d'équipe et individuelles, qui relèvent du staff.
-// Tout le reste garde son nom : Multisport, Challenge, match intra-équipe, etc.
-const SILENT_EVENT_TYPES = new Set<EventType>(["team_meeting", "individual_meeting", "pp_meeting", "team_building"]);
-const SILENT_EXACT = new Set(["pratique", "training"]);
-const SILENT_KEYWORDS = ["menage", "meeting"];
-
-function isSilentActivity(event: ScheduleEvent): boolean {
-  if (SILENT_EVENT_TYPES.has(event.event_type)) return true;
-  const title = stripAccents(event.title).trim();
-  return SILENT_EXACT.has(title) || SILENT_KEYWORDS.some((k) => title.includes(k));
-}
-
-// Ce qu'on écrit dans la case sous la date. On saute les pratiques et trainings
-// (implicites), mais on garde les activités nommées d'une journée de pratique —
-// « Ménage du Gym », par exemple, ne doit pas disparaître.
-function labelEvent(events: ScheduleEvent[]): ScheduleEvent | null {
-  return events.find((e) => e.event_type !== "game" && !isSilentActivity(e)) ?? null;
-}
-
-// Une journée de fin de semaine sans match ni activité d'équipe est un congé,
-// au même titre qu'un congé scolaire ou une journée pédagogique.
-function isFreeWeekend(day: Date, events: ScheduleEvent[], game: Game | undefined): boolean {
-  const dow = getDay(day);
-  const isWeekend = dow === 0 || dow === 6;
-  if (!isWeekend || game) return false;
-  return events.every((e) => e.event_type !== "game" && isHoliday(e.title));
-}
-
-// Même logique de couleur que le calendrier principal : jaune = match domicile,
-// gris = match extérieur, vert = congé/férié/pédago/fête et fins de semaine libres.
-function cellColor(
-  primary: ScheduleEvent | null,
-  label: ScheduleEvent | null,
-  game: Game | undefined,
-  freeWeekend: boolean,
-  highlighted: boolean
-): string {
-  // Un changement majeur signalé à la main prime sur toute autre couleur.
-  if (highlighted) return "bg-red-300";
-  if (freeWeekend) return "bg-green-200";
-  if (primary?.event_type === "game") {
-    return game?.is_home === false ? "bg-slate-300" : "bg-gold-300";
-  }
-  if (label && isHoliday(label.title)) return "bg-green-200";
-  return primary ? "bg-slate-100" : "";
-}
+const CELL_CLASS: Record<CellKind, string> = {
+  highlight: "bg-red-300",
+  freeWeekend: "bg-green-200",
+  gameHome: "bg-gold-300",
+  gameAway: "bg-slate-300",
+  holiday: "bg-green-200",
+  event: "bg-slate-100",
+  empty: "",
+};
 
 export default function CalendrierExportPage() {
   const supabase = createClient();
@@ -104,6 +52,17 @@ export default function CalendrierExportPage() {
   const [dayNotes, setDayNotes] = useState<Record<string, string>>({});
   const [highlights, setHighlights] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const { isHeadCoach } = useCoachDirectory();
+  const [showEmail, setShowEmail] = useState(false);
+  const [recipients, setRecipients] = useState<Set<string>>(new Set());
+  const { players: allPlayers, contacts } = usePlayerContacts();
+
+  // Le calendrier tel qu'il partira dans le courriel — recalculé à chaque
+  // changement de mois ou de note, donc l'aperçu est toujours fidèle.
+  const emailHtml = useMemo(
+    () => buildCalendarEmailHtml({ month, events, games, dayNotes, highlights }),
+    [month, events, games, dayNotes, highlights]
+  );
 
   async function load() {
     setLoading(true);
@@ -174,6 +133,11 @@ export default function CalendrierExportPage() {
           <button className="btn-secondary" onClick={() => setMonth(addMonths(month, 1))}>
             Suivant →
           </button>
+          {isHeadCoach && (
+            <button className="btn-secondary" onClick={() => setShowEmail(true)}>
+              ✉️ Envoyer par courriel
+            </button>
+          )}
           <button className="btn" onClick={() => printWithOrientation("landscape", "8mm")}>
             🖨️ Exporter en PDF
           </button>
@@ -223,7 +187,7 @@ export default function CalendrierExportPage() {
               return (
                 <div
                   key={key}
-                  className={`cal-cell relative flex flex-col h-[152px] overflow-hidden rounded-md border p-1 text-[11px] font-semibold text-center ${cellColor(primary, label, game, freeWeekend, highlighted)} ${
+                  className={`cal-cell relative flex flex-col h-[152px] overflow-hidden rounded-md border p-1 text-[11px] font-semibold text-center ${CELL_CLASS[cellKind(primary, label, game, freeWeekend, highlighted)]} ${
                     highlighted ? "border-red-500" : inMonth ? "border-slate-200" : "border-slate-100 opacity-40"
                   }`}
                 >
@@ -287,6 +251,40 @@ export default function CalendrierExportPage() {
             })}
           </div>
         </div>
+      )}
+
+      {showEmail && (
+        <Modal onClose={() => setShowEmail(false)}>
+          <div className="space-y-4 no-print">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white">
+                  Envoyer le calendrier de {format(month, "MMMM yyyy", { locale: fr })} par courriel
+                </h2>
+                <p className="text-sm text-slate-400">
+                  Le calendrier ci-dessous (notes du jour comprises) est inséré dans le courriel, avant ta signature.
+                </p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setShowEmail(false)}>
+                ✕ Fermer
+              </button>
+            </div>
+            <section className="card space-y-3">
+              <h3 className="font-semibold">1. Destinataires</h3>
+              <RecipientPicker players={allPlayers} contacts={contacts} selected={recipients} onChange={setRecipients} />
+            </section>
+            <section className="card space-y-3">
+              <h3 className="font-semibold">2. Message</h3>
+              <EmailComposer
+                playerIds={[...recipients]}
+                defaultSubject={`Calendrier de ${format(month, "MMMM yyyy", { locale: fr })} — As de Québec M17 AAA`}
+                defaultMessage={"Bonjour,\n\nVoici le calendrier du mois pour {joueur}.\n\n"}
+                extraHtml={emailHtml}
+                extraPreview={<div dangerouslySetInnerHTML={{ __html: emailHtml }} />}
+              />
+            </section>
+          </div>
+        </Modal>
       )}
     </div>
   );

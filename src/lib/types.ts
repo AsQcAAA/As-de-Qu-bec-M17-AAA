@@ -362,6 +362,27 @@ export interface DgNote {
   updated_at: string;
 }
 
+export interface ContactPhone {
+  number: string;
+  /** Domicile / Mobile / Travail — plusieurs si le même numéro sert à plusieurs usages. */
+  label: string;
+  /** Nom du parent à qui appartient ce numéro, quand le fichier d'inscription le précise. */
+  name: string | null;
+  relation: string | null;
+}
+
+export interface PlayerContact {
+  player_id: string;
+  emails: string[];
+  phones: ContactPhone[];
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
+  birth_date: string | null;
+  registration_id: string | null;
+  updated_at: string;
+}
+
 export type BudgetTeam = "as" | "chevaliers";
 
 export interface BudgetCategory {
