@@ -21,7 +21,6 @@ import { printWithOrientation } from "@/lib/print";
 import Modal from "@/components/Modal";
 import EmailComposer from "@/components/EmailComposer";
 import RecipientPicker from "@/components/RecipientPicker";
-import { buildCalendarEmailHtml } from "@/lib/calendarExport";
 import { usePlayerContacts } from "@/lib/usePlayerContacts";
 import { useCoachDirectory } from "@/lib/useCoach";
 
@@ -57,12 +56,7 @@ export default function CalendrierExportPage() {
   const [recipients, setRecipients] = useState<Set<string>>(new Set());
   const { players: allPlayers, contacts } = usePlayerContacts();
 
-  // Le calendrier tel qu'il partira dans le courriel — recalculé à chaque
-  // changement de mois ou de note, donc l'aperçu est toujours fidèle.
-  const emailHtml = useMemo(
-    () => buildCalendarEmailHtml({ month, events, games, dayNotes, highlights }),
-    [month, events, games, dayNotes, highlights]
-  );
+
 
   async function load() {
     setLoading(true);
@@ -279,8 +273,8 @@ export default function CalendrierExportPage() {
                 playerIds={[...recipients]}
                 defaultSubject={`Calendrier de ${format(month, "MMMM yyyy", { locale: fr })} — As de Québec M17 AAA`}
                 defaultMessage={"Bonjour,\n\nVoici le calendrier du mois pour {joueur}.\n\n"}
-                extraHtml={emailHtml}
-                extraPreview={<div dangerouslySetInnerHTML={{ __html: emailHtml }} />}
+                calendarDefault
+                calendarMonth={month}
               />
             </section>
           </div>

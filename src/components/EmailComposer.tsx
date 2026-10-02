@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from "date-fns";
+import { fr } from "date-fns/locale";
+import { createClient } from "@/lib/supabase/client";
+import { buildCalendarEmailHtml } from "@/lib/calendarExport";
 import {
   EMAIL_SIGNATURE_BASE64,
   EMAIL_SIGNATURE_HEIGHT,
@@ -24,16 +28,16 @@ export default function EmailComposer({
   playerIds,
   defaultSubject = "",
   defaultMessage = "",
-  extraHtml,
-  extraPreview,
+  calendarDefault = false,
+  calendarMonth,
   onSent,
 }: {
   playerIds: string[];
   defaultSubject?: string;
   defaultMessage?: string;
-  /** Bloc HTML inséré entre le message et la signature (ex. le calendrier du mois). */
-  extraHtml?: string;
-  extraPreview?: React.ReactNode;
+  /** Le calendrier du mois est une option : décoché, le courriel ne contient que le message. */
+  calendarDefault?: boolean;
+  calendarMonth?: Date;
   onSent?: () => void;
 }) {
   const [subject, setSubject] = useState(defaultSubject);
@@ -43,8 +47,51 @@ export default function EmailComposer({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
 
+  // ---- Calendrier du mois (option) ----
+  const [includeCalendar, setIncludeCalendar] = useState(calendarDefault);
+  const [monthKey, setMonthKey] = useState(format(calendarMonth ?? new Date(), "yyyy-MM"));
+  const [calendarHtml, setCalendarHtml] = useState<string | null>(null);
+  const monthOptions = useMemo(() => {
+    const base = startOfMonth(new Date());
+    const list = [-1, 0, 1, 2, 3].map((d) => addMonths(base, d));
+    const chosen = calendarMonth ? startOfMonth(calendarMonth) : null;
+    if (chosen && !list.some((m) => format(m, "yyyy-MM") === format(chosen, "yyyy-MM"))) list.unshift(chosen);
+    return list;
+  }, [calendarMonth]);
+
+  useEffect(() => {
+    if (!includeCalendar) return;
+    let cancelled = false;
+    setCalendarHtml(null);
+    const month = new Date(`${monthKey}-01T12:00:00`);
+    const from = format(startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const to = format(endOfWeek(endOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("schedule_events").select("*").gte("event_date", from).lte("event_date", to),
+      supabase.from("games").select("*").gte("game_date", from).lte("game_date", to),
+      supabase.from("calendar_day_notes").select("*").gte("day", from).lte("day", to),
+    ]).then(([{ data: events }, { data: games }, { data: notes }]) => {
+      if (cancelled) return;
+      setCalendarHtml(
+        buildCalendarEmailHtml({
+          month,
+          events: events ?? [],
+          games: games ?? [],
+          dayNotes: Object.fromEntries((notes ?? []).map((x) => [x.day, x.notes ?? ""])),
+          highlights: Object.fromEntries((notes ?? []).map((x) => [x.day, x.highlight ?? false])),
+        })
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [includeCalendar, monthKey]);
+
+  const extraHtml = includeCalendar ? (calendarHtml ?? undefined) : undefined;
   const n = playerIds.length;
-  const canSend = n > 0 && subject.trim() !== "" && message.trim() !== "";
+  const calendarReady = !includeCalendar || calendarHtml !== null;
+  const canSend = n > 0 && subject.trim() !== "" && message.trim() !== "" && calendarReady;
 
   async function send() {
     setSending(true);
@@ -87,12 +134,32 @@ export default function EmailComposer({
         </p>
       </div>
 
-      {extraPreview && (
-        <div>
-          <div className="label">Aperçu du contenu ajouté</div>
-          <div className="rounded-lg border border-slate-200 bg-white p-2 overflow-x-auto">{extraPreview}</div>
+      <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={includeCalendar} onChange={(e) => setIncludeCalendar(e.target.checked)} />
+            📅 Joindre le calendrier du mois
+          </label>
+          {includeCalendar && (
+            <select className="input w-auto text-sm" value={monthKey} onChange={(e) => setMonthKey(e.target.value)}>
+              {monthOptions.map((m) => (
+                <option key={format(m, "yyyy-MM")} value={format(m, "yyyy-MM")}>
+                  {format(m, "MMMM yyyy", { locale: fr })}
+                </option>
+              ))}
+            </select>
+          )}
+          {!includeCalendar && <span className="text-xs text-slate-500">Optionnel — sans, le courriel ne contient que ton message.</span>}
         </div>
-      )}
+        {includeCalendar && (
+          <div>
+            <div className="label">Aperçu du calendrier ajouté (avant ta signature)</div>
+            <div className="rounded-lg border border-slate-200 bg-white p-2 overflow-x-auto">
+              {calendarHtml ? <div dangerouslySetInnerHTML={{ __html: calendarHtml }} /> : <p className="text-sm text-slate-500">Chargement…</p>}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div>
         <div className="label">Signature (ajoutée automatiquement)</div>
