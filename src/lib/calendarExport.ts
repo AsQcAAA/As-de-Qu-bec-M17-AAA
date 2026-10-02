@@ -1,4 +1,4 @@
-import { eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isSameMonth, parseISO, startOfMonth, startOfWeek } from "date-fns";
+import { eachDayOfInterval, endOfMonth, endOfWeek, format, getDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { escapeHtml } from "@/lib/emailTemplate";
@@ -101,8 +101,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /**
  * Le calendrier mensuel en HTML « courriel » : tableaux et styles en ligne, qui
  * survivent à Gmail, Outlook et Apple Mail. Mêmes règles que l'export imprimable
- * (activités internes cachées, couleurs, notes du jour), avec en plus la liste
- * des matchs du mois — plus lisible qu'une grille de 7 colonnes sur un téléphone.
+ * (activités internes cachées, couleurs, notes du jour).
  */
 export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlights }: CalendarEmailInput): string {
   const eventsByDay = new Map<string, ScheduleEvent[]>();
@@ -160,20 +159,6 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
   const rows: string[] = [];
   for (let i = 0; i < cells.length; i += 7) rows.push(`<tr>${cells.slice(i, i + 7).join("")}</tr>`);
 
-  const monthGames = games
-    .filter((g) => isSameMonth(parseISO(g.game_date), month))
-    .sort((a, b) => a.game_date.localeCompare(b.game_date));
-  const evByDate = (date: string) => (eventsByDay.get(date) ?? []).find((e) => e.event_type === "game");
-  const gameRows = monthGames
-    .map((g) => {
-      const opp = findTeamByOpponent(g.opponent)?.name ?? g.opponent;
-      const time = evByDate(g.game_date)?.start_time?.slice(0, 5) ?? "";
-      const bus = !g.is_home && g.bus_departure_time ? `<br><span style="font-size:11px;color:#475569;">🚌 Départ de Québec ${g.bus_departure_time.slice(0, 5)}</span>` : "";
-      return `<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;"><b>${cap(format(parseISO(g.game_date), "EEE d MMM", { locale: fr }))}</b></td>
-<td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${g.is_home ? "vs" : "@"} <b>${escapeHtml(opp)}</b>${time ? ` — ${time}` : ""}<br><span style="font-size:12px;color:#475569;">${escapeHtml(g.location ?? "")}</span>${bus}</td></tr>`;
-    })
-    .join("");
-
   const head = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
     .map((d) => `<th style="background:#0d0c0c;color:#fdca37;padding:5px 0;font-size:12px;border:1px solid #0d0c0c;">${d}</th>`)
     .join("");
@@ -184,7 +169,5 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
 <tr>${head}</tr>
 ${rows.join("\n")}
 </table>
-${monthGames.length > 0 ? `<div style="margin-top:16px;font-size:15px;font-weight:800;">Matchs du mois</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;margin-top:6px;">${gameRows}</table>` : ""}
 </div>`;
 }
