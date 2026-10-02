@@ -50,6 +50,54 @@ export default function EmailComposer({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
 
+  // ---- Adresses réelles des destinataires (chacune peut être retirée) ----
+  const [recipientInfo, setRecipientInfo] = useState<{ id: string; name: string; emails: string[] }[]>([]);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const idsKey = playerIds.join(",");
+  useEffect(() => {
+    if (playerIds.length === 0) {
+      setRecipientInfo([]);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("players").select("id, full_name").in("id", playerIds),
+      supabase.from("player_contacts").select("player_id, emails").in("player_id", playerIds),
+    ]).then(([{ data: pls }, { data: cts }]) => {
+      if (cancelled) return;
+      const emailsById = new Map((cts ?? []).map((c) => [c.player_id as string, (c.emails ?? []) as string[]]));
+      const info = (pls ?? []).map((p) => ({ id: p.id as string, name: p.full_name as string, emails: emailsById.get(p.id) ?? [] }));
+      setRecipientInfo(info);
+      // Arrivée par un clic sur une adresse précise : les autres adresses du joueur démarrent retirées.
+      if (onlyEmails && info.length === 1) {
+        setExcluded(new Set(info[0].emails.filter((e) => !onlyEmails.includes(e)).map((e) => `${info[0].id}|${e}`)));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey]);
+  const keyOf = (id: string, email: string) => `${id}|${email}`;
+  const activeEmails = (r: { id: string; emails: string[] }) => r.emails.filter((e) => !excluded.has(keyOf(r.id, e)));
+  function toggleEmail(id: string, email: string) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      const k = keyOf(id, email);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+  const addressCount = recipientInfo.reduce((n, r) => n + activeEmails(r).length, 0);
+  const sendLabel =
+    addressCount === 0
+      ? "Envoyer"
+      : addressCount <= 2
+        ? `Envoyer à ${recipientInfo.flatMap(activeEmails).join(", ")}`
+        : `Envoyer à ${addressCount} adresses`;
+
   // ---- Calendrier du mois (option) ----
   const [includeCalendar, setIncludeCalendar] = useState(calendarDefault);
   const [monthKey, setMonthKey] = useState(format(calendarMonth ?? new Date(), "yyyy-MM"));
@@ -94,7 +142,7 @@ export default function EmailComposer({
   const extraHtml = includeCalendar ? (calendarHtml ?? undefined) : undefined;
   const n = playerIds.length;
   const calendarReady = !includeCalendar || calendarHtml !== null;
-  const canSend = n > 0 && subject.trim() !== "" && message.trim() !== "" && calendarReady;
+  const canSend = addressCount > 0 && subject.trim() !== "" && message.trim() !== "" && calendarReady;
 
   async function send(testOnly = false) {
     setSending(true);
@@ -103,7 +151,15 @@ export default function EmailComposer({
       const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, subject, message, extraHtml, copyToMe, onlyEmails, testOnly }),
+        body: JSON.stringify({
+          playerIds,
+          subject,
+          message,
+          extraHtml,
+          copyToMe,
+          testOnly,
+          recipientEmails: Object.fromEntries(recipientInfo.map((r) => [r.id, activeEmails(r)])),
+        }),
       });
       const data = (await res.json()) as SendResult;
       setResult(res.ok ? data : { ok: false, sent: [], skipped: [], failed: [], error: data.error ?? "Échec de l'envoi." });
@@ -118,6 +174,46 @@ export default function EmailComposer({
 
   return (
     <div className="space-y-3">
+      <div className="rounded-lg bg-slate-100 px-3 py-2">
+        <div className="text-xs font-bold text-slate-600 mb-1">
+          À : {addressCount} adresse{addressCount > 1 ? "s" : ""}
+        </div>
+        {recipientInfo.length === 0 ? (
+          <p className="text-xs text-slate-500">Aucun destinataire.</p>
+        ) : (
+          <ul className="space-y-0.5">
+            {recipientInfo.map((r) => (
+              <li key={r.id} className="text-sm flex flex-wrap items-center gap-1.5">
+                <span className="font-semibold">{r.name}</span>
+                <span className="text-slate-500">—</span>
+                {r.emails.length === 0 && <span className="font-semibold text-red-600">aucun courriel enregistré</span>}
+                {r.emails.map((e) => {
+                  const off = excluded.has(keyOf(r.id, e));
+                  return (
+                    <span
+                      key={e}
+                      className={`inline-flex items-center gap-1 rounded-full pl-2 pr-1 py-0.5 text-xs font-semibold ${
+                        off ? "bg-slate-200 text-slate-400 line-through" : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {e}
+                      <button
+                        type="button"
+                        onClick={() => toggleEmail(r.id, e)}
+                        title={off ? "Remettre cette adresse" : "Retirer cette adresse"}
+                        className="h-4 w-4 rounded-full bg-black/10 hover:bg-black/25 leading-none no-underline"
+                      >
+                        {off ? "+" : "×"}
+                      </button>
+                    </span>
+                  );
+                })}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div>
         <label className="label">Objet</label>
         <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Objet du courriel" />
@@ -189,7 +285,7 @@ export default function EmailComposer({
           }`}
         >
           {result.error && <p className="font-semibold">{result.error}</p>}
-          {result.sent.length > 0 && <p className="font-semibold">✓ Envoyé à {result.sent.length} famille(s).</p>}
+          {result.sent.length > 0 && <p className="font-semibold">✓ Envoyé : {result.sent.join(" ; ")}</p>}
           {result.skipped.length > 0 && (
             <p>Ignorés : {result.skipped.map((s) => `${s.name} (${s.reason})`).join(", ")}.</p>
           )}
@@ -200,12 +296,12 @@ export default function EmailComposer({
       <div className="flex flex-wrap items-center gap-2">
         {!confirming ? (
           <button type="button" className="btn" disabled={!canSend || sending} onClick={() => setConfirming(true)}>
-            ✉️ Envoyer{n > 0 ? ` à ${n} famille${n > 1 ? "s" : ""}` : ""}
+            ✉️ {sendLabel}
           </button>
         ) : (
           <>
             <button type="button" className="btn" disabled={sending} onClick={() => send()}>
-              {sending ? "Envoi en cours…" : `Confirmer l'envoi à ${n} famille${n > 1 ? "s" : ""}`}
+              {sending ? "Envoi en cours…" : `Confirmer l'envoi (${addressCount} adresse${addressCount > 1 ? "s" : ""})`}
             </button>
             <button type="button" className="btn-secondary" disabled={sending} onClick={() => setConfirming(false)}>
               Annuler
@@ -221,7 +317,7 @@ export default function EmailComposer({
         >
           🧪 M&apos;envoyer un essai
         </button>
-        {!canSend && <span className="text-xs text-slate-500">Il faut au moins un destinataire, un objet et un message.</span>}
+        {!canSend && <span className="text-xs text-slate-500">Il faut au moins une adresse, un objet et un message.</span>}
       </div>
     </div>
   );

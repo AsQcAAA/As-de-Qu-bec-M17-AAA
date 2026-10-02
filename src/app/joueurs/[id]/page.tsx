@@ -1435,9 +1435,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
               <div>
                 <h2 className="text-lg font-bold text-white">Écrire à la famille de {player.full_name}</h2>
                 <p className="text-sm text-slate-400">
-                  {contact && contact.emails.length > 0
-                    ? `Destinataire${(emailOnly ?? contact.emails).length > 1 ? "s" : ""} : ${(emailOnly ?? contact.emails).join(", ")}`
-                    : "Aucun courriel enregistré pour ce joueur — rien ne pourra être envoyé."}
+                  Retire une adresse avec le × pour n&apos;écrire qu&apos;à un des deux parents.
                 </p>
               </div>
               <button type="button" className="btn-secondary" onClick={() => setShowEmail(false)}>

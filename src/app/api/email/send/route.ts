@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     message?: string;
     extraHtml?: string;
     copyToMe?: boolean;
-    onlyEmails?: string[];
+    /** Adresses retenues par joueur — celles que Jean n'a pas retirées. Toujours recoupées avec la base. */
+    recipientEmails?: Record<string, string[]>;
     testOnly?: boolean;
   };
   const subject = (body.subject ?? "").trim();
@@ -99,8 +100,10 @@ export async function POST(req: NextRequest) {
 
   for (const player of players ?? []) {
     const all = emailsById.get(player.id) ?? [];
-    // Adresse choisie précisément (ex. un clic sur un courriel d'une fiche) : on ne garde que celle-là.
-    const to = body.onlyEmails && playerIds.length === 1 ? all.filter((e) => body.onlyEmails!.includes(e)) : all;
+    // Seules les adresses que Jean a gardées (ex. un seul des deux parents), et seulement celles qui
+    // appartiennent bien à ce joueur en base.
+    const kept = body.recipientEmails?.[player.id];
+    const to = kept ? all.filter((e) => kept.includes(e)) : all;
     if (to.length === 0) {
       skipped.push({ name: player.full_name, reason: "Aucun courriel enregistré" });
       continue;
@@ -109,13 +112,13 @@ export async function POST(req: NextRequest) {
     const personalized = message.replaceAll("{joueur}", firstName);
     const err = await sendOne(to, personalized, subject.replaceAll("{joueur}", firstName));
     if (err) failed.push({ name: player.full_name, error: err });
-    else sent.push(player.full_name);
+    else sent.push(`${player.full_name} (${to.join(", ")})`);
     await sleep(SPACING_MS);
   }
 
   // Une seule copie récapitulative pour Jean (pas une par famille).
   if (body.copyToMe && sent.length > 0) {
-    const recap = `${message.replaceAll("{joueur}", "[prénom du joueur]")}\n\n— Copie d'envoi —\nEnvoyé à ${sent.length} famille(s) : ${sent.join(", ")}.`;
+    const recap = `${message.replaceAll("{joueur}", "[prénom du joueur]")}\n\n— Copie d'envoi —\nEnvoyé à ${sent.length} destinataire(s) : ${sent.join(", ")}.`;
     await sendOne([coachEmail], recap, `[Copie] ${subject.replaceAll("{joueur}", "[prénom du joueur]")}`);
   }
 
