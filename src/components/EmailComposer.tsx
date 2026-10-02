@@ -30,6 +30,7 @@ export default function EmailComposer({
   defaultMessage = "",
   calendarDefault = false,
   calendarMonth,
+  onlyEmails,
   onSent,
 }: {
   playerIds: string[];
@@ -38,6 +39,8 @@ export default function EmailComposer({
   /** Le calendrier du mois est une option : décoché, le courriel ne contient que le message. */
   calendarDefault?: boolean;
   calendarMonth?: Date;
+  /** Limite l'envoi à ces adresses de la famille (un seul joueur) au lieu de toutes. */
+  onlyEmails?: string[];
   onSent?: () => void;
 }) {
   const [subject, setSubject] = useState(defaultSubject);
@@ -100,7 +103,7 @@ export default function EmailComposer({
       const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, subject, message, extraHtml, copyToMe }),
+        body: JSON.stringify({ playerIds, subject, message, extraHtml, copyToMe, onlyEmails }),
       });
       const data = (await res.json()) as SendResult;
       setResult(res.ok ? data : { ok: false, sent: [], skipped: [], failed: [], error: data.error ?? "Échec de l'envoi." });

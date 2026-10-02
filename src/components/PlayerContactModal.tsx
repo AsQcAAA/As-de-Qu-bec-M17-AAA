@@ -16,10 +16,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 export default function PlayerContactModal({
   player,
   contact,
+  canEmail = false,
+  onWriteEmail,
   onClose,
 }: {
   player: Player;
   contact: PlayerContact | null;
+  /** L'entraîneur-chef écrit depuis l'app ; les autres gardent un lien « mailto ». */
+  canEmail?: boolean;
+  onWriteEmail?: (email: string) => void;
   onClose: () => void;
 }) {
   const address = [contact?.address, contact?.city, contact?.postal_code].filter(Boolean).join(", ");
@@ -51,9 +56,23 @@ export default function PlayerContactModal({
                 <ul className="space-y-1">
                   {contact.emails.map((e) => (
                     <li key={e}>
-                      <a href={`mailto:${e}`} className="text-sm font-medium text-ink-800 hover:underline break-all">
-                        {e}
-                      </a>
+                      {canEmail && onWriteEmail ? (
+                        <button
+                          type="button"
+                          onClick={() => onWriteEmail(e)}
+                          title="Écrire à cette adresse depuis l'application"
+                          className="text-left text-sm font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 rounded px-1.5 py-0.5 break-all"
+                        >
+                          {e}
+                        </button>
+                      ) : (
+                        <a
+                          href={`mailto:${e}`}
+                          className="text-sm font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 rounded px-1.5 py-0.5 break-all"
+                        >
+                          {e}
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -87,7 +106,7 @@ export default function PlayerContactModal({
               <dl>
                 <Row label="Adresse">{address || "—"}</Row>
                 <Row label="Date de naissance">{contact.birth_date ?? "—"}</Row>
-                <Row label="Identifiant unique">{contact.registration_id ?? "—"}</Row>
+                <Row label="Numéro HCR">{contact.registration_id ?? "—"}</Row>
               </dl>
             </section>
           </div>

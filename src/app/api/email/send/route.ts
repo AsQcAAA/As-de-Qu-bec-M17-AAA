@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     message?: string;
     extraHtml?: string;
     copyToMe?: boolean;
+    onlyEmails?: string[];
   };
   const subject = (body.subject ?? "").trim();
   const message = (body.message ?? "").trim();
@@ -88,7 +89,9 @@ export async function POST(req: NextRequest) {
   const failed: { name: string; error: string }[] = [];
 
   for (const player of players ?? []) {
-    const to = emailsById.get(player.id) ?? [];
+    const all = emailsById.get(player.id) ?? [];
+    // Adresse choisie précisément (ex. un clic sur un courriel d'une fiche) : on ne garde que celle-là.
+    const to = body.onlyEmails && playerIds.length === 1 ? all.filter((e) => body.onlyEmails!.includes(e)) : all;
     if (to.length === 0) {
       skipped.push({ name: player.full_name, reason: "Aucun courriel enregistré" });
       continue;

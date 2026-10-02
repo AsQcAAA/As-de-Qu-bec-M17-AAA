@@ -102,6 +102,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   const [contact, setContact] = useState<PlayerContact | null>(null);
   const [showContact, setShowContact] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
+  const [emailOnly, setEmailOnly] = useState<string[] | undefined>(undefined);
 
   const [vsOpponent, setVsOpponent] = useState("");
   const [showAllGames, setShowAllGames] = useState(false);
@@ -560,7 +561,14 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                 📇 Infos de contact
               </button>
               {isHeadCoach && (
-                <button type="button" className="btn-secondary text-sm" onClick={() => setShowEmail(true)}>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  onClick={() => {
+                    setEmailOnly(undefined);
+                    setShowEmail(true);
+                  }}
+                >
                   ✉️ Écrire un courriel
                 </button>
               )}
@@ -1406,7 +1414,19 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
         </section>
       </div>
 
-      {showContact && <PlayerContactModal player={player} contact={contact} onClose={() => setShowContact(false)} />}
+      {showContact && (
+        <PlayerContactModal
+          player={player}
+          contact={contact}
+          canEmail={isHeadCoach}
+          onWriteEmail={(email) => {
+            setEmailOnly([email]);
+            setShowContact(false);
+            setShowEmail(true);
+          }}
+          onClose={() => setShowContact(false)}
+        />
+      )}
 
       {showEmail && (
         <Modal onClose={() => setShowEmail(false)}>
@@ -1416,7 +1436,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
                 <h2 className="text-lg font-bold text-white">Écrire à la famille de {player.full_name}</h2>
                 <p className="text-sm text-slate-400">
                   {contact && contact.emails.length > 0
-                    ? `Destinataires : ${contact.emails.join(", ")}`
+                    ? `Destinataire${(emailOnly ?? contact.emails).length > 1 ? "s" : ""} : ${(emailOnly ?? contact.emails).join(", ")}`
                     : "Aucun courriel enregistré pour ce joueur — rien ne pourra être envoyé."}
                 </p>
               </div>
@@ -1427,6 +1447,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
             <div className="card">
               <EmailComposer
                 playerIds={[player.id]}
+                onlyEmails={emailOnly}
                 defaultSubject={`${player.full_name} — As de Québec M17 AAA`}
                 defaultMessage={"Bonjour,\n\n"}
               />
