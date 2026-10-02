@@ -44,7 +44,7 @@ function HeatCell({ value, intensity, suffix = "" }: { value: number | string; i
   );
 }
 
-type HeatSortKey = "jersey" | "name" | "games" | "shots" | "xg" | "toi" | "faceoffsWon" | "faceoffPct";
+type HeatSortKey = "jersey" | "name" | "games" | "shots" | "shotPct" | "xg" | "toi" | "faceoffsWon" | "faceoffPct";
 
 /** En-tête de colonne cliquable, avec indicateur de sens (▲▼↕). */
 function SortHeader({
@@ -74,6 +74,7 @@ function SortHeader({
 interface HeatRow {
   player: Player;
   shots: number;
+  goals: number;
   xg: number;
   toiSeconds: number | null;
   faceoffsWon: number;
@@ -92,6 +93,8 @@ function sortHeatRows(rows: HeatRow[], sort: { key: HeatSortKey; desc: boolean }
         return a.games - b.games;
       case "shots":
         return a.shots - b.shots;
+      case "shotPct":
+        return (a.shots > 0 ? a.goals / a.shots : -1) - (b.shots > 0 ? b.goals / b.shots : -1);
       case "xg":
         return a.xg - b.xg;
       case "toi":
@@ -110,6 +113,8 @@ export default function StatistiquesAvanceesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [advancedStats, setAdvancedStats] = useState<PlayerGameAdvancedStat[]>([]);
+  /** Buts de la feuille de match — pour le % d'efficacité des tirs (buts ÷ tirs au but du rapport TPE). */
+  const [goalRows, setGoalRows] = useState<{ player_id: string; game_id: string; goals: number }[]>([]);
   const [reportDocs, setReportDocs] = useState<GameDocument[]>([]);
   const [categories, setCategories] = useState<Set<GameCategory>>(new Set(CATEGORY_ORDER));
   const [loading, setLoading] = useState(true);
@@ -128,15 +133,17 @@ export default function StatistiquesAvanceesPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }] = await Promise.all([
+      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }, { data: pgs }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
         supabase.from("games").select("*"),
         supabase.from("player_game_advanced_stats").select("*"),
         supabase.from("game_documents").select("*").eq("doc_type", "stats_avancees").order("uploaded_at", { ascending: false }),
+        supabase.from("player_game_stats").select("player_id, game_id, goals"),
       ]);
       setPlayers(pls ?? []);
       setGames(gms ?? []);
       setAdvancedStats(adv ?? []);
+      setGoalRows(pgs ?? []);
       setReportDocs(docs ?? []);
       setLoading(false);
     }
@@ -191,14 +198,19 @@ export default function StatistiquesAvanceesPage() {
   // TPE (seulement des étiquettes posées sur un dessin) : la « chaleur » ici
   // vient de l'intensité de la couleur selon le total du joueur, pas d'une
   // position sur la patinoire. ----
+  const goalsByKey = useMemo(
+    () => new Map(goalRows.map((r) => [`${r.player_id}|${r.game_id}`, r.goals])),
+    [goalRows]
+  );
   const playerHeat = useMemo(() => {
     const byPlayer = new Map<
       string,
-      { shots: number; xg: number; xgFor: number; xgAgainst: number; toiSeconds: number; toiGames: number; faceoffsWon: number; faceoffsLost: number; games: number }
+      { shots: number; goals: number; xg: number; xgFor: number; xgAgainst: number; toiSeconds: number; toiGames: number; faceoffsWon: number; faceoffsLost: number; games: number }
     >();
     for (const a of filteredStats) {
-      const cur = byPlayer.get(a.player_id) ?? { shots: 0, xg: 0, xgFor: 0, xgAgainst: 0, toiSeconds: 0, toiGames: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
+      const cur = byPlayer.get(a.player_id) ?? { shots: 0, goals: 0, xg: 0, xgFor: 0, xgAgainst: 0, toiSeconds: 0, toiGames: 0, faceoffsWon: 0, faceoffsLost: 0, games: 0 };
       cur.shots += a.shots_on_goal ?? 0;
+      cur.goals += goalsByKey.get(`${a.player_id}|${a.game_id}`) ?? 0;
       cur.xg += a.xg ?? 0;
       cur.xgFor += a.on_ice_xg_for ?? 0;
       cur.xgAgainst += a.on_ice_xg_against ?? 0;
@@ -220,6 +232,7 @@ export default function StatistiquesAvanceesPage() {
         return {
           player: p,
           shots: t.shots,
+          goals: t.goals,
           xg,
           toiSeconds: t.toiGames > 0 ? t.toiSeconds / t.toiGames : null,
           faceoffsWon: t.faceoffsWon,
@@ -247,7 +260,7 @@ export default function StatistiquesAvanceesPage() {
       maxShotsD: maxShots(defense),
       maxXgD: maxXg(defense),
     };
-  }, [filteredStats, players, showCallUps, xgMode]);
+  }, [filteredStats, players, showCallUps, xgMode, goalsByKey]);
 
   // ---- Carte de chaleur collective des mises au jeu — reproduit le
   // diagramme « Face-Offs by zones » du rapport, cumulé sur les matchs
@@ -368,6 +381,7 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label="Tirs %" k="shotPct" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label={xgLabel} k="xg" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="TOI moy." k="toi" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="MAJ gagnées" k="faceoffsWon" sort={sortF} onSort={(k) => toggleSort(sortF, setSortF, k)} className="py-1.5 px-3 text-center" />
@@ -375,7 +389,7 @@ export default function StatistiquesAvanceesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortHeatRows(playerHeat.forwards, sortF).map(({ player, shots, xg, toiSeconds, faceoffsWon, faceoffPct, games }) => (
+                      {sortHeatRows(playerHeat.forwards, sortF).map(({ player, shots, goals, xg, toiSeconds, faceoffsWon, faceoffPct, games }) => (
                         <tr key={player.id} className="border-b border-slate-100 last:border-0">
                           <td className="py-1.5 pr-3 font-medium whitespace-nowrap">
                             <Link href={`/joueurs/${player.id}`} className="hover:text-gold-700 hover:underline">
@@ -384,6 +398,7 @@ export default function StatistiquesAvanceesPage() {
                           </td>
                           <td className="py-1.5 px-3 text-center text-slate-500">{games}</td>
                           <HeatCell value={shots} intensity={shots / playerHeat.maxShotsF} />
+                          <td className="py-1.5 px-3 text-center text-slate-600">{shots > 0 ? `${((goals / shots) * 100).toFixed(1)} %` : "-"}</td>
                           <HeatCell value={xg.toFixed(1)} intensity={xg / playerHeat.maxXgF} />
                           <td className="py-1.5 px-3 text-center text-slate-600">{secondsToToi(toiSeconds)}</td>
                           <HeatCell value={faceoffsWon} intensity={faceoffsWon / playerHeat.maxFaceoffsF} />
@@ -410,12 +425,13 @@ export default function StatistiquesAvanceesPage() {
                         <SortHeader label="Joueur" k="name" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 pr-3" />
                         <SortHeader label="PJ" k="games" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="Tirs au but" k="shots" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
+                        <SortHeader label="Tirs %" k="shotPct" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label={xgLabel} k="xg" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                         <SortHeader label="TOI moy." k="toi" sort={sortD} onSort={(k) => toggleSort(sortD, setSortD, k)} className="py-1.5 px-3 text-center" />
                       </tr>
                     </thead>
                     <tbody>
-                      {sortHeatRows(playerHeat.defense, sortD).map(({ player, shots, xg, toiSeconds, games }) => (
+                      {sortHeatRows(playerHeat.defense, sortD).map(({ player, shots, goals, xg, toiSeconds, games }) => (
                         <tr key={player.id} className="border-b border-slate-100 last:border-0">
                           <td className="py-1.5 pr-3 font-medium whitespace-nowrap">
                             <Link href={`/joueurs/${player.id}`} className="hover:text-gold-700 hover:underline">
@@ -424,6 +440,7 @@ export default function StatistiquesAvanceesPage() {
                           </td>
                           <td className="py-1.5 px-3 text-center text-slate-500">{games}</td>
                           <HeatCell value={shots} intensity={shots / playerHeat.maxShotsD} />
+                          <td className="py-1.5 px-3 text-center text-slate-600">{shots > 0 ? `${((goals / shots) * 100).toFixed(1)} %` : "-"}</td>
                           <HeatCell value={xg.toFixed(1)} intensity={xg / playerHeat.maxXgD} />
                           <td className="py-1.5 px-3 text-center text-slate-600">{secondsToToi(toiSeconds)}</td>
                         </tr>
