@@ -13,6 +13,7 @@ import { findTeamByOpponent, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTeams";
 import Modal from "@/components/Modal";
 import JourContent from "@/components/JourContent";
 import AbsencePopupContent from "@/components/AbsencePopupContent";
+import IndividualMeetingsPopupContent from "@/components/IndividualMeetingsPopupContent";
 import DailyReportPopupContent from "@/components/DailyReportPopupContent";
 import WeeklyThemePopupContent from "@/components/WeeklyThemePopupContent";
 import TeamBuildingPopupContent from "@/components/TeamBuildingPopupContent";
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [dailyReportPopup, setDailyReportPopup] = useState<{ existing: DailyReport | null } | null>(null);
   const [showWeeklyThemePopup, setShowWeeklyThemePopup] = useState(false);
   const [showTeamBuildingPopup, setShowTeamBuildingPopup] = useState(false);
+  const [showMeetingsPopup, setShowMeetingsPopup] = useState(false);
   const [weeklyTheme, setWeeklyTheme] = useState<string | null>(null);
   const [playedGames, setPlayedGames] = useState<Game[]>([]);
 
@@ -126,7 +128,7 @@ export default function DashboardPage() {
       // n'est « absent » d'une journée où il n'y avait rien de prévu.
       const { data: todayScheduleEvents } = await supabase
         .from("schedule_events")
-        .select("event_type, title")
+        .select("event_type, title, start_time")
         .eq("event_date", today);
 
       // Une fin de semaine sans rien de prévu (aucun match, aucun évènement à
@@ -143,6 +145,28 @@ export default function DashboardPage() {
         if (!data) {
           setShowAbsencePopup(true);
           return;
+        }
+      }
+
+      // Meetings individuels prévus aujourd'hui : dès que l'heure est arrivée et
+      // tant que rien n'est noté, on ouvre le compte rendu (une seule fois par
+      // jour — « Plus tard » le rappelle à la prochaine visite du lendemain).
+      const meetingEvents = (todayScheduleEvents ?? []).filter((e) => e.event_type === "individual_meeting" && e.start_time);
+      if (meetingEvents.length > 0 && !impliedDayOff) {
+        const first = meetingEvents.map((e) => (e.start_time as string).slice(0, 5)).sort()[0];
+        const nowHM = format(now, "HH:mm");
+        let dismissed = false;
+        try {
+          dismissed = localStorage.getItem(`ind-meetings-dismissed-${today}`) === "1";
+        } catch {}
+        if (nowHM >= first && !dismissed) {
+          const { data: todayMeetings } = await supabase
+            .from("meetings")
+            .select("topic, notes")
+            .eq("meeting_date", today)
+            .eq("meeting_type", "individual");
+          const filled = (todayMeetings ?? []).some((m) => (m.topic ?? "").trim() || (m.notes ?? "").trim());
+          if (!filled) setShowMeetingsPopup(true);
         }
       }
 
@@ -226,6 +250,8 @@ export default function DashboardPage() {
   const ourTeam = LHEQ_M17_AAA_TEAMS.find((t) => t.slug === "as-de-quebec");
   const todayPractice = todayEvents.find((e) => e.event_type === "practice");
   const todayIsDayOff = isDayOff(todayEvents);
+  const todayIndividualMeetings = todayEvents.filter((e) => e.event_type === "individual_meeting");
+  const hasMeetingCard = !todayIsDayOff && todayIndividualMeetings.length > 0;
 
   // Les matchs hors concours ne comptent pas dans la fiche : ce sont des
   // matchs préparatoires, pas des matchs de saison. Ils restent visibles dans
@@ -441,7 +467,7 @@ export default function DashboardPage() {
             </div>
           </Link>
         ) : (
-          <div className={`grid ${todayIsDayOff ? "sm:grid-cols-2" : "sm:grid-cols-3"} gap-3`}>
+          <div className={`grid ${todayIsDayOff ? "sm:grid-cols-2" : hasMeetingCard ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
             {!todayIsDayOff && (
             <button
               onClick={() => setSelectedDate(todayKey)}
@@ -451,6 +477,23 @@ export default function DashboardPage() {
               <span className="text-sm text-white font-medium">{dailyReport ? "Rempli aujourd'hui — modifier" : "Remplir maintenant"}</span>
               {dailyReport?.practice_theme && <span className="text-xs text-slate-400 truncate">{dailyReport.practice_theme}</span>}
             </button>
+            )}
+            {hasMeetingCard && (
+              <button
+                onClick={() => setShowMeetingsPopup(true)}
+                className="text-left rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-gold-400/40 transition-colors p-4 flex flex-col gap-1"
+              >
+                <span className="text-xs font-bold uppercase tracking-wide text-gold-400">🗣️ Meetings individuels</span>
+                <span className="text-sm text-white font-medium">
+                  {todayIndividualMeetings
+                    .map((e) => e.start_time?.slice(0, 5))
+                    .filter(Boolean)
+                    .join(", ")
+                    ? `Prévus à ${todayIndividualMeetings.map((e) => e.start_time?.slice(0, 5)).filter(Boolean).join(", ")}`
+                    : "Prévus aujourd'hui"}
+                </span>
+                <span className="text-xs text-slate-400">Remplir le compte rendu →</span>
+              </button>
             )}
             <Link
               href={`/jour/${todayKey}/alignement`}
@@ -612,6 +655,29 @@ export default function DashboardPage() {
             Gérer les meetings
           </Link>
         </div>
+      )}
+
+      {showMeetingsPopup && (
+        <Modal
+          onClose={() => {
+            try {
+              localStorage.setItem(`ind-meetings-dismissed-${todayStr()}`, "1");
+            } catch {}
+            setShowMeetingsPopup(false);
+          }}
+        >
+          <IndividualMeetingsPopupContent
+            date={todayStr()}
+            scheduledTimes={todayIndividualMeetings.map((e) => e.start_time?.slice(0, 5)).filter((t): t is string => !!t)}
+            onSaved={load}
+            onClose={() => {
+              try {
+                localStorage.setItem(`ind-meetings-dismissed-${todayStr()}`, "1");
+              } catch {}
+              setShowMeetingsPopup(false);
+            }}
+          />
+        </Modal>
       )}
 
       {showAbsencePopup && (
