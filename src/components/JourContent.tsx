@@ -54,9 +54,10 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [savingReport, setSavingReport] = useState(false);
   const [injuredIds, setInjuredIds] = useState<Set<string>>(new Set());
   const [knownAbsences, setKnownAbsences] = useState<Absence[]>([]);
+  const [farandoleIds, setFarandoleIds] = useState<string[]>([]);
 
   async function load() {
-    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gm }, { data: report }, { data: abs }] =
+    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gm }, { data: report }, { data: abs }, { data: far }] =
       await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
@@ -66,7 +67,9 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
         supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
         supabase.from("daily_reports").select("*").eq("report_date", date).maybeSingle(),
         supabase.from("absences").select("*").eq("absence_date", date),
+        supabase.from("farandole_assignments").select("player_ids").eq("assignment_date", date).maybeSingle(),
       ]);
+    setFarandoleIds(far?.player_ids ?? []);
     setAllPlayers(pls ?? []);
     setEvents(evts ?? []);
     setMeetings(mts ?? []);
@@ -346,6 +349,23 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
           <section className="card space-y-3">
             <h2 className="font-semibold">Horaire du jour</h2>
             <DayScheduleEditor date={date} onChanged={load} />
+          </section>
+        )}
+
+        {/* Farandole — joueurs envoyés coacher ce vendredi-là */}
+        {farandoleIds.length > 0 && (
+          <section className="card space-y-3 self-start">
+            <h2 className="font-semibold">Farandole</h2>
+            <div className="flex flex-wrap gap-2">
+              {farandoleIds
+                .map((id) => allPlayers.find((p) => p.id === id))
+                .filter((p): p is Player => !!p)
+                .map((p) => (
+                  <span key={p.id} className="rounded-full bg-gold-500 text-ink-900 px-3 py-1 text-sm font-bold">
+                    #{p.jersey_number ?? "?"} {lastName(p.full_name)}
+                  </span>
+                ))}
+            </div>
           </section>
         )}
 
