@@ -80,6 +80,21 @@ export default function FarandolePage() {
       .upsert({ assignment_date: dateKey, player_ids: newIds }, { onConflict: "assignment_date" });
   }
 
+  /** Copie la farandole d'une journée vers une autre (remplace la cible). */
+  async function replicate(fromKey: string, toKey: string) {
+    const ids = assignments[fromKey]?.player_ids ?? [];
+    if (!toKey || ids.length === 0) return;
+    const target = assignments[toKey]?.player_ids ?? [];
+    if (target.length > 0 && !window.confirm("Cette journée a déjà des joueurs. Les remplacer ?")) return;
+    setAssignments({
+      ...assignments,
+      [toKey]: { assignment_date: toKey, player_ids: [...ids], updated_at: new Date().toISOString() },
+    });
+    await supabase
+      .from("farandole_assignments")
+      .upsert({ assignment_date: toKey, player_ids: [...ids] }, { onConflict: "assignment_date" });
+  }
+
   async function exportDateImage(dateKey: string) {
     const node = exportRefs.current[dateKey];
     if (!node) return;
@@ -142,6 +157,23 @@ export default function FarandolePage() {
             <section key={dateKey} className="card space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-semibold capitalize">{format(day, "EEEE d MMMM yyyy", { locale: fr })}</h2>
+                <div className="flex items-center gap-2">
+                <select
+                  className="input text-xs"
+                  value=""
+                  disabled={assignedPlayers.length === 0}
+                  onChange={(e) => replicate(dateKey, e.target.value)}
+                  title="Copier cette farandole vers une autre journée"
+                >
+                  <option value="">📋 Répliquer vers…</option>
+                  {dates
+                    .filter((d) => format(d, "yyyy-MM-dd") !== dateKey)
+                    .map((d) => (
+                      <option key={d.toISOString()} value={format(d, "yyyy-MM-dd")}>
+                        {format(d, "EEE d MMM yyyy", { locale: fr })}
+                      </option>
+                    ))}
+                </select>
                 <button
                   type="button"
                   className="btn-secondary text-xs"
@@ -150,6 +182,7 @@ export default function FarandolePage() {
                 >
                   {exportingDate === dateKey ? "Génération..." : "⬇ Exporter en PNG"}
                 </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-3">
                 {slotValues.map((value, i) => {
