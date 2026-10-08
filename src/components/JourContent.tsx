@@ -352,23 +352,6 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
           </section>
         )}
 
-        {/* Farandole — joueurs envoyés coacher ce vendredi-là */}
-        {farandoleIds.length > 0 && (
-          <section className="card space-y-3 self-start">
-            <h2 className="font-semibold">Farandole</h2>
-            <div className="flex flex-wrap gap-2">
-              {farandoleIds
-                .map((id) => allPlayers.find((p) => p.id === id))
-                .filter((p): p is Player => !!p)
-                .map((p) => (
-                  <span key={p.id} className="rounded-full bg-gold-500 text-ink-900 px-3 py-1 text-sm font-bold">
-                    #{p.jersey_number ?? "?"} {lastName(p.full_name)}
-                  </span>
-                ))}
-            </div>
-          </section>
-        )}
-
         {/* Meeting individuel — masqué les jours de match */}
         {!game && (
           <section className="card space-y-3 self-start">
@@ -463,6 +446,23 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
       </div>
 
       <div className="space-y-6">
+        {/* Farandole — joueurs envoyés coacher ce vendredi-là */}
+        {farandoleIds.length > 0 && (
+          <section className="card space-y-3 ">
+            <h2 className="font-semibold">Farandole</h2>
+            <div className="flex flex-wrap gap-2">
+              {farandoleIds
+                .map((id) => allPlayers.find((p) => p.id === id))
+                .filter((p): p is Player => !!p)
+                .map((p) => (
+                  <span key={p.id} className="rounded-full bg-gold-500 text-ink-900 px-3 py-1 text-sm font-bold">
+                    #{p.jersey_number ?? "?"} {lastName(p.full_name)}
+                  </span>
+                ))}
+            </div>
+          </section>
+        )}
+
         {/* Alignement — absent les vendredis (jamais d'alignement ce jour-là, sauf match) */}
         {!noPractice && (
         <section className="card space-y-3">
