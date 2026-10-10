@@ -1131,19 +1131,13 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         {/* 2. Horaire de la journée */}
         {/* Sections vides masquées à l'impression : elles n'apprennent rien et
             repoussent le reste sur une deuxième page. */}
-        {(printedEvents.length > 0 || (!isGameDay && game?.bus_departure_time)) && (
+        {printedEvents.length > 0 && (
         <section className="mb-3">
           <h2 className="text-[13pt] font-black uppercase tracking-widest border-b-2 border-black pb-0.5 mb-2">
             Horaire de la journée
           </h2>
           {(
             <ul className="text-[12pt] space-y-1">
-              {!isGameDay && game?.bus_departure_time && (
-                <li className="flex gap-3">
-                  <span className="font-black w-16 shrink-0">{game.bus_departure_time.slice(0, 5)}</span>
-                  <span className="font-semibold">Départ de l&apos;autobus — Québec</span>
-                </li>
-              )}
               {printedEvents.map((e) => (
                 <li key={e.id} className="flex gap-3">
                   <span className="font-black w-16 shrink-0">{e.start_time ? e.start_time.slice(0, 5) : "—"}</span>
