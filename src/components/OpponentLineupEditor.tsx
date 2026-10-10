@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { OPPONENT_ROSTERS } from "@/lib/opponentRosters";
 import type { GameEvent } from "@/lib/types";
 
 type Slot = { n: string; name: string };
@@ -29,10 +30,12 @@ const groups: { title: string; keys: string[][] }[] = [
 export default function OpponentLineupEditor({
   gameId,
   opponentName,
+  teamSlug,
   events,
 }: {
   gameId: string;
   opponentName: string;
+  teamSlug?: string;
   events: GameEvent[];
 }) {
   const supabase = createClient();
@@ -54,8 +57,8 @@ export default function OpponentLineupEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
 
-  // Numéro → nom, d'après les évènements adverses de la feuille de match.
-  const known = new Map<string, string>();
+  // Numéro → nom : effectif de l'équipe (opponentRosters.ts), puis évènements adverses de la feuille de match.
+  const known = new Map<string, string>(Object.entries((teamSlug && OPPONENT_ROSTERS[teamSlug]) || {}));
   for (const e of events) {
     if (e.side !== "opponent") continue;
     if (e.jersey_number != null && e.player_name) known.set(String(e.jersey_number), e.player_name);

@@ -737,6 +737,7 @@ export default function GameDetailPage() {
       <OpponentLineupEditor
         gameId={game.id}
         opponentName={findTeamByOpponent(game.opponent)?.name ?? game.opponent}
+        teamSlug={findTeamByOpponent(game.opponent)?.slug}
         events={events}
       />
 
