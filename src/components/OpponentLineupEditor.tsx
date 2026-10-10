@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { OPPONENT_ROSTERS } from "@/lib/opponentRosters";
+import { isSecondYear } from "@/lib/secondYearPlayers";
 import type { GameEvent } from "@/lib/types";
 
 type Slot = { n: string; name: string };
@@ -116,6 +117,11 @@ export default function OpponentLineupEditor({
                       value={s.name}
                       onChange={(e) => patch(key, { name: e.target.value })}
                     />
+                    {isSecondYear(teamSlug, s.name || auto) && (
+                      <span className="shrink-0 rounded bg-gold-500 px-1 text-[10px] font-black text-ink-900" title="Joueur de 2e année">
+                        2e
+                      </span>
+                    )}
                   </div>
                 );
               })}

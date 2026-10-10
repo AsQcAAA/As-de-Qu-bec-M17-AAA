@@ -8,6 +8,7 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
 
 const emptyForm = { wins: "", losses: "", otl_losses: "", last5: "", notes: "" };
@@ -225,6 +226,56 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         </section>
       )}
 
+      {!loading && (
+        <section className="card space-y-2">
+          <h2 className="font-semibold">Joueurs de 2e année</h2>
+          {(SECOND_YEAR_PLAYERS[teamSlug] ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">Aucun joueur de 2e année dans cette équipe.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b">
+                    <th className="py-1.5 pr-4">Joueur</th>
+                    <th className="py-1.5 pr-4 w-14">MJ</th>
+                    <th className="py-1.5 pr-4 w-14">B</th>
+                    <th className="py-1.5 pr-4 w-14">A</th>
+                    <th className="py-1.5 pr-4 w-14">PTS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SECOND_YEAR_PLAYERS[teamSlug]
+                    .slice()
+                    .sort((a, b) => (a.goalie ? 1 : 0) - (b.goalie ? 1 : 0) || (b.g ?? 0) + (b.a ?? 0) - ((a.g ?? 0) + (a.a ?? 0)))
+                    .map((p) => (
+                      <tr key={p.name} className="border-b last:border-0">
+                        <td className="py-1.5 pr-4">
+                          {p.goalie && <span className="mr-1.5 rounded bg-ink-800 text-white text-[10px] font-black px-1">G</span>}
+                          {p.name}
+                          {p.note && <span className="text-xs text-slate-500"> ({p.note})</span>}
+                        </td>
+                        <td className="py-1.5 pr-4">{p.gp}</td>
+                        {p.goalie ? (
+                          <td className="py-1.5 pr-4 font-semibold" colSpan={3}>
+                            Fiche {p.record} · Moy. {p.gaa?.toFixed(2)}
+                          </td>
+                        ) : (
+                          <>
+                            <td className="py-1.5 pr-4">{p.g}</td>
+                            <td className="py-1.5 pr-4">{p.a}</td>
+                            <td className="py-1.5 pr-4 font-bold">{(p.g ?? 0) + (p.a ?? 0)}</td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs text-slate-500">Statistiques de la saison 2025-26 (LHEQ, saison régulière).</p>
+        </section>
+      )}
+
       {!loading && history.length > 0 && (
         <section className="card space-y-3">
           <h2 className="font-semibold">Tous les affrontements ({history.length})</h2>
@@ -338,7 +389,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     {theirScorers.map((p) => (
                       <tr key={p.name} className="border-b last:border-0">
                         <td className="py-2 pr-4 font-bold">{p.jersey ?? "-"}</td>
-                        <td className="py-2 pr-4">{p.name}</td>
+                        <td className="py-2 pr-4">
+                          {p.name}
+                          {isSecondYear(teamSlug, p.name) && (
+                            <span className="ml-2 badge bg-gold-100 text-gold-800" title="Joueur de 2e année">2e année</span>
+                          )}
+                        </td>
                         <td className="py-2 pr-4">{p.goals}</td>
                         <td className="py-2 pr-4">{p.assists}</td>
                         <td className="py-2 pr-4 font-bold">{p.points}</td>
