@@ -170,25 +170,55 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         <section className="card space-y-2">
           <h2 className="font-semibold">Dernier match face à cette équipe</h2>
           {lastGame ? (
-            <Link
-              href={`/resultats/${lastGame.id}`}
-              className="flex items-center justify-between gap-3 flex-wrap rounded-lg border border-slate-200 hover:border-gold-400 px-3 py-2 transition-colors"
-            >
-              <span>
-                <span className="block font-semibold">{matchupLabel(lastGame, team.name)}</span>
-                <span className="block text-sm text-slate-500 capitalize">
-                  {format(parseISO(lastGame.game_date), "EEEE d MMMM yyyy", { locale: fr })}
-                  {lastGame.location ? ` — ${lastGame.location}` : ""}
-                </span>
-              </span>
-              <span className="flex items-center gap-2">
-                {lastGame.result && <span className={`badge ${RESULT_COLOR[lastGame.result]}`}>{RESULT_LABEL[lastGame.result]}</span>}
-                <span className="text-lg font-black">
-                  {lastGame.goals_for ?? "-"}–{lastGame.goals_against ?? "-"}
-                </span>
-                <span className="text-sm text-ink-800 font-medium">Voir le match →</span>
-              </span>
-            </Link>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="font-semibold">{matchupLabel(lastGame, team.name)}</div>
+                  <div className="text-sm text-slate-500 capitalize">
+                    {format(parseISO(lastGame.game_date), "EEEE d MMMM yyyy", { locale: fr })}
+                    {lastGame.location ? ` — ${lastGame.location}` : ""}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {lastGame.result && <span className={`badge ${RESULT_COLOR[lastGame.result]}`}>{RESULT_LABEL[lastGame.result]}</span>}
+                  <span className="text-2xl font-black">
+                    {lastGame.goals_for ?? "-"}–{lastGame.goals_against ?? "-"}
+                  </span>
+                </div>
+              </div>
+              {(() => {
+                const g = lastGame;
+                const stats: { label: string; value: string }[] = [];
+                if (g.shots_on_goal_us != null || g.shots_on_goal_opponent != null)
+                  stats.push({ label: "Tirs au but", value: `${g.shots_on_goal_us ?? "-"} – ${g.shots_on_goal_opponent ?? "-"}` });
+                if (g.pp_opportunities != null)
+                  stats.push({ label: "Avantage numérique", value: `${g.pp_goals ?? 0}/${g.pp_opportunities}` });
+                if (g.pk_opportunities != null)
+                  stats.push({ label: "Désavantage numérique", value: `${g.pk_kills ?? 0}/${g.pk_opportunities} contrés` });
+                if (g.faceoffs_us_won != null && g.faceoffs_us_lost != null) {
+                  const t = g.faceoffs_us_won + g.faceoffs_us_lost;
+                  stats.push({ label: "Mises au jeu", value: t ? `${Math.round((g.faceoffs_us_won / t) * 100)} %` : "-" });
+                }
+                if (g.team_xg_us != null || g.team_xg_opponent != null)
+                  stats.push({
+                    label: "xG",
+                    value: `${g.team_xg_us?.toFixed(2) ?? "-"} – ${g.team_xg_opponent?.toFixed(2) ?? "-"}`,
+                  });
+                return stats.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {stats.map((st) => (
+                      <div key={st.label} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{st.label}</div>
+                        <div className="font-black">{st.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+              <Link href={`/resultats/${lastGame.id}`} className="btn-dark inline-block">
+                Voir le sommaire du match →
+              </Link>
+            </div>
           ) : (
             <p className="text-sm text-slate-500">Aucun match joué contre cette équipe pour l&apos;instant.</p>
           )}
