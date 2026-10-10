@@ -193,20 +193,6 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
           <div className="mt-3 text-gold-400 font-bold text-lg">As de Québec M17 AAA</div>
         </div>
 
-        {/* Jour de match : seulement « heure — Match », rien d'autre. */}
-        {game && events.some((e) => e.event_type === "game") && (
-          <div className="mb-8 space-y-1.5">
-            {events
-              .filter((e) => e.event_type === "game")
-              .map((e) => (
-                <div key={e.id} className="flex gap-4 text-lg">
-                  <span className="font-mono text-gold-400 w-16">{e.start_time?.slice(0, 5) ?? "--:--"}</span>
-                  <span>{EVENT_TYPE_LABEL[e.event_type]}</span>
-                </div>
-              ))}
-          </div>
-        )}
-
         {/* Le rappel n'a pas d'heure : il sort de la liste chronologique pour
             son propre bloc, sous l'horaire. */}
         {!game && (events.length > 0 || individualMeetings.length > 0) && (
