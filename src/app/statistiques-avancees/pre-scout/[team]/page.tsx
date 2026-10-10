@@ -76,7 +76,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             (g.result != null || g.game_date < todayKey)
         ) ?? null
       );
-      setHistory((allGames ?? []).filter((g) => matchesOpponent(g.opponent, teamName)).slice(0, 3));
+      setHistory((allGames ?? []).filter((g) => findTeamByOpponent(g.opponent)?.slug === teamSlug || matchesOpponent(g.opponent, teamName)).sort((a, b) => a.game_date.localeCompare(b.game_date)));
       // On ne garde que les buts marqués contre NOUS par cette équipe : un même
       // évènement adverse appartient au match, donc au bon adversaire.
       // Les matchs hors concours sont écartés : un pointeur adverse vu en
@@ -227,25 +227,39 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
 
       {!loading && history.length > 0 && (
         <section className="card space-y-3">
-          <h2 className="font-semibold">Historique face à cette équipe (3 derniers affrontements)</h2>
+          <h2 className="font-semibold">Tous les affrontements ({history.length})</h2>
           <div className="space-y-1.5">
-            {history.map((g) => (
-              <div key={g.id} className="flex items-center justify-between text-sm border-b last:border-0 pb-1.5">
-                <span>
-                  {g.game_date} — {g.is_home ? "Domicile" : "Visiteur"}
-                </span>
-                <span className="flex items-center gap-2">
-                  {g.result && <span className={`badge ${RESULT_COLOR[g.result]}`}>{RESULT_LABEL[g.result]}</span>}
-                  <span className="text-slate-500">
-                    {g.goals_for ?? "-"}–{g.goals_against ?? "-"}
+            {history.map((g) => {
+              const played = g.result != null;
+              return (
+                <Link
+                  key={g.id}
+                  href={`/resultats/${g.id}`}
+                  className="flex items-center justify-between gap-2 text-sm border-b last:border-0 pb-1.5 hover:text-gold-700"
+                >
+                  <span className="capitalize">
+                    {format(parseISO(g.game_date), "EEE d MMM yyyy", { locale: fr })} — {g.is_home ? "Domicile" : "Visiteur"}
+                    {g.location ? ` (${g.location})` : ""}
                   </span>
-                </span>
-              </div>
-            ))}
+                  <span className="flex items-center gap-2">
+                    {played ? (
+                      <>
+                        <span className={`badge ${RESULT_COLOR[g.result!]}`}>{RESULT_LABEL[g.result!]}</span>
+                        <span className="font-bold">
+                          {g.goals_for ?? "-"}–{g.goals_against ?? "-"}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="badge bg-slate-100 text-slate-600">À venir</span>
+                    )}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
           <p className="text-xs text-slate-500">
             Fiche : {history.filter((g) => g.result === "W").length}V —{" "}
-            {history.filter((g) => g.result && g.result !== "W").length}D sur les {history.length} derniers.
+            {history.filter((g) => g.result && g.result !== "W").length}D en {history.filter((g) => g.result).length} match(s) joué(s).
           </p>
         </section>
       )}
