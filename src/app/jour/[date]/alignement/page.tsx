@@ -551,6 +551,8 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   // une pratique. Un jour de match, l'équipe joue contre l'adversaire : il n'y
   // a donc pas de camps à former, et les couleurs sont désactivées.
   const isGameDay = !!game;
+  // Feuille diffusée : un jour de match, seulement « heure — Match ».
+  const printedEvents = isGameDay ? events.filter((e) => e.event_type === "game") : events;
   const opponentTeam = game ? findTeamByOpponent(game.opponent) : undefined;
 
   // Uniforme réel porté ce match : gris+or à domicile, blanc+or à l'étranger.
@@ -1129,20 +1131,20 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         {/* 2. Horaire de la journée */}
         {/* Sections vides masquées à l'impression : elles n'apprennent rien et
             repoussent le reste sur une deuxième page. */}
-        {(events.length > 0 || game?.bus_departure_time) && (
+        {(printedEvents.length > 0 || (!isGameDay && game?.bus_departure_time)) && (
         <section className="mb-3">
           <h2 className="text-[13pt] font-black uppercase tracking-widest border-b-2 border-black pb-0.5 mb-2">
             Horaire de la journée
           </h2>
           {(
             <ul className="text-[12pt] space-y-1">
-              {game?.bus_departure_time && (
+              {!isGameDay && game?.bus_departure_time && (
                 <li className="flex gap-3">
                   <span className="font-black w-16 shrink-0">{game.bus_departure_time.slice(0, 5)}</span>
                   <span className="font-semibold">Départ de l&apos;autobus — Québec</span>
                 </li>
               )}
-              {events.map((e) => (
+              {printedEvents.map((e) => (
                 <li key={e.id} className="flex gap-3">
                   <span className="font-black w-16 shrink-0">{e.start_time ? e.start_time.slice(0, 5) : "—"}</span>
                   <span className="font-semibold">
