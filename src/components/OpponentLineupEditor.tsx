@@ -64,7 +64,7 @@ export default function OpponentLineupEditor({
   }
 
   function patch(key: string, p: Partial<Slot>) {
-    setSlots((prev) => ({ ...prev, [key]: { n: "", name: "", ...prev[key], ...p } }));
+    setSlots((prev) => ({ ...prev, [key]: { ...(prev[key] ?? { n: "", name: "" }), ...p } }));
     setStatus("idle");
   }
 
