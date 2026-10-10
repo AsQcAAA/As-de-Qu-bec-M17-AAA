@@ -5,7 +5,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
-import { RESULT_COLOR, RESULT_LABEL } from "@/lib/gameResults";
+import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
 
 const emptyForm = { wins: "", losses: "", otl_losses: "", last5: "", notes: "" };
@@ -38,6 +40,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [form, setForm] = useState(emptyForm);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [history, setHistory] = useState<Game[]>([]);
+  /** Dernier match réellement joué contre cette équipe. */
+  const [lastGame, setLastGame] = useState<Game | null>(null);
   // Pointeurs de cette équipe contre nous, compilés depuis les feuilles de match.
   const [theirScorers, setTheirScorers] = useState<
     { name: string; jersey: number | null; goals: number; assists: number; points: number }[]
@@ -63,6 +67,15 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         });
         setUpdatedAt(note.updated_at);
       }
+      // Dernier match joué : résultat connu, ou date passée (allGames est trié du plus récent au plus ancien).
+      const todayKey = format(new Date(), "yyyy-MM-dd");
+      setLastGame(
+        (allGames ?? []).find(
+          (g) =>
+            (findTeamByOpponent(g.opponent)?.slug === teamSlug || matchesOpponent(g.opponent, teamName)) &&
+            (g.result != null || g.game_date < todayKey)
+        ) ?? null
+      );
       setHistory((allGames ?? []).filter((g) => matchesOpponent(g.opponent, teamName)).slice(0, 3));
       // On ne garde que les buts marqués contre NOUS par cette équipe : un même
       // évènement adverse appartient au match, donc au bon adversaire.
@@ -152,6 +165,35 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           </span>
         )}
       </div>
+
+      {!loading && (
+        <section className="card space-y-2">
+          <h2 className="font-semibold">Dernier match face à cette équipe</h2>
+          {lastGame ? (
+            <Link
+              href={`/resultats/${lastGame.id}`}
+              className="flex items-center justify-between gap-3 flex-wrap rounded-lg border border-slate-200 hover:border-gold-400 px-3 py-2 transition-colors"
+            >
+              <span>
+                <span className="block font-semibold">{matchupLabel(lastGame, team.name)}</span>
+                <span className="block text-sm text-slate-500 capitalize">
+                  {format(parseISO(lastGame.game_date), "EEEE d MMMM yyyy", { locale: fr })}
+                  {lastGame.location ? ` — ${lastGame.location}` : ""}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                {lastGame.result && <span className={`badge ${RESULT_COLOR[lastGame.result]}`}>{RESULT_LABEL[lastGame.result]}</span>}
+                <span className="text-lg font-black">
+                  {lastGame.goals_for ?? "-"}–{lastGame.goals_against ?? "-"}
+                </span>
+                <span className="text-sm text-ink-800 font-medium">Voir le match →</span>
+              </span>
+            </Link>
+          ) : (
+            <p className="text-sm text-slate-500">Aucun match joué contre cette équipe pour l&apos;instant.</p>
+          )}
+        </section>
+      )}
 
       {!loading && history.length > 0 && (
         <section className="card space-y-3">
