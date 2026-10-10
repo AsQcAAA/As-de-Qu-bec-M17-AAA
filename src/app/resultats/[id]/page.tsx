@@ -10,6 +10,7 @@ import { RESULT_LABEL, RESULT_COLOR, matchupLabel } from "@/lib/gameResults";
 import { findTeamByOpponent, teamColor, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTeams";
 import { matchPlayer, parseGameSheet, type ParsedGameSheet } from "@/lib/gameSheet";
 import Modal from "@/components/Modal";
+import OpponentLineupEditor from "@/components/OpponentLineupEditor";
 import GameSheetImport, { type ImportDecision } from "@/components/GameSheetImport";
 import AdvancedStatsImport, { type AdvancedStatsDecision } from "@/components/AdvancedStatsImport";
 import { parsePenaltyCode } from "@/lib/penalties";
@@ -733,6 +734,12 @@ export default function GameDetailPage() {
       {/* Résumé des pointeurs — lecture seule.
           Les buts et passes viennent de la feuille de match : les saisir à la
           main ici serait redondant et risquerait de contredire l'officiel. */}
+      <OpponentLineupEditor
+        gameId={game.id}
+        opponentName={findTeamByOpponent(game.opponent)?.name ?? game.opponent}
+        events={events}
+      />
+
       <div className="card space-y-3">
         <h2 className="font-semibold">Pointeurs du match</h2>
         {scorers.length === 0 ? (
