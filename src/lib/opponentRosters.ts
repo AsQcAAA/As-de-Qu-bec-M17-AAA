@@ -214,7 +214,7 @@ export const OPPONENT_ROSTERS: Record<string, Record<string, string>> = {
     "18": "Justin Arruda-Dufresne",
     "5": "Madox Tanguay",
     "14": "Mathis Locat",
-    "22": "Maverick Roy",
+    "15": "Maverick Roy",
     "9": "Mickael Bolduc",
     "13": "Olivier Dubé",
     "10": "Sheldon Gilmore",
