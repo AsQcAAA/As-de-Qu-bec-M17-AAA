@@ -12,6 +12,7 @@ const nextConfig = {
   // en développement, absent du paquet minimal déployé).
   outputFileTracingIncludes: {
     "/api/advanced-stats/extract": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/api/league-schedule/extract": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
   },
 };
 

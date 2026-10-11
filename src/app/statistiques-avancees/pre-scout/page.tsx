@@ -5,11 +5,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LHEQ_RANKINGS, OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { recordsByOpponent, recordLabel } from "@/lib/playerStats";
+import Modal from "@/components/Modal";
+import LeagueScheduleUpdateContent from "@/components/LeagueScheduleUpdateContent";
 import type { Game } from "@/lib/types";
 
 export default function PreScoutPage() {
   const supabase = createClient();
   const [games, setGames] = useState<Game[]>([]);
+  const [showUpdate, setShowUpdate] = useState(false);
 
   useEffect(() => {
     supabase
@@ -40,6 +43,9 @@ export default function PreScoutPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button className="btn" onClick={() => setShowUpdate(true)}>
+            📅 Mettre à jour (calendrier PDF)
+          </button>
           <a href={LHEQ_RANKINGS.teams} target="_blank" rel="noreferrer" className="btn-dark">
             🏆 Classement des équipes
           </a>
@@ -84,6 +90,12 @@ export default function PreScoutPage() {
           );
         })}
       </div>
+
+      {showUpdate && (
+        <Modal onClose={() => setShowUpdate(false)}>
+          <LeagueScheduleUpdateContent onClose={() => setShowUpdate(false)} />
+        </Modal>
+      )}
     </div>
   );
 }
