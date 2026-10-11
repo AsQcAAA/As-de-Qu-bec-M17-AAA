@@ -43,6 +43,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [history, setHistory] = useState<Game[]>([]);
   /** Dernier match réellement joué contre cette équipe. */
   const [lastGame, setLastGame] = useState<Game | null>(null);
+  /** Matchs de la ligue de cette équipe (calendrier importé chaque lundi). */
+  const [leagueGames, setLeagueGames] = useState<
+    { game_date: string; home: string; away: string; home_score: number | null; away_score: number | null }[]
+  >([]);
   // Pointeurs de cette équipe contre nous, compilés depuis les feuilles de match.
   const [theirScorers, setTheirScorers] = useState<
     { name: string; jersey: number | null; goals: number; assists: number; points: number }[]
@@ -57,6 +61,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         supabase.from("games").select("*").order("game_date", { ascending: false }),
         supabase.from("game_events").select("*").eq("side", "opponent").eq("event_type", "goal"),
       ]);
+      const { data: lg } = await supabase
+        .from("league_games")
+        .select("*")
+        .or(`home.eq.${teamSlug},away.eq.${teamSlug}`)
+        .order("game_date", { ascending: true });
+      setLeagueGames(lg ?? []);
       const note = data as ScoutNote | null;
       if (note) {
         setForm({
@@ -340,6 +350,46 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">5 derniers matchs</div>
               <div className="text-lg font-black font-mono">{form.last5 || "—"}</div>
             </div>
+            {(() => {
+              const played = leagueGames.filter(
+                (g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0)
+              );
+              const last = played.slice(-5).reverse();
+              if (last.length === 0) return null;
+              const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
+              return (
+                <div className="space-y-1">
+                  {last.map((g) => {
+                    const isHome = g.home === teamSlug;
+                    const own = isHome ? g.home_score! : g.away_score!;
+                    const other = isHome ? g.away_score! : g.home_score!;
+                    const opp = isHome ? g.away : g.home;
+                    const tag = own > other ? "V" : own < other ? "D" : "N";
+                    return (
+                      <div key={`${g.game_date}-${g.home}-${g.away}`} className="flex items-center gap-2 text-sm border-b last:border-0 pb-1">
+                        <span
+                          className={`w-6 text-center rounded font-black text-xs py-0.5 ${
+                            tag === "V" ? "bg-green-100 text-green-800" : tag === "D" ? "bg-red-100 text-red-800" : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {tag}
+                        </span>
+                        <span className="text-slate-500 w-24 shrink-0 capitalize">
+                          {format(parseISO(g.game_date), "EEE d MMM", { locale: fr })}
+                        </span>
+                        <span className="flex-1 min-w-0 truncate">
+                          {isHome ? "vs" : "@"} {nameOf(opp)}
+                        </span>
+                        <span className="font-black">
+                          {own}–{other}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[11px] text-slate-400">Un pointage nul correspond à un match décidé en fusillade.</p>
+                </div>
+              );
+            })()}
           </section>
 
           {/* Leurs pointeurs contre NOUS — compilé depuis les feuilles de match,

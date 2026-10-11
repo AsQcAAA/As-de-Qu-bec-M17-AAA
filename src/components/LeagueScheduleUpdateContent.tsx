@@ -17,6 +17,7 @@ interface Extracted {
   games: number;
   played: number;
   records: TeamRecord[];
+  allGames: { date: string; home: string; away: string; homeScore: number | null; awayScore: number | null }[];
 }
 
 /**
@@ -73,7 +74,26 @@ export default function LeagueScheduleUpdateContent({ onClose, onApplied }: { on
       };
     });
     const { error: err } = await supabase.from("scout_notes").upsert(rows, { onConflict: "team_slug" });
+    // Détail match par match (pour « Derniers matchs » dans la fiche d'équipe).
+    // Si la table n'existe pas encore (migration 038), on l'indique sans bloquer.
+    const { error: gamesErr } = await supabase.from("league_games").upsert(
+      data.allGames.map((g) => ({
+        game_date: g.date,
+        home: g.home,
+        away: g.away,
+        home_score: g.homeScore,
+        away_score: g.awayScore,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: "game_date,home,away" }
+    );
     setApplying(false);
+    if (gamesErr) {
+      setError(`Fiches mises à jour, mais le détail des matchs n'a pas été enregistré (migration 038 à exécuter) : ${gamesErr.message}`);
+      setDone(true);
+      onApplied?.();
+      return;
+    }
     if (err) {
       setError(err.message);
       return;

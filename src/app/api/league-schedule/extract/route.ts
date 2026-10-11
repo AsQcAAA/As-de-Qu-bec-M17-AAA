@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucun match lu — est-ce bien le calendrier M17 AAA de la LHEQ (PDF) ?" }, { status: 422 });
     }
     const played = games.filter((g) => g.homeScore != null).length;
-    return NextResponse.json({ games: games.length, played, records: computeRecords(games) });
+    return NextResponse.json({ games: games.length, played, records: computeRecords(games), allGames: games });
   } catch (error) {
     console.error("[league-schedule/extract]", error);
     return NextResponse.json({ error: "Lecture impossible — PDF texte attendu." }, { status: 422 });
