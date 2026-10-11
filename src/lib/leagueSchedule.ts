@@ -145,8 +145,10 @@ export interface TeamRecord {
 export function computeRecords(games: LeagueGame[]): TeamRecord[] {
   const byTeam = new Map<string, TeamRecord>();
   for (const t of OPPONENT_TEAMS) byTeam.set(t.slug, { slug: t.slug, name: t.name, wins: 0, losses: 0, ties: 0, results: [] });
+  // Un « 0 - 0 » n'est jamais un vrai résultat : c'est un match pas encore saisi
+  // (ex. Piché–Albatros du 4 octobre, absent du classement officiel).
   const played = games
-    .filter((g) => g.homeScore != null && g.awayScore != null)
+    .filter((g) => g.homeScore != null && g.awayScore != null && !(g.homeScore === 0 && g.awayScore === 0))
     .sort((a, b) => a.date.localeCompare(b.date));
   const apply = (slug: string, own: number, other: number) => {
     const rec = byTeam.get(slug);
