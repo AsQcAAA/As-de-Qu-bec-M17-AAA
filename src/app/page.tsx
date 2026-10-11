@@ -14,7 +14,7 @@ import Modal from "@/components/Modal";
 import JourContent from "@/components/JourContent";
 import AbsencePopupContent from "@/components/AbsencePopupContent";
 import IndividualMeetingsPopupContent from "@/components/IndividualMeetingsPopupContent";
-import LeagueScheduleUpdateContent from "@/components/LeagueScheduleUpdateContent";
+import LeagueUpdateReminder from "@/components/LeagueUpdateReminder";
 import DailyReportPopupContent from "@/components/DailyReportPopupContent";
 import WeeklyThemePopupContent from "@/components/WeeklyThemePopupContent";
 import TeamBuildingPopupContent from "@/components/TeamBuildingPopupContent";
@@ -60,26 +60,6 @@ export default function DashboardPage() {
   const [showWeeklyThemePopup, setShowWeeklyThemePopup] = useState(false);
   const [showTeamBuildingPopup, setShowTeamBuildingPopup] = useState(false);
   const [showMeetingsPopup, setShowMeetingsPopup] = useState(false);
-  const [showLeagueUpdate, setShowLeagueUpdate] = useState(false);
-
-  // Chaque lundi, rappel de téléverser le calendrier de la ligue (pointages) :
-  // il met à jour les fiches du Pre-Scout. Une seule fois par lundi.
-  useEffect(() => {
-    const now = new Date();
-    if (now.getDay() !== 1) return;
-    const key = `league-update-dismissed-${format(now, "yyyy-MM-dd")}`;
-    try {
-      if (localStorage.getItem(key) === "1") return;
-    } catch {}
-    setShowLeagueUpdate(true);
-  }, []);
-
-  function closeLeagueUpdate() {
-    try {
-      localStorage.setItem(`league-update-dismissed-${format(new Date(), "yyyy-MM-dd")}`, "1");
-    } catch {}
-    setShowLeagueUpdate(false);
-  }
   const [weeklyTheme, setWeeklyTheme] = useState<string | null>(null);
   const [playedGames, setPlayedGames] = useState<Game[]>([]);
 
@@ -295,6 +275,7 @@ export default function DashboardPage() {
       {/* Pense-bête des trois téléversements d'après-match — posé à droite,
           sans jamais couvrir la navigation. */}
       <PostGameUploadsReminder today={todayKey} />
+      <LeagueUpdateReminder />
 
       {/* Nouvelles consultations relevées dans la feuille de la clinique. */}
       <PhysioAlert />
@@ -678,11 +659,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {showLeagueUpdate && (
-        <Modal onClose={closeLeagueUpdate}>
-          <LeagueScheduleUpdateContent onClose={closeLeagueUpdate} onApplied={closeLeagueUpdate} />
-        </Modal>
-      )}
 
       {showMeetingsPopup && (
         <Modal
