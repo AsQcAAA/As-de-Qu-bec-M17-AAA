@@ -699,6 +699,11 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                   📄 Feuille de match
                 </Link>
               )}
+              {isGameDay && opponentTeam && (
+                <Link href={`/statistiques-avancees/pre-scout/${opponentTeam.slug}`} className="btn-secondary">
+                  🔎 Pre-Scout
+                </Link>
+              )}
               <button className="btn" onClick={saveAll} disabled={savingAll}>
                 {savingAll ? "Enregistrement..." : "💾 Enregistrer"}
               </button>

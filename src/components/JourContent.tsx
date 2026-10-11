@@ -247,6 +247,11 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
               📄 Détails du match
             </Link>
           )}
+          {game && findTeamByOpponent(game.opponent) && (
+            <Link href={`/statistiques-avancees/pre-scout/${findTeamByOpponent(game.opponent)!.slug}`} className="btn-dark">
+              🔎 Pre-Scout
+            </Link>
+          )}
           {/* Export direct de la feuille d'alignement, sans passer par l'onglet
               d'alignement du match — ouvre un nouvel onglet qui imprime dès
               que l'alignement est chargé (voir ?print=1 sur cette page). */}
