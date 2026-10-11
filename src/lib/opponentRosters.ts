@@ -378,3 +378,21 @@ export const OPPONENT_ROSTERS: Record<string, Record<string, string>> = {
     "91": "Zachary Pomerleau Lamothe",
   },
 };
+
+function normName(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/** Numéro de chandail d'un joueur d'après son nom, s'il figure dans l'effectif de l'équipe. */
+export function jerseyOf(teamSlug: string | undefined, name: string): string | null {
+  if (!teamSlug) return null;
+  const target = normName(name);
+  for (const [num, n] of Object.entries(OPPONENT_ROSTERS[teamSlug] ?? {})) {
+    if (normName(n) === target) return num;
+  }
+  return null;
+}

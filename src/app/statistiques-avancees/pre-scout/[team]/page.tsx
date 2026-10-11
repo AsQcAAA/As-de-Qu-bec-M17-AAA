@@ -9,6 +9,8 @@ import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
+import { jerseyOf } from "@/lib/opponentRosters";
+import { LEAGUE_GOALIES, LEAGUE_SCORERS, LEADERS_UPDATED } from "@/lib/leagueLeaders";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
 
 const emptyForm = { wins: "", losses: "", otl_losses: "", last5: "", notes: "" };
@@ -246,6 +248,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-slate-500 border-b">
+                    <th className="py-1.5 pr-4 w-12">#</th>
                     <th className="py-1.5 pr-4">Joueur</th>
                     <th className="py-1.5 pr-4 w-14">MJ</th>
                     <th className="py-1.5 pr-4 w-14">B</th>
@@ -259,6 +262,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     .sort((a, b) => (a.goalie ? 1 : 0) - (b.goalie ? 1 : 0) || (b.g ?? 0) + (b.a ?? 0) - ((a.g ?? 0) + (a.a ?? 0)))
                     .map((p) => (
                       <tr key={p.name} className="border-b last:border-0">
+                        <td className="py-1.5 pr-4 font-bold">{jerseyOf(teamSlug, p.name) ?? "-"}</td>
                         <td className="py-1.5 pr-4">
                           {p.goalie && <span className="mr-1.5 rounded bg-ink-800 text-white text-[10px] font-black px-1">G</span>}
                           {p.name}
@@ -284,6 +288,89 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           )}
           <p className="text-xs text-slate-500">Statistiques de la saison 2025-26 (LHEQ, saison régulière).</p>
         </section>
+      )}
+
+      {!loading && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <section className="card space-y-2">
+            <h2 className="font-semibold">Meilleurs pointeurs</h2>
+            {(LEAGUE_SCORERS[teamSlug] ?? []).length === 0 ? (
+              <p className="text-sm text-slate-500">Aucun joueur de cette équipe dans le haut du classement des pointeurs.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b">
+                    <th className="py-1.5 pr-3 w-10">#</th>
+                    <th className="py-1.5 pr-3">Joueur</th>
+                    <th className="py-1.5 pr-3 w-10">MJ</th>
+                    <th className="py-1.5 pr-3 w-10">B</th>
+                    <th className="py-1.5 pr-3 w-10">A</th>
+                    <th className="py-1.5 w-12">PTS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {LEAGUE_SCORERS[teamSlug]
+                    .slice()
+                    .sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g)
+                    .map((p) => (
+                      <tr key={p.name} className="border-b last:border-0">
+                        <td className="py-1.5 pr-3 font-bold">{jerseyOf(teamSlug, p.name) ?? "-"}</td>
+                        <td className="py-1.5 pr-3">
+                          {p.name}
+                          {isSecondYear(teamSlug, p.name) && (
+                            <span className="ml-2 badge bg-gold-100 text-gold-800">2e année</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-3">{p.gp}</td>
+                        <td className="py-1.5 pr-3">{p.g}</td>
+                        <td className="py-1.5 pr-3">{p.a}</td>
+                        <td className="py-1.5 font-bold">{p.g + p.a}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+            <p className="text-xs text-slate-500">Classement de la ligue au {LEADERS_UPDATED} — seuls les joueurs du haut du classement sont listés.</p>
+          </section>
+
+          <section className="card space-y-2">
+            <h2 className="font-semibold">Gardiens</h2>
+            {(LEAGUE_GOALIES[teamSlug] ?? []).length === 0 ? (
+              <p className="text-sm text-slate-500">Aucun gardien de cette équipe dans le classement.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b">
+                    <th className="py-1.5 pr-3 w-10">#</th>
+                    <th className="py-1.5 pr-3">Gardien</th>
+                    <th className="py-1.5 pr-3 w-10">MJ</th>
+                    <th className="py-1.5 pr-3 w-10">V</th>
+                    <th className="py-1.5 pr-3 w-10">D</th>
+                    <th className="py-1.5 w-12">DP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {LEAGUE_GOALIES[teamSlug].map((g) => (
+                    <tr key={g.name} className="border-b last:border-0">
+                      <td className="py-1.5 pr-3 font-bold">{jerseyOf(teamSlug, g.name) ?? "-"}</td>
+                      <td className="py-1.5 pr-3">
+                        {g.name}
+                        {isSecondYear(teamSlug, g.name) && (
+                          <span className="ml-2 badge bg-gold-100 text-gold-800">2e année</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3">{g.gp}</td>
+                      <td className="py-1.5 pr-3">{g.w}</td>
+                      <td className="py-1.5 pr-3">{g.l}</td>
+                      <td className="py-1.5">{g.otl}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="text-xs text-slate-500">Classement des gardiens de la ligue au {LEADERS_UPDATED}.</p>
+          </section>
+        </div>
       )}
 
       {!loading && history.length > 0 && (
