@@ -322,45 +322,23 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <section className="card space-y-3">
             <h2 className="font-semibold">Fiche globale</h2>
             <p className="text-xs text-slate-500">
-              Saisie manuelle en attendant le début de la saison (aucune API publique LHEQ) — tu pourras
-              recopier ces chiffres depuis leur Cahier d'équipe ou la page Statistiques LHEQ.
+              Mise à jour automatique chaque lundi, à partir du calendrier de la ligue (PDF).
             </p>
             <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="label">Victoires</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.wins}
-                  onChange={(e) => setForm({ ...form, wins: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Défaites</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.losses}
-                  onChange={(e) => setForm({ ...form, losses: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Déf. (prol.)</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.otl_losses}
-                  onChange={(e) => setForm({ ...form, otl_losses: e.target.value })}
-                />
-              </div>
+              {[
+                ["Victoires", form.wins],
+                ["Défaites", form.losses],
+                ["Déf. (prol.)", form.otl_losses],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+                  <div className="text-xl font-black">{value || "—"}</div>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="label">5 derniers matchs (ex: V-V-D-V-DP)</label>
-              <input
-                className="input"
-                value={form.last5}
-                onChange={(e) => setForm({ ...form, last5: e.target.value })}
-              />
+            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">5 derniers matchs</div>
+              <div className="text-lg font-black font-mono">{form.last5 || "—"}</div>
             </div>
           </section>
 
