@@ -363,6 +363,15 @@ export default function DashboardPage() {
         {todayGame ? (
           // Les jours de match, la bannière remplace la grille de raccourcis :
           // elle doit donc mener elle-même à l'alignement du jour.
+          <div className="relative">
+          {todayOpponentTeam && (
+            <Link
+              href={`/statistiques-avancees/pre-scout/${todayOpponentTeam.slug}`}
+              className="absolute right-4 top-4 z-10 rounded-full border border-gold-400/50 bg-ink-900/90 px-4 py-2 text-xs sm:text-sm font-black uppercase tracking-wide text-gold-300 shadow-lg backdrop-blur hover:border-gold-400 hover:text-gold-200"
+            >
+              🔎 Pre-Scout
+            </Link>
+          )}
           <Link
             // Une fois le résultat connu, l'alignement n'a plus d'intérêt :
             // la bannière mène au résumé du match.
@@ -468,6 +477,7 @@ export default function DashboardPage() {
               {todayGame.result ? "📄 Résumé du match →" : "🏒 Faire l'alignement du match →"}
             </div>
           </Link>
+          </div>
         ) : (
           <div className={`grid ${todayIsDayOff ? "sm:grid-cols-2" : hasMeetingCard ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
             {!todayIsDayOff && (
