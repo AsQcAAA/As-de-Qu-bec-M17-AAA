@@ -459,6 +459,9 @@ export default function StatistiquesAvanceesPage() {
             </div>
           </section>
 
+          {/* Gardiens : juste sous les défenseurs. */}
+          <GoalieAdvancedSection games={filteredGames} goalies={goalies} rows={goalieRows} />
+
           {/* Carte de chaleur collective — reproduit le diagramme « Face-Offs
               by zones » du rapport, cumulé sur les matchs cochés ci-dessus, ou
               un seul match choisi dans le menu déroulant. */}
@@ -501,8 +504,6 @@ export default function StatistiquesAvanceesPage() {
           Ouvrir TPE →
         </a>
       </div>
-
-      <GoalieAdvancedSection games={filteredGames} goalies={goalies} rows={goalieRows} />
 
       {/* Rapports PDF déjà téléversés, consultables directement d'ici. */}
       <section className="card space-y-2">
