@@ -79,20 +79,31 @@ export function computeSpecialTeams(penalties: PenaltyLike[], goals: GoalLike[])
 
   const windows = effective.map((p) => {
     const start = timeToSeconds(p.time);
+    const minutes = parsePenaltyCode(p.code ?? "").minutes;
     return {
       side: p.side,
       period: Number(p.period ?? 0),
       start,
-      end: start + parsePenaltyCode(p.code ?? "").minutes * 60,
+      end: start + minutes * 60,
+      minor: minutes === 2,
     };
   });
 
   const shorthanded = (side: "us" | "opponent", period: number, t: number) =>
     windows.some((w) => w.side === side && w.period === period && t >= w.start && t < w.end);
 
+  // Règle 3 : une punition MINEURE prend fin dès que l'équipe en supériorité
+  // marque. Sans ça, deux buts marqués pendant la même punition de 2 minutes
+  // comptaient pour deux buts en avantage numérique sur une seule occasion.
+  // Les buts sont traités dans l'ordre du temps pour que chaque but ferme la
+  // punition qu'il vient de « purger » avant d'évaluer le suivant.
+  const ordered = [...goals].sort(
+    (a, b) => Number(a.period ?? 0) - Number(b.period ?? 0) || timeToSeconds(a.time) - timeToSeconds(b.time)
+  );
+
   let ppGoals = 0;
   let ppGoalsAgainst = 0;
-  for (const g of goals) {
+  for (const g of ordered) {
     const period = Number(g.period ?? 0);
     const t = timeToSeconds(g.time);
     const usShort = shorthanded("us", period, t);
@@ -100,6 +111,15 @@ export function computeSpecialTeams(penalties: PenaltyLike[], goals: GoalLike[])
     if (usShort === themShort) continue; // forces égales (ou 4 contre 4)
     if (g.side === "us" && themShort) ppGoals += 1;
     if (g.side === "opponent" && usShort) ppGoalsAgainst += 1;
+
+    // Le but ferme la plus ancienne mineure de l'équipe pénalisée. On laisse la
+    // fenêtre ouverte une seconde de plus pour que goalSituation() reconnaisse
+    // encore ce but comme un but en avantage numérique.
+    const penalizedSide = g.side === "us" ? "opponent" : "us";
+    const open = windows
+      .filter((w) => w.side === penalizedSide && w.period === period && w.minor && t >= w.start && t < w.end)
+      .sort((a, b) => a.start - b.start)[0];
+    if (open) open.end = t + 1;
   }
 
   const ppOpportunities = effective.filter((p) => p.side === "opponent").length;
@@ -110,7 +130,7 @@ export function computeSpecialTeams(penalties: PenaltyLike[], goals: GoalLike[])
     ppOpportunities,
     pkKills: pkOpportunities - ppGoalsAgainst,
     pkOpportunities,
-    windows,
+    windows: windows.map(({ side, period, start, end }) => ({ side, period, start, end })),
   };
 }
 
