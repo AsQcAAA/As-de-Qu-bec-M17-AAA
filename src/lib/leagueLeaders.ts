@@ -16,14 +16,17 @@ export interface ScorerLine {
 export interface GoalieLine {
   name: string;
   gp: number;
-  w: number;
-  l: number;
+  /** Fiche : null quand la capture ne la donnait pas pour ce gardien. */
+  w: number | null;
+  l: number | null;
   /** Défaites en prolongation / fusillade */
-  otl: number;
+  otl: number | null;
+  /** Moyenne de buts alloués */
+  gaa: number;
 }
 
 const s = (name: string, gp: number, g: number, a: number): ScorerLine => ({ name, gp, g, a });
-const k = (name: string, gp: number, w: number, l: number, otl = 0): GoalieLine => ({ name, gp, w, l, otl });
+const k = (name: string, gp: number, gaa: number, w: number | null = null, l: number | null = null, otl: number | null = null): GoalieLine => ({ name, gp, w, l, otl, gaa });
 
 export const LEAGUE_SCORERS: Record<string, ScorerLine[]> = {
   "rousseau-royal-lav-mtl": [
@@ -74,21 +77,23 @@ export const LEAGUE_SCORERS: Record<string, ScorerLine[]> = {
 };
 
 export const LEAGUE_GOALIES: Record<string, GoalieLine[]> = {
-  "canam-ba": [k("Thomas Giguère", 8, 6, 1)],
-  "rousseau-royal-lav-mtl": [k("Noah Laporte", 6, 5, 1)],
-  piche: [k("Alexis Poulin", 3, 3, 0), k("Andrew Mallette", 3, 3, 0)],
-  "gaulois-ric": [k("Anthony Perron", 3, 3, 0)],
-  "corsaires-pointe-levy": [k("Antoine Charest", 4, 3, 1), k("Alexandre Talbot", 3, 1, 1, 1)],
-  "dynamiques-ccl": [k("Benjamin Carreau", 2, 2, 0), k("Charles Mathieu", 3, 2, 0, 1)],
-  "conquerants-bl": [k("David Dumas", 2, 2, 0), k("Alexandre Leblanc", 2, 1, 1)],
-  "pionniers-lan": [k("Jacob Lavallee", 3, 2, 1)],
-  "seigneurs-mi": [k("Loic Belzile", 3, 2, 1)],
-  "lions-lsl": [k("Simon D'Andrea", 4, 2, 1)],
-  "select-du-nord": [k("Zachary Bourque", 3, 2, 1), k("Loic Cabana", 4, 2, 2)],
-  "citadelles-rn": [k("Gabriel Morin", 3, 2, 0, 1)],
-  "espoirs-sag-lsj": [k("Nathan Cleary", 3, 1, 2), k("Olivier Huet", 3, 1, 2)],
-  "blizzard-ssf": [k("Lincoln IV Anderson", 2, 1, 1)],
-  "harfangs-sherbrooke": [k("Megan Savard", 1, 1, 0), k("Caleb Dumas", 2, 1, 1)],
-  "estacades-mauricie": [k("Ethan Beaudry", 4, 1, 3), k("Maxence Chouinard", 3, 1, 2)],
-  "senateurs-out": [k("Théo Dupuis", 3, 1, 2), k("Marc-Etienne Perreault", 2, 1, 1)],
+  "canam-ba": [k("Thomas Giguère", 8, 2.41, 6, 1, 0), k("Matthew McCrea", 4, 4.25)],
+  "rousseau-royal-lav-mtl": [k("Noah Laporte", 6, 2.35, 5, 1, 0), k("Gianni Ricci", 2, 3.21)],
+  piche: [k("Alexis Poulin", 3, 1.34, 3, 0, 0), k("Andrew Mallette", 3, 2.67, 3, 0, 0)],
+  "gaulois-ric": [k("Anthony Perron", 3, 1.67, 3, 0, 0), k("Laurent Martel-Latanasuk", 2, 2.03)],
+  "corsaires-pointe-levy": [k("Antoine Charest", 4, 2.0, 3, 1, 0), k("Alexandre Talbot", 3, 3.62, 1, 1, 1)],
+  "dynamiques-ccl": [k("Benjamin Carreau", 2, 0.5, 2, 0, 0), k("Charles Mathieu", 3, 1.67, 2, 0, 1)],
+  "conquerants-bl": [k("David Dumas", 2, 1.0, 2, 0, 0), k("Alexandre Leblanc", 2, 4.22, 1, 1, 0)],
+  "pionniers-lan": [k("Jacob Lavallee", 3, 2.12, 2, 1, 0), k("Mattis Theriault", 2, 2.82)],
+  "seigneurs-mi": [k("Loic Belzile", 3, 2.19, 2, 1, 0), k("Owyn Lapointe", 2, 2.03)],
+  "lions-lsl": [k("Simon D'Andrea", 4, 2.22, 2, 1, 0), k("Lucas Elias", 3, 4.34)],
+  "select-du-nord": [k("Zachary Bourque", 3, 3.01, 2, 1, 0), k("Loic Cabana", 4, 3.86, 2, 2, 0)],
+  "citadelles-rn": [k("Gabriel Morin", 3, 1.4, 2, 0, 1), k("Étienne Jarret", 3, 3.99)],
+  "espoirs-sag-lsj": [k("Nathan Cleary", 3, 1.98, 1, 2, 0), k("Olivier Huet", 3, 4.34, 1, 2, 0)],
+  "blizzard-ssf": [k("Lincoln IV Anderson", 2, 2.0, 1, 1, 0), k("Charles-Olivier Guénette", 3, 5.68)],
+  "harfangs-sherbrooke": [k("Megan Savard", 1, 2.0, 1, 0, 0), k("Caleb Dumas", 2, 3.07, 1, 1, 0)],
+  "estacades-mauricie": [k("Ethan Beaudry", 4, 3.26, 1, 3, 0), k("Maxence Chouinard", 3, 3.34, 1, 2, 0)],
+  "senateurs-out": [k("Théo Dupuis", 3, 3.37, 1, 2, 0), k("Marc-Etienne Perreault", 2, 4.35, 1, 1, 0)],
+  albatros: [k("Justin Raymond", 5, 3.68, 0, 4, 1), k("Felix Berube", 1, 8.01)],
+  "grenadiers-lsl": [k("Sheldon Hills-Lefebvre", 3, 6.11), k("Kayson-Francesco Bertrand-Saldana", 3, 4.6)],
 };

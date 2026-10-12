@@ -346,11 +346,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     <th className="py-1.5 pr-3 w-10">MJ</th>
                     <th className="py-1.5 pr-3 w-10">V</th>
                     <th className="py-1.5 pr-3 w-10">D</th>
-                    <th className="py-1.5 w-12">DP</th>
+                    <th className="py-1.5 pr-3 w-10">DP</th>
+                    <th className="py-1.5 w-14">MOY</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {LEAGUE_GOALIES[teamSlug].map((g) => (
+                  {LEAGUE_GOALIES[teamSlug].slice().sort((a, b) => b.gp - a.gp).map((g) => (
                     <tr key={g.name} className="border-b last:border-0">
                       <td className="py-1.5 pr-3 font-bold">{jerseyOf(teamSlug, g.name) ?? "-"}</td>
                       <td className="py-1.5 pr-3">
@@ -360,9 +361,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                         )}
                       </td>
                       <td className="py-1.5 pr-3">{g.gp}</td>
-                      <td className="py-1.5 pr-3">{g.w}</td>
-                      <td className="py-1.5 pr-3">{g.l}</td>
-                      <td className="py-1.5">{g.otl}</td>
+                      <td className="py-1.5 pr-3">{g.w ?? "-"}</td>
+                      <td className="py-1.5 pr-3">{g.l ?? "-"}</td>
+                      <td className="py-1.5 pr-3">{g.otl ?? "-"}</td>
+                      <td className="py-1.5 font-bold">{g.gaa.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
