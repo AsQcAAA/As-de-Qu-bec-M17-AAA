@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { OPPONENT_ROSTERS } from "@/lib/opponentRosters";
 import { isSecondYear } from "@/lib/secondYearPlayers";
+import { titleCase } from "@/lib/players";
 import type { GameEvent } from "@/lib/types";
 
 type Slot = { n: string; name: string };
@@ -62,9 +63,10 @@ export default function OpponentLineupEditor({
   const known = new Map<string, string>(Object.entries((teamSlug && OPPONENT_ROSTERS[teamSlug]) || {}));
   for (const e of events) {
     if (e.side !== "opponent") continue;
-    if (e.jersey_number != null && e.player_name) known.set(String(e.jersey_number), e.player_name);
-    if (e.assist1_jersey != null && e.assist1_name) known.set(String(e.assist1_jersey), e.assist1_name);
-    if (e.assist2_jersey != null && e.assist2_name) known.set(String(e.assist2_jersey), e.assist2_name);
+    // L'effectif enregistré fait foi ; la feuille de match ne sert qu'à combler un manque.
+    if (e.jersey_number != null && e.player_name && !known.has(String(e.jersey_number))) known.set(String(e.jersey_number), e.player_name);
+    if (e.assist1_jersey != null && e.assist1_name && !known.has(String(e.assist1_jersey))) known.set(String(e.assist1_jersey), e.assist1_name);
+    if (e.assist2_jersey != null && e.assist2_name && !known.has(String(e.assist2_jersey))) known.set(String(e.assist2_jersey), e.assist2_name);
   }
 
   function patch(key: string, p: Partial<Slot>) {
@@ -76,7 +78,9 @@ export default function OpponentLineupEditor({
     setStatus("saving");
     const cleaned: Slots = {};
     for (const [k, v] of Object.entries(slots)) {
-      if (v.n.trim() || v.name.trim()) cleaned[k] = { n: v.n.trim(), name: v.name.trim() };
+      if (!v.n.trim()) continue;
+      const resolved = known.get(v.n.trim());
+      cleaned[k] = { n: v.n.trim(), name: resolved ? titleCase(resolved) : "" };
     }
     const { error } = await supabase
       .from("game_opponent_lineups")
@@ -91,7 +95,7 @@ export default function OpponentLineupEditor({
       <div>
         <h2 className="font-semibold">Alignement adverse — {opponentName}</h2>
         <p className="text-xs text-slate-500">
-          Entre les numéros après le match. Le nom se remplit seul quand le joueur figure sur la feuille de match.
+          Entre les numéros après le match : le nom s'affiche tout seul, d'après l'effectif de l'équipe.
         </p>
       </div>
       {groups.map((g) => (
@@ -111,13 +115,10 @@ export default function OpponentLineupEditor({
                       value={s.n}
                       onChange={(e) => patch(key, { n: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                     />
-                    <input
-                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                      placeholder={auto ?? "Nom (optionnel)"}
-                      value={s.name}
-                      onChange={(e) => patch(key, { name: e.target.value })}
-                    />
-                    {isSecondYear(teamSlug, s.name || auto) && (
+                    <span className={`min-w-0 flex-1 truncate text-sm ${auto ? "text-slate-800" : "text-slate-400"}`}>
+                      {s.n ? (auto ? titleCase(auto) : "Nom inconnu") : "—"}
+                    </span>
+                    {isSecondYear(teamSlug, auto) && (
                       <span className="shrink-0 rounded bg-gold-500 px-1 text-[10px] font-black text-ink-900" title="Joueur de 2e année">
                         2e
                       </span>
