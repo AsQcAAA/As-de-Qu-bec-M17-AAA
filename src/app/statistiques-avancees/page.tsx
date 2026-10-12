@@ -7,6 +7,7 @@ import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { lastName } from "@/lib/players";
 import { secondsToToi, sumFaceoffZoneGrids } from "@/lib/tpeReport";
 import FaceoffZoneHeatmap from "@/components/FaceoffZoneHeatmap";
+import GoalieAdvancedSection, { type GoalieStatRow } from "@/components/GoalieAdvancedSection";
 import type { Game, GameCategory, GameDocument, Player, PlayerGameAdvancedStat } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<GameCategory, string> = {
@@ -116,6 +117,8 @@ export default function StatistiquesAvanceesPage() {
   /** Buts de la feuille de match — pour le % d'efficacité des tirs (buts ÷ tirs au but du rapport TPE). */
   const [goalRows, setGoalRows] = useState<{ player_id: string; game_id: string; goals: number }[]>([]);
   const [reportDocs, setReportDocs] = useState<GameDocument[]>([]);
+  const [goalies, setGoalies] = useState<Player[]>([]);
+  const [goalieRows, setGoalieRowsState] = useState<GoalieStatRow[]>([]);
   const [categories, setCategories] = useState<Set<GameCategory>>(new Set(CATEGORY_ORDER));
   const [loading, setLoading] = useState(true);
   const [sortF, setSortF] = useState<{ key: HeatSortKey; desc: boolean }>({ key: "shots", desc: true });
@@ -133,13 +136,17 @@ export default function StatistiquesAvanceesPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }, { data: pgs }] = await Promise.all([
+      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }, { data: pgs }, { data: gks }, { data: gkRows }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
         supabase.from("games").select("*"),
         supabase.from("player_game_advanced_stats").select("*"),
         supabase.from("game_documents").select("*").eq("doc_type", "stats_avancees").order("uploaded_at", { ascending: false }),
         supabase.from("player_game_stats").select("player_id, game_id, goals"),
+        supabase.from("players").select("*").eq("position", "G").eq("active", true).order("jersey_number"),
+        supabase.from("player_game_stats").select("player_id, game_id, toi_minutes, goals_against"),
       ]);
+      setGoalies(gks ?? []);
+      setGoalieRowsState((gkRows ?? []) as GoalieStatRow[]);
       setPlayers(pls ?? []);
       setGames(gms ?? []);
       setAdvancedStats(adv ?? []);
@@ -494,6 +501,8 @@ export default function StatistiquesAvanceesPage() {
           Ouvrir TPE →
         </a>
       </div>
+
+      <GoalieAdvancedSection games={filteredGames} goalies={goalies} rows={goalieRows} />
 
       {/* Rapports PDF déjà téléversés, consultables directement d'ici. */}
       <section className="card space-y-2">
