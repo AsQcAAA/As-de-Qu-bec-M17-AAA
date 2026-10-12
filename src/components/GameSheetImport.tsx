@@ -108,11 +108,29 @@ export default function GameSheetImport({
 }) {
   // Numéro de chandail → joueur : c'est ce numéro, et rien d'autre, que porte
   // chaque case de la feuille officielle.
+  // Les remplaçants ne portent pas toujours le même numéro d'un match à
+  // l'autre : `jerseyOverrides` (numéro de la feuille → joueur) permet de dire
+  // « ce soir, le 7 est Untel » sans toucher à sa fiche.
+  const [jerseyOverrides, setJerseyOverrides] = useState<Record<string, string>>({});
   const byJersey = useMemo(() => {
     const m = new Map<string, Player>();
-    for (const p of players) if (p.jersey_number != null) m.set(String(p.jersey_number), p);
+    const movedAway = new Set(Object.values(jerseyOverrides));
+    for (const p of players) if (p.jersey_number != null && !movedAway.has(p.id)) m.set(String(p.jersey_number), p);
+    for (const [jersey, id] of Object.entries(jerseyOverrides)) {
+      const p = players.find((pl) => pl.id === id);
+      if (p) m.set(jersey, p);
+    }
     return m;
-  }, [players]);
+  }, [players, jerseyOverrides]);
+
+  function setJerseyPlayer(jersey: string, playerId: string) {
+    setJerseyOverrides((prev) => {
+      const next = { ...prev };
+      if (playerId) next[jersey] = playerId;
+      else delete next[jersey];
+      return next;
+    });
+  }
 
   const roster = useMemo(
     () =>
@@ -420,6 +438,7 @@ export default function GameSheetImport({
                 <th className="py-1.5 pr-3">B</th>
                 <th className="py-1.5 pr-3">P</th>
                 <th className="py-1.5 pr-3">PTS</th>
+                <th className="py-1.5 pr-3">Joueur ce soir-là</th>
               </tr>
             </thead>
             <tbody>
@@ -433,11 +452,31 @@ export default function GameSheetImport({
                   <td className="py-1.5 pr-3">{l.goals}</td>
                   <td className="py-1.5 pr-3">{l.assists}</td>
                   <td className="py-1.5 pr-3 font-bold text-white">{l.points}</td>
+                  <td className="py-1.5 pr-3">
+                    {(!l.playerId || players.find((p) => p.id === l.playerId)?.is_call_up) && (
+                      <select
+                        className="input text-xs py-1"
+                        value={jerseyOverrides[l.jersey] ?? l.playerId ?? ""}
+                        onChange={(e) => setJerseyPlayer(l.jersey, e.target.value)}
+                        title="Les remplaçants peuvent porter un autre numéro d'un match à l'autre"
+                      >
+                        <option value="">— aucun (ignorer) —</option>
+                        {players
+                          .filter((p) => p.is_call_up)
+                          .sort((a, b) => a.full_name.localeCompare(b.full_name))
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.full_name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </td>
                 </tr>
               ))}
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-2 text-slate-500">
+                  <td colSpan={6} className="py-2 text-slate-500">
                     Aucun pointeur pour l&apos;instant.
                   </td>
                 </tr>
