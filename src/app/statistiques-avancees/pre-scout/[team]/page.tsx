@@ -9,7 +9,8 @@ import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
-import { jerseyOf } from "@/lib/opponentRosters";
+import { OPPONENT_ROSTERS, jerseyOf } from "@/lib/opponentRosters";
+import { titleCase } from "@/lib/players";
 import { LEAGUE_GOALIES, LEAGUE_SCORERS, LEADERS_UPDATED } from "@/lib/leagueLeaders";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
 
@@ -99,13 +100,20 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           .filter((g) => findTeamByOpponent(g.opponent)?.slug === teamSlug && g.category !== "hors_concours")
           .map((g) => g.id)
       );
+      // Un même joueur adverse peut être écrit de deux façons (casse, accents,
+      // nom absent de la feuille) : on le reconnaît par son numéro quand il y
+      // en a un, sinon par son nom normalisé, et on retrouve le nom manquant
+      // dans l'effectif enregistré de l'équipe.
       const tally = new Map<string, { name: string; jersey: number | null; goals: number; assists: number }>();
       const bump = (name: string | null, jersey: number | null, kind: "goals" | "assists") => {
-        if (!name) return;
-        const cur = tally.get(name) ?? { name, jersey, goals: 0, assists: 0 };
+        if (!name && jersey == null) return;
+        const rosterName = jersey != null ? OPPONENT_ROSTERS[teamSlug]?.[String(jersey)] ?? null : null;
+        const display = titleCase(name ?? rosterName ?? `N° ${jersey}`);
+        const key = jersey != null ? `#${jersey}` : stripAccents(display).replace(/[^a-z]/g, "");
+        const cur = tally.get(key) ?? { name: display, jersey, goals: 0, assists: 0 };
         cur[kind] += 1;
         if (cur.jersey == null) cur.jersey = jersey;
-        tally.set(name, cur);
+        tally.set(key, cur);
       };
       for (const e of (events ?? []) as GameEvent[]) {
         if (!ourGamesVsThem.has(e.game_id)) continue;
