@@ -21,6 +21,8 @@ export interface PenaltyLike {
   period: string | null;
   time: string | null;
   code: string | null;
+  /** Secondes du début déjà « absorbées » par une punition coïncidente plus courte. */
+  trimSeconds?: number;
 }
 
 export interface GoalLike {
@@ -67,9 +69,35 @@ export function removeCoincidental(penalties: PenaltyLike[]): PenaltyLike[] {
   }
 
   const kept: PenaltyLike[] = [];
-  for (const g of groups.values()) {
+  const leftovers = new Map<string, { us: PenaltyLike[]; opponent: PenaltyLike[] }>();
+  for (const [key, g] of groups) {
     const cancel = Math.min(g.us.length, g.opponent.length);
-    kept.push(...g.us.slice(cancel), ...g.opponent.slice(cancel));
+    const [period, time] = key.split("|");
+    const sameMoment = `${period}|${time}`;
+    const l = leftovers.get(sameMoment) ?? { us: [], opponent: [] };
+    l.us.push(...g.us.slice(cancel));
+    l.opponent.push(...g.opponent.slice(cancel));
+    leftovers.set(sameMoment, l);
+  }
+
+  // Au même instant, une mineure contre une majeure (durées différentes) est
+  // aussi coïncidente, pour la durée de la plus courte : la mineure disparaît
+  // et la majeure ne compte plus que pour ce qui lui reste (ex. 5 min − 2 min).
+  for (const l of leftovers.values()) {
+    const minutes = (p: PenaltyLike) => parsePenaltyCode(p.code ?? "").minutes;
+    const us = [...l.us].sort((a, b) => minutes(a) - minutes(b));
+    const opp = [...l.opponent].sort((a, b) => minutes(a) - minutes(b));
+    while (us.length > 0 && opp.length > 0) {
+      const a = us.shift()!;
+      const b = opp.shift()!;
+      const ma = minutes(a);
+      const mb = minutes(b);
+      const [shorter, longer, longerList] = ma <= mb ? [a, b, opp] : [b, a, us];
+      void shorter;
+      const absorbed = Math.min(ma, mb) * 60;
+      longerList.unshift({ ...longer, trimSeconds: (longer.trimSeconds ?? 0) + absorbed });
+    }
+    kept.push(...us, ...opp);
   }
   return kept;
 }
@@ -78,13 +106,13 @@ export function computeSpecialTeams(penalties: PenaltyLike[], goals: GoalLike[])
   const effective = removeCoincidental(penalties);
 
   const windows = effective.map((p) => {
-    const start = timeToSeconds(p.time);
     const minutes = parsePenaltyCode(p.code ?? "").minutes;
+    const end = timeToSeconds(p.time) + minutes * 60;
     return {
       side: p.side,
       period: Number(p.period ?? 0),
-      start,
-      end: start + minutes * 60,
+      start: timeToSeconds(p.time) + (p.trimSeconds ?? 0),
+      end,
       minor: minutes === 2,
     };
   });
