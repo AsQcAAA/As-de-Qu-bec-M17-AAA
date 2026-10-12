@@ -65,8 +65,11 @@ export default function LeagueScheduleUpdateContent({ onClose, onApplied }: { on
       const prev = bySlug.get(r.slug);
       return {
         team_slug: r.slug,
-        wins: r.wins,
-        losses: r.losses,
+        // Le classement officiel (captures du lundi) fait foi pour V / D / Déf. prol. :
+        // le calendrier ne distingue pas les fusillades. On ne s'en sert que
+        // pour une équipe qui n'aurait encore aucune fiche.
+        wins: prev?.wins ?? r.wins,
+        losses: prev?.losses ?? r.losses,
         otl_losses: prev?.otl_losses ?? null,
         last5: last5(r) || null,
         notes: prev?.notes ?? null,
@@ -162,11 +165,12 @@ export default function LeagueScheduleUpdateContent({ onClose, onApplied }: { on
             </table>
           </div>
           <p className="text-xs text-slate-500">
-            Le calendrier ne distingue pas les défaites en prolongation : elles sont comptées comme des défaites (D), et
-            les matchs nuls apparaissent « N ». Tes notes et les défaites en prolongation déjà saisies sont conservées.
+            Seuls les « 5 derniers matchs » et le détail des matchs sont mis à jour. Les victoires, défaites et défaites
+            en prolongation viennent du classement officiel (captures du lundi) et ne sont pas écrasées. Un « N » est un
+            match décidé en fusillade.
           </p>
           <button className="btn" onClick={apply} disabled={applying}>
-            {applying ? "Enregistrement…" : "Appliquer aux fiches des équipes"}
+            {applying ? "Enregistrement…" : "Mettre à jour les derniers matchs"}
           </button>
         </div>
       )}
