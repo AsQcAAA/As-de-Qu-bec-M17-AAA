@@ -460,7 +460,13 @@ export default function StatistiquesAvanceesPage() {
           </section>
 
           {/* Gardiens : juste sous les défenseurs. */}
-          <GoalieAdvancedSection games={filteredGames} goalies={goalies} rows={goalieRows} />
+          <GoalieAdvancedSection
+            // Les matchs hors concours n'ont pas de rapport TPE : ils ne comptent
+            // ici que s'il y en a un (jamais pour les 29-30 août).
+            games={filteredGames.filter((g) => g.category !== "hors_concours" || reportDocs.some((d) => d.game_id === g.id))}
+            goalies={goalies}
+            rows={goalieRows}
+          />
 
           {/* Carte de chaleur collective — reproduit le diagramme « Face-Offs
               by zones » du rapport, cumulé sur les matchs cochés ci-dessus, ou
