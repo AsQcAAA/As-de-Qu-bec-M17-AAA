@@ -61,7 +61,7 @@ async function sendOverdueMeetingsReminder(
     .join("");
 
   await resend.emails.send({
-    from: process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev",
+    from: reminderFrom(),
     to: process.env.COACH_EMAIL,
     subject: `⏰ ${overdue.length} joueur(s) sans rencontre individuelle depuis 3+ semaines`,
     html: `
@@ -97,7 +97,7 @@ async function sendMissingLineupReminder(supabase: ReturnType<typeof createServi
     if (!to) continue;
     const mail = buildMissingLineupEmail(missing, origin, c.full_name.split(" ")[0]);
     const { error } = await resend.emails.send({
-      from: process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev",
+      from: reminderFrom(),
       to,
       replyTo: process.env.COACH_EMAIL || undefined,
       subject: mail.subject,
@@ -122,7 +122,7 @@ async function sendLineupReminderTest(
   const mail = buildMissingLineupEmail(missing, origin, "Philippe");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
-    from: process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev",
+    from: reminderFrom(),
     to: process.env.COACH_EMAIL,
     subject: `[ESSAI] ${mail.subject}`,
     html: mail.html,
@@ -132,3 +132,15 @@ async function sendLineupReminderTest(
 }
 
 const RECIPIENT_NAMES = ["Philippe Tremblay", "Jeff St-Louis"];
+
+/**
+ * Adresse d'expédition des rappels : celle du courriel pro (COACH_EMAIL), dont
+ * le domaine est déjà vérifié chez Resend — c'est elle qui sert à l'envoi des
+ * courriels depuis l'app. REMINDER_FROM_EMAIL pointait vers un domaine non
+ * vérifié (« votredomaine.com ») et faisait échouer tous les rappels.
+ */
+function reminderFrom(): string {
+  const coach = process.env.COACH_EMAIL;
+  if (coach) return `App As de Québec M17 <${coach}>`;
+  return process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev";
+}
