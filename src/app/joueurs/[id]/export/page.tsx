@@ -41,7 +41,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
   const [gameStats, setGameStats] = useState<PlayerGameStat[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [advancedStats, setAdvancedStats] = useState<PlayerGameAdvancedStat[]>([]);
-  const [penaltyEvents, setPenaltyEvents] = useState<GameEvent[]>([]);
+  const [playerEvents, setPlayerEvents] = useState<GameEvent[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -50,7 +50,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
         supabase.from("player_game_stats").select("*").eq("player_id", id),
         supabase.from("games").select("*"),
         supabase.from("player_game_advanced_stats").select("*").eq("player_id", id),
-        supabase.from("game_events").select("*").eq("player_id", id).eq("event_type", "penalty"),
+        supabase.from("game_events").select("*").or(`player_id.eq.${id},assist1_player_id.eq.${id},assist2_player_id.eq.${id}`),
       ]);
       if (!p) {
         setNotFoundFlag(true);
@@ -61,7 +61,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
       setGameStats(pgs ?? []);
       setGames(gms ?? []);
       setAdvancedStats((adv ?? []) as PlayerGameAdvancedStat[]);
-      setPenaltyEvents((pens ?? []) as GameEvent[]);
+      setPlayerEvents((pens ?? []) as GameEvent[]);
       setLoading(false);
     }
     load();
@@ -99,6 +99,34 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
     const saves = shotsFaced - goalie.goalsAgainst;
     return `${((saves / shotsFaced) * 100).toFixed(1)}%`;
   }, [officialAdvanced, goalie.goalsAgainst]);
+
+  const officialEvents = useMemo(
+    () => playerEvents.filter((e) => {
+      const g = gamesById.get(e.game_id);
+      return g && OFFICIAL_CATEGORIES.includes(g.category);
+    }),
+    [playerEvents, gamesById]
+  );
+  const penaltyEvents = useMemo(
+    () => officialEvents.filter((e) => e.event_type === "penalty" && e.player_id === id),
+    [officialEvents, id]
+  );
+  const totalPim = useMemo(
+    () => penaltyEvents.reduce((n, e) => n + parsePenaltyCode(e.penalty_code ?? "").minutes, 0),
+    [penaltyEvents]
+  );
+  // Buts et passes en avantage numérique : d'après la situation de chaque but du sommaire.
+  const ppGoals = useMemo(
+    () => officialEvents.filter((e) => e.event_type === "goal" && e.situation === "pp" && e.player_id === id).length,
+    [officialEvents, id]
+  );
+  const ppAssists = useMemo(
+    () =>
+      officialEvents.filter(
+        (e) => e.event_type === "goal" && e.situation === "pp" && (e.assist1_player_id === id || e.assist2_player_id === id)
+      ).length,
+    [officialEvents, id]
+  );
 
   /** Game log complet des matchs officiels — un recruteur veut voir toute la saison, pas un aperçu. */
   const gameLog = useMemo(() => {
@@ -190,6 +218,10 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
               <StatBox label="TOI moy." value={averageToiLabel} />
               <StatBox label="Tirs %" value={shootingPercentage} />
               <StatBox label="MAJ %" value={faceoffPct} />
+              <StatBox label="Tirs" value={totalShots} />
+              <StatBox label="Pun. (min)" value={totalPim} />
+              <StatBox label="B en AN" value={ppGoals} />
+              <StatBox label="A en AN" value={ppAssists} />
             </div>
           )}
         </div>
