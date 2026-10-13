@@ -95,7 +95,7 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
       const w = bg.width * scale;
       const h = bg.height * scale;
       page.drawImage(bg, { x: (W - w) / 2, y: (H - h) / 2, width: w, height: h });
-      page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: DARK, opacity: 0.84 });
+      page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: DARK, opacity: 0.91 });
     }
     page.drawRectangle({ x: 0, y: 0, width: W, height: 5, color: GOLD });
     text("As de Québec M17 AAA", M, 18, 7.5, regular, MUTED);
