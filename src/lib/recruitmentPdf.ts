@@ -44,6 +44,23 @@ function roundedPath(w: number, h: number, r: number): string {
   return `M ${r} 0 L ${w - r} 0 Q ${w} 0 ${w} ${r} L ${w} ${h - r} Q ${w} ${h} ${w - r} ${h} L ${r} ${h} Q 0 ${h} 0 ${h - r} L 0 ${r} Q 0 0 ${r} 0 Z`;
 }
 
+/** Libellés complets pour la fiche PDF : lisibles d'un coup d'œil, même sur un téléphone. */
+const FULL_LABEL: Record<string, string> = {
+  PJ: "Matchs joués",
+  B: "Buts",
+  A: "Passes",
+  PTS: "Points",
+  "TOI moy.": "TOI moyen",
+  "Tirs %": "% de tirs",
+  "MAJ %": "Mises au jeu %",
+  Tirs: "Tirs au but",
+  "Pun. (min)": "Punitions (min)",
+  "B en AN": "Buts en AN",
+  "A en AN": "Passes en AN",
+  "Moy.": "Moyenne",
+  "Eff. %": "% d'arrêts",
+};
+
 export interface RecruitmentPdfOptions {
   /** Octets de la photo de fond (JPEG). Sans elle, fond uni foncé. */
   background?: Uint8Array | null;
@@ -164,15 +181,18 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
   const perRow = 4;
   const gap = 10;
   const cardW = (W - 2 * M - gap * (perRow - 1)) / perRow;
-  const cardH = 56;
+  const cardH = 66;
   data.boxes.forEach((b, i) => {
     const col = i % perRow;
     const row = Math.floor(i / perRow);
     const x = M + col * (cardW + gap);
     const top = y - row * (cardH + gap);
     card(x, top, cardW, cardH, 9, b.highlight ? 0.16 : 0.08);
-    textCenter(b.value, x + cardW / 2, top - 30, 21, bold, b.highlight ? GOLD : WHITE);
-    textCenter(b.label.toUpperCase(), x + cardW / 2, top - 46, 7, bold, b.highlight ? GOLD : MUTED);
+    textCenter(b.value, x + cardW / 2, top - 32, 23, bold, b.highlight ? GOLD : WHITE);
+    const label = FULL_LABEL[b.label] ?? b.label;
+    let labelSize = 11;
+    while (widthOf(label, labelSize, bold) > cardW - 10 && labelSize > 8) labelSize -= 0.5;
+    textCenter(label, x + cardW / 2, top - 52, labelSize, bold, b.highlight ? GOLD : MUTED);
   });
   y -= Math.ceil(data.boxes.length / perRow) * (cardH + gap) + 14;
 
@@ -182,7 +202,7 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
     const cellW = cols.length > 2 ? 40 : 62;
     const left = M + 14;
     const right = W - M - 14;
-    const rowH = 17;
+    const rowH = 19;
     const headerBlock = 40;
 
     const startCard = (heightAvail: number) => {
@@ -200,9 +220,9 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
       let ty = y + (first ? -14 : 0);
       text(`GAME LOG  -  ${data.log.length} MATCH${data.log.length > 1 ? "S" : ""}${first ? "" : " (suite)"}`, left, ty - 16, 8.5, bold, GOLD);
       ty -= 33;
-      text("DATE", left, ty, 7.5, bold, MUTED);
-      text("ADVERSAIRE", left + 62, ty, 7.5, bold, MUTED);
-      cols.forEach((c, i) => textRight(c.toUpperCase(), right - (cols.length - 1 - i) * cellW, ty, 7.5, bold, MUTED));
+      text("DATE", left, ty, 9, bold, MUTED);
+      text("ADVERSAIRE", left + 66, ty, 9, bold, MUTED);
+      cols.forEach((c, i) => textRight(c.toUpperCase(), right - (cols.length - 1 - i) * cellW, ty, 9, bold, MUTED));
       ty -= 6;
       page.drawLine({ start: { x: left, y: ty }, end: { x: right, y: ty }, thickness: 0.5, color: GOLD, opacity: 0.5 });
       ty -= 12;
@@ -210,13 +230,13 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
         if (ri % 2 === 0) {
           page.drawRectangle({ x: left - 6, y: ty - 5, width: right - left + 12, height: rowH, color: WHITE, opacity: 0.045 });
         }
-        text(row.date, left, ty, 9, regular, MUTED);
-        text(row.opponent, left + 62, ty, 9, bold, WHITE);
+        text(row.date, left + 0, ty, 10, regular, MUTED);
+        text(row.opponent, left + 66, ty, 10, bold, WHITE);
         row.cells.forEach((c, ci) => {
           let color = WHITE;
           if (cols[ci] === "+/-") color = c.startsWith("+") ? GREEN : c.startsWith("-") && c.length > 1 ? RED : MUTED;
           if (c === "-") color = MUTED;
-          textRight(c, right - (cols.length - 1 - ci) * cellW, ty, 9, regular, color);
+          textRight(c, right - (cols.length - 1 - ci) * cellW, ty, 10, regular, color);
         });
         ty -= rowH;
       });
