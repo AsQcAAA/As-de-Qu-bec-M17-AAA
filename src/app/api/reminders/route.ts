@@ -22,6 +22,13 @@ export async function GET(req: NextRequest) {
     supabase.from("meetings").select("*"),
   ]);
 
+  // Essai : /api/reminders?test=1&date=2026-10-12 envoie UNIQUEMENT à COACH_EMAIL
+  // l'exemple du rappel d'alignement adverse, pour le lundi donné.
+  const test = new URL(req.url).searchParams;
+  if (test.get("test") === "1") {
+    return NextResponse.json(await sendLineupReminderTest(supabase, new URL(req.url).origin, test.get("date")));
+  }
+
   const meetingResult = await sendOverdueMeetingsReminder(supabase, players, meetings);
   const lineupResult = await sendMissingLineupReminder(supabase, new URL(req.url).origin);
   return NextResponse.json({ ok: true, ...meetingResult, lineups: lineupResult });
@@ -100,6 +107,28 @@ async function sendMissingLineupReminder(supabase: ReturnType<typeof createServi
     if (!error) sent += 1;
   }
   return { missing: missing.length, emailsSent: sent };
+}
+
+async function sendLineupReminderTest(
+  supabase: ReturnType<typeof createServiceClient>,
+  origin: string,
+  date: string | null
+) {
+  const missing = await findMissingOpponentLineups(supabase, date ?? format(new Date(), "yyyy-MM-dd"));
+  if (missing.length === 0) return { test: true, missing: 0, emailSent: false };
+  if (!process.env.RESEND_API_KEY || !process.env.COACH_EMAIL) {
+    return { test: true, missing: missing.length, emailSent: false, reason: "RESEND_API_KEY or COACH_EMAIL missing" };
+  }
+  const mail = buildMissingLineupEmail(missing, origin, "Philippe");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev",
+    to: process.env.COACH_EMAIL,
+    subject: `[ESSAI] ${mail.subject}`,
+    html: mail.html,
+    text: mail.text,
+  });
+  return { test: true, missing: missing.length, emailSent: !error, error: error?.message ?? null };
 }
 
 const RECIPIENT_NAMES = ["Philippe Tremblay", "Jeff St-Louis"];
