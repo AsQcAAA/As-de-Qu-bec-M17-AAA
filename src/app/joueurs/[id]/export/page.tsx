@@ -15,8 +15,9 @@ import {
   regulationMinutes,
   skaterTotals,
 } from "@/lib/playerStats";
-import { averageToi, formatNet, shootingPct } from "@/lib/tpeReport";
-import type { Game, Player, PlayerGameAdvancedStat, PlayerGameStat, PlayerTestResult } from "@/lib/types";
+import { averageToi, formatNet, secondsToToi, shootingPct } from "@/lib/tpeReport";
+import { parsePenaltyCode } from "@/lib/penalties";
+import type { Game, GameEvent, Player, PlayerGameAdvancedStat, PlayerGameStat } from "@/lib/types";
 
 const POSITION_LABEL: Record<string, string> = { F: "Attaquant", D: "Défenseur", G: "Gardien" };
 
@@ -25,7 +26,7 @@ const POSITION_LABEL: Record<string, string> = { F: "Attaquant", D: "Défenseur"
  *
  * Volontairement dépouillée par rapport à la fiche interne du joueur : ni
  * rencontres individuelles, ni absences, ni dossier médical — seulement son
- * identité, ses statistiques et ses résultats aux tests physiques.
+ * identité et ses statistiques (ni xG, ni tests physiques).
  */
 export default function FicheRecrutementPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -40,16 +41,16 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
   const [gameStats, setGameStats] = useState<PlayerGameStat[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [advancedStats, setAdvancedStats] = useState<PlayerGameAdvancedStat[]>([]);
-  const [testResults, setTestResults] = useState<PlayerTestResult[]>([]);
+  const [penaltyEvents, setPenaltyEvents] = useState<GameEvent[]>([]);
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: pgs }, { data: gms }, { data: adv }, { data: tests }] = await Promise.all([
+      const [{ data: p }, { data: pgs }, { data: gms }, { data: adv }, { data: pens }] = await Promise.all([
         supabase.from("players").select("*").eq("id", id).maybeSingle(),
         supabase.from("player_game_stats").select("*").eq("player_id", id),
         supabase.from("games").select("*"),
         supabase.from("player_game_advanced_stats").select("*").eq("player_id", id),
-        supabase.from("player_test_results").select("*").eq("player_id", id).order("test_date", { ascending: false }),
+        supabase.from("game_events").select("*").eq("player_id", id).eq("event_type", "penalty"),
       ]);
       if (!p) {
         setNotFoundFlag(true);
@@ -60,7 +61,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
       setGameStats(pgs ?? []);
       setGames(gms ?? []);
       setAdvancedStats((adv ?? []) as PlayerGameAdvancedStat[]);
-      setTestResults(tests ?? []);
+      setPenaltyEvents((pens ?? []) as GameEvent[]);
       setLoading(false);
     }
     load();
@@ -85,15 +86,6 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
   const goalie = useMemo(() => goalieTotals(officialStats, gamesById), [officialStats, gamesById]);
   const plusMinus = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.plus_minus ?? 0), 0), [officialAdvanced]);
   const averageToiLabel = useMemo(() => averageToi(officialAdvanced.map((a) => a.toi_seconds)), [officialAdvanced]);
-  const totalXg = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.xg ?? 0), 0), [officialAdvanced]);
-  const totalToiSeconds = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.toi_seconds ?? 0), 0), [officialAdvanced]);
-  // Recalculé à partir du total de la saison plutôt que moyenné match par
-  // match, pour la même raison que partout ailleurs dans l'app : la colonne
-  // « xg per 20 » du rapport TPE n'est pas fiable telle quelle.
-  const xgPer20Season = useMemo(
-    () => (totalToiSeconds > 0 ? ((totalXg * 1200) / totalToiSeconds).toFixed(2) : "-"),
-    [totalXg, totalToiSeconds]
-  );
   const totalShots = useMemo(() => officialAdvanced.reduce((n, a) => n + (a.shots_on_goal ?? 0), 0), [officialAdvanced]);
   const shootingPercentage = useMemo(() => shootingPct(totals.goals, totalShots), [totals.goals, totalShots]);
   const faceoffPct = useMemo(() => {
@@ -112,21 +104,27 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
   const gameLog = useMemo(() => {
     const statByGame = new Map(officialStats.map((gs) => [gs.game_id, gs]));
     const advByGame = new Map(officialAdvanced.map((a) => [a.game_id, a]));
-    return [...statByGame.keys()]
-      .map((gameId) => ({ game: gamesById.get(gameId)!, gs: statByGame.get(gameId)!, adv: advByGame.get(gameId) }))
+    const pimByGame = new Map<string, number>();
+    for (const e of penaltyEvents) {
+      pimByGame.set(e.game_id, (pimByGame.get(e.game_id) ?? 0) + parsePenaltyCode(e.penalty_code ?? "").minutes);
+    }
+    // Tous les matchs où le joueur apparaît : une ligne de statistiques, un
+    // rapport TPE ou une punition suffisent — un match sans point y a sa place.
+    const gameIds = new Set<string>([...statByGame.keys(), ...advByGame.keys()]);
+    for (const gid of pimByGame.keys()) {
+      const g = gamesById.get(gid);
+      if (g && OFFICIAL_CATEGORIES.includes(g.category)) gameIds.add(gid);
+    }
+    return [...gameIds]
+      .map((gameId) => ({
+        game: gamesById.get(gameId)!,
+        gs: statByGame.get(gameId) ?? null,
+        adv: advByGame.get(gameId),
+        pim: pimByGame.get(gameId) ?? 0,
+      }))
       .filter((r) => r.game)
       .sort((a, b) => (b.game.game_date > a.game.game_date ? 1 : -1));
-  }, [officialStats, officialAdvanced, gamesById]);
-
-  /** Dernier résultat de chaque test physique — un recruteur veut l'état actuel, pas l'historique. */
-  const latestTests = useMemo(() => {
-    const seen = new Set<string>();
-    return testResults.filter((t) => {
-      if (seen.has(t.test_name)) return false;
-      seen.add(t.test_name);
-      return true;
-    });
-  }, [testResults]);
+  }, [officialStats, officialAdvanced, penaltyEvents, gamesById]);
 
   useEffect(() => {
     if (autoPrint && !loading && player && !autoPrinted.current) {
@@ -184,7 +182,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-3 text-center">
-              <StatBox label="PJ" value={totals.gamesPlayed} />
+              <StatBox label="PJ" value={gameLog.length} />
               <StatBox label="B" value={totals.goals} />
               <StatBox label="A" value={totals.assists} />
               <StatBox label="PTS" value={totals.points} highlight />
@@ -209,14 +207,6 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                 <dd className="font-medium text-base">{totalShots}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">XG (saison)</dt>
-                <dd className="font-medium text-base">{totalXg.toFixed(1)}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">XG per 20</dt>
-                <dd className="font-medium text-base">{xgPer20Season}</dd>
-              </div>
-              <div>
                 <dt className="text-slate-500">% Mises en jeu</dt>
                 <dd className="font-medium text-base">{faceoffPct}</dd>
               </div>
@@ -225,23 +215,6 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                 <dd className="font-medium text-base">{shootingPercentage}</dd>
               </div>
             </dl>
-          </div>
-        )}
-
-        {latestTests.length > 0 && (
-          <div>
-            <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">Tests physiques</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {latestTests.map((t) => (
-                <div key={t.id} className="flex justify-between border-b border-dashed pb-1">
-                  <span className="text-slate-500">{t.test_name}</span>
-                  <span className="font-medium">
-                    {t.value}
-                    {t.unit ? ` ${t.unit}` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -266,12 +239,16 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                       <th className="py-1 pr-3">A</th>
                       <th className="py-1 pr-3">P</th>
                       <th className="py-1 pr-3">+/-</th>
+                      <th className="py-1 pr-3">Tirs</th>
+                      <th className="py-1 pr-3">TOI</th>
+                      <th className="py-1 pr-3">Pun.</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {gameLog.map(({ game, gs, adv }) => {
+                {gameLog.map(({ game, gs: gsRow, adv, pim }) => {
+                  const gs = gsRow ?? { goals: 0, assists: 0, toi_minutes: null, goals_against: null };
                   const team = findTeamByOpponent(game.opponent);
                   const minutes = gs.toi_minutes ?? (adv?.toi_seconds != null ? adv.toi_seconds / 60 : null);
                   const gamesEquiv = minutes ? minutes / regulationMinutes(game) : 0;
@@ -296,6 +273,9 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
                           <td className="py-1 pr-3">{gs.assists}</td>
                           <td className="py-1 pr-3 font-medium">{gs.goals + gs.assists}</td>
                           <td className="py-1 pr-3">{adv?.plus_minus != null ? formatNet(adv.plus_minus) : "-"}</td>
+                          <td className="py-1 pr-3">{adv?.shots_on_goal ?? "-"}</td>
+                          <td className="py-1 pr-3 tabular-nums">{adv?.toi_seconds != null ? secondsToToi(adv.toi_seconds) : "-"}</td>
+                          <td className="py-1 pr-3">{pim || "-"}</td>
                         </>
                       )}
                     </tr>
