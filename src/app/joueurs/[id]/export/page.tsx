@@ -194,30 +194,6 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
           )}
         </div>
 
-        {!isGoalie && officialAdvanced.length > 0 && (
-          <div>
-            <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">Statistiques avancées</h2>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-slate-500">TOI moyen</dt>
-                <dd className="font-medium text-base">{averageToiLabel}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">Tirs au but (saison)</dt>
-                <dd className="font-medium text-base">{totalShots}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">% Mises en jeu</dt>
-                <dd className="font-medium text-base">{faceoffPct}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">% de tirs</dt>
-                <dd className="font-medium text-base">{shootingPercentage}</dd>
-              </div>
-            </dl>
-          </div>
-        )}
-
         {gameLog.length > 0 && (
           <div>
             <h2 className="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">
