@@ -16,10 +16,12 @@ export interface MissingLineupGame {
  */
 export async function findMissingOpponentLineups(
   supabase: SupabaseClient,
-  mondayKey: string
+  mondayKey: string,
+  /** Remonte jusqu'à cette date (yyyy-MM-dd) au lieu du seul week-end précédent. */
+  sinceKey?: string
 ): Promise<MissingLineupGame[]> {
   const monday = parseISO(mondayKey);
-  const from = format(addDays(monday, -3), "yyyy-MM-dd");
+  const from = sinceKey ?? format(addDays(monday, -3), "yyyy-MM-dd");
   const to = format(addDays(monday, -1), "yyyy-MM-dd");
 
   const { data: games } = await supabase
@@ -28,6 +30,7 @@ export async function findMissingOpponentLineups(
     .gte("game_date", from)
     .lte("game_date", to)
     .not("result", "is", null)
+    .eq("category", "saison_reguliere")
     .order("game_date");
   if (!games || games.length === 0) return [];
 
@@ -48,8 +51,9 @@ export async function findMissingOpponentLineups(
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-export function buildMissingLineupEmail(missing: MissingLineupGame[], origin: string, firstName: string) {
+export function buildMissingLineupEmail(missing: MissingLineupGame[], origin: string, backlog = false) {
   const many = missing.length > 1;
+  const when = backlog ? "" : " du week-end dernier";
   const subject = `📋 Alignement adverse à saisir — ${many ? `${missing.length} matchs` : missing[0].teamName}`;
   const items = missing
     .map(({ game, teamName }) => {
@@ -63,16 +67,16 @@ export function buildMissingLineupEmail(missing: MissingLineupGame[], origin: st
     })
     .join("");
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111;line-height:1.5">
-<p>Bonjour ${esc(firstName)},</p>
-<p>L'alignement adverse n'a pas encore été saisi dans l'app pour ${many ? "ces matchs" : "ce match"} du week-end dernier :</p>
+<p>Salut messieurs,</p>
+<p>L'alignement adverse n'a pas encore été saisi dans l'app pour ${many ? "ces matchs" : "ce match"}${when} :</p>
 <ul style="padding-left:18px">${items}</ul>
 <p>Il suffit d'entrer les numéros de chaque joueur adverse : les noms s'affichent tout seuls d'après l'effectif de l'équipe. Ça prend deux minutes.</p>
 <p style="color:#666">— App As de Québec M17 AAA (rappel automatique du lundi)</p>
 </div>`;
   const text = [
-    `Bonjour ${firstName},`,
+    "Salut messieurs,",
     "",
-    `L'alignement adverse n'a pas encore été saisi dans l'app pour ${many ? "ces matchs" : "ce match"} du week-end dernier :`,
+    `L'alignement adverse n'a pas encore été saisi dans l'app pour ${many ? "ces matchs" : "ce match"}${when} :`,
     ...missing.map(
       ({ game, teamName }) => `- ${game.game_date} — ${teamName} : ${origin}/resultats/${game.id}`
     ),
