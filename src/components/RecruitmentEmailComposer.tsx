@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadRecruitmentData } from "@/lib/recruitmentData";
-import { buildRecruitmentPdf, bytesToBase64 } from "@/lib/recruitmentPdf";
+import { buildRecruitmentPdf, bytesToBase64, loadPdfBackground } from "@/lib/recruitmentPdf";
 import { EMAIL_SIGNATURE_BASE64 } from "@/lib/emailSignature";
 import { lastName } from "@/lib/players";
 import type { Player } from "@/lib/types";
@@ -83,9 +83,10 @@ export default function RecruitmentEmailComposer({ players }: { players: Player[
     setResult(null);
     try {
       const attachments: { filename: string; contentBase64: string }[] = [];
+      const background = await loadPdfBackground();
       for (const p of chosen) {
         const data = await loadRecruitmentData(supabase, p.id);
-        const pdf = await buildRecruitmentPdf(data);
+        const pdf = await buildRecruitmentPdf(data, { background });
         attachments.push({ filename: fileName(p), contentBase64: bytesToBase64(pdf) });
       }
       const res = await fetch("/api/email/send-recruitment", {
