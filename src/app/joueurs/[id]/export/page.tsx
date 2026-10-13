@@ -151,8 +151,10 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
         pim: pimByGame.get(gameId) ?? 0,
       }))
       .filter((r) => r.game)
+      // Un gardien ne compte que les matchs où des minutes lui sont attribuées.
+      .filter((r) => !isGoalie || (r.gs?.toi_minutes ?? (r.adv?.toi_seconds != null ? r.adv.toi_seconds / 60 : 0)) > 0)
       .sort((a, b) => (b.game.game_date > a.game.game_date ? 1 : -1));
-  }, [officialStats, officialAdvanced, penaltyEvents, gamesById]);
+  }, [officialStats, officialAdvanced, penaltyEvents, gamesById, isGoalie]);
 
   useEffect(() => {
     if (autoPrint && !loading && player && !autoPrinted.current) {
