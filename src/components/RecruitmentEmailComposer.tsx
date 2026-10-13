@@ -30,8 +30,10 @@ export default function RecruitmentEmailComposer({ players }: { players: Player[
   const [toText, setToText] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [subject, setSubject] = useState("Fiche de recrutement — As de Québec M17 AAA");
-  const [message, setMessage] = useState("Bonjour,\n\nVous trouverez ci-joint la fiche de recrutement.\n\nN'hésitez pas à me contacter pour toute question.");
+  // L'objet et le message se rédigent seuls d'après les joueurs choisis, tant
+  // qu'on n'y touche pas ; dès qu'on les modifie à la main, on les laisse tranquilles.
+  const [subjectEdit, setSubjectEdit] = useState<string | null>(null);
+  const [messageEdit, setMessageEdit] = useState<string | null>(null);
   const [copyToMe, setCopyToMe] = useState(true);
   const [busy, setBusy] = useState<null | "send" | "test">(null);
   const [confirm, setConfirm] = useState(false);
@@ -44,6 +46,26 @@ export default function RecruitmentEmailComposer({ players }: { players: Player[
   const invalid = recipients.filter((e) => !EMAIL_RE.test(e));
   const chosen = players.filter((p) => selected.has(p.id));
   const q = search.trim().toLowerCase();
+
+  const names = chosen.map((p) => p.full_name.trim());
+  const nameList =
+    names.length <= 1 ? names[0] ?? "" : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
+  const autoSubject =
+    names.length === 1
+      ? `Fiche de recrutement — ${names[0]} — As de Québec M17 AAA`
+      : "Fiches de recrutement — As de Québec M17 AAA";
+  const autoMessage =
+    "Bonjour,\n\n" +
+    (names.length === 0
+      ? "Vous trouverez ci-joint la fiche de recrutement."
+      : names.length === 1
+        ? `Vous trouverez ci-joint la fiche de recrutement de ${nameList}.`
+        : `Vous trouverez ci-joint les ${names.length} fiches de recrutement de ${nameList}.`) +
+    "\n\nN'hésitez pas à me contacter pour toute question.\n\nAu plaisir,";
+  const subject = subjectEdit ?? autoSubject;
+  const message = messageEdit ?? autoMessage;
+  const setSubject = (v: string) => setSubjectEdit(v);
+  const setMessage = (v: string) => setMessageEdit(v);
 
   function toggle(id: string) {
     setSelected((prev) => {
