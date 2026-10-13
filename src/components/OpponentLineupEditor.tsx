@@ -91,31 +91,29 @@ export default function OpponentLineupEditor({
   if (!loaded) return null;
 
   return (
-    <div className="card space-y-4">
+    <div className="card space-y-2.5">
       <div>
         <h2 className="font-semibold">Alignement adverse — {opponentName}</h2>
-        <p className="text-xs text-slate-500">
-          Entre les numéros après le match : le nom s'affiche tout seul, d'après l'effectif de l'équipe.
-        </p>
+        <p className="text-[11px] text-slate-500">Entre les numéros après le match : le nom s&apos;affiche tout seul.</p>
       </div>
       {groups.map((g) => (
-        <div key={g.title} className="space-y-1.5">
-          <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">{g.title}</div>
+        <div key={g.title} className="space-y-1">
+          <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">{g.title}</div>
           {g.keys.map((row) => (
-            <div key={row.join("-")} className={`grid gap-2 ${row.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+            <div key={row.join("-")} className={`grid gap-1 ${row.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
               {row.map((key) => {
                 const s = slots[key] ?? { n: "", name: "" };
                 const auto = s.n ? known.get(s.n.trim()) : undefined;
                 return (
-                  <div key={key} className="flex items-center gap-1.5 rounded border border-slate-200 px-2 py-1">
+                  <div key={key} className="flex items-center gap-1.5 rounded border border-slate-200 px-1.5 py-0.5">
                     <input
                       inputMode="numeric"
-                      className="w-12 rounded border border-slate-300 px-1 py-0.5 text-center font-bold"
+                      className="w-9 rounded border border-slate-300 px-0.5 py-0 text-center text-xs font-bold"
                       placeholder="#"
                       value={s.n}
                       onChange={(e) => patch(key, { n: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                     />
-                    <span className={`min-w-0 flex-1 truncate text-sm ${auto ? "text-slate-800" : "text-slate-400"}`}>
+                    <span className={`min-w-0 flex-1 truncate text-xs ${auto ? "text-slate-800" : "text-slate-400"}`}>
                       {s.n ? (auto ? titleCase(auto) : "Nom inconnu") : "—"}
                     </span>
                     {isSecondYear(teamSlug, auto) && (
@@ -131,7 +129,7 @@ export default function OpponentLineupEditor({
         </div>
       ))}
       <div className="flex items-center gap-3">
-        <button className="btn" onClick={save} disabled={status === "saving"}>
+        <button className="btn text-xs py-1.5" onClick={save} disabled={status === "saving"}>
           {status === "saving" ? "Enregistrement..." : "Enregistrer l'alignement adverse"}
         </button>
         {status === "saved" && <span className="text-sm text-green-700">Enregistré ✓</span>}

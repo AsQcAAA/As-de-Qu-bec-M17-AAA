@@ -11,6 +11,7 @@ import { findTeamByOpponent, teamColor, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTea
 import { matchPlayer, parseGameSheet, type ParsedGameSheet } from "@/lib/gameSheet";
 import Modal from "@/components/Modal";
 import OpponentLineupEditor from "@/components/OpponentLineupEditor";
+import GameLineupReadOnly from "@/components/GameLineupReadOnly";
 import GameSheetImport, { type ImportDecision } from "@/components/GameSheetImport";
 import AdvancedStatsImport, { type AdvancedStatsDecision } from "@/components/AdvancedStatsImport";
 import { parsePenaltyCode } from "@/lib/penalties";
@@ -747,12 +748,16 @@ export default function GameDetailPage() {
       {/* Résumé des pointeurs — lecture seule.
           Les buts et passes viennent de la feuille de match : les saisir à la
           main ici serait redondant et risquerait de contredire l'officiel. */}
-      <OpponentLineupEditor
-        gameId={game.id}
-        opponentName={findTeamByOpponent(game.opponent)?.name ?? game.opponent}
-        teamSlug={findTeamByOpponent(game.opponent)?.slug}
-        events={events}
-      />
+      {/* Alignements côte à côte : le nôtre (lecture seule) et celui de l'adversaire. */}
+      <div className="grid gap-4 md:grid-cols-2 items-start">
+        <GameLineupReadOnly gameDate={game.game_date} />
+        <OpponentLineupEditor
+          gameId={game.id}
+          opponentName={findTeamByOpponent(game.opponent)?.name ?? game.opponent}
+          teamSlug={findTeamByOpponent(game.opponent)?.slug}
+          events={events}
+        />
+      </div>
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Pointeurs du match</h2>
