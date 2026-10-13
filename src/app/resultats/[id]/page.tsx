@@ -56,6 +56,9 @@ async function readPdfFormFields(file: File): Promise<Record<string, string>> {
   return fields;
 }
 
+/** Un match de 50 minutes (3 périodes de 20 min + temps mort non compté, selon la feuille). */
+const GOALIE_FULL_GAME_SECONDS = 50 * 60;
+
 export default function GameDetailPage() {
   const params = useParams<{ id: string }>();
   const gameId = params.id;
@@ -423,7 +426,14 @@ export default function GameDetailPage() {
         decision.lines.map((l) => ({
           player_id: l.playerId!,
           game_id: gameId,
-          toi_seconds: l.toiSeconds,
+          // Un gardien qui joue le match en entier compte 50 minutes, peu importe ce
+          // que dit le rapport TPE (qui varie de quelques secondes à plusieurs
+          // minutes et fausse la moyenne). Un changement de gardien en cours de
+          // match se corrige à la main.
+          toi_seconds:
+            players.find((p) => p.id === l.playerId)?.position === "G" && (l.toiSeconds ?? 0) > 0
+              ? GOALIE_FULL_GAME_SECONDS
+              : l.toiSeconds,
           shots_on_goal: l.shotsOnGoal,
           faceoffs_won: l.faceoffsWon,
           faceoffs_lost: l.faceoffsLost,
