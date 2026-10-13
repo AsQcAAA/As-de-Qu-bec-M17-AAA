@@ -18,7 +18,7 @@ import { timeToSeconds } from "@/lib/specialTeams";
 import { gameWinningGoalId } from "@/lib/gameGoals";
 import { regulationMinutes } from "@/lib/playerStats";
 import { titleCase } from "@/lib/players";
-import { formatNet } from "@/lib/tpeReport";
+import { formatNet, secondsToToi } from "@/lib/tpeReport";
 import type { ParsedAdvancedReport } from "@/lib/tpeReport";
 import type { Game, GameDocument, GameDocumentType, GameEvent, Player, PlayerGameAdvancedStat, PlayerGameStat } from "@/lib/types";
 
@@ -133,8 +133,19 @@ export default function GameDetailPage() {
     // Le +/- vient du rapport de statistiques avancées TPE, rattaché au joueur.
     const advancedById = new Map(advancedStats.map((a) => [a.player_id, a]));
     const plusMinus = (player: Player) => advancedById.get(player.id)?.plus_minus ?? 0;
+    const shotsOf = (player: Player) => advancedById.get(player.id)?.shots_on_goal ?? null;
+    const toiOf = (player: Player) => advancedById.get(player.id)?.toi_seconds ?? null;
 
-    type Row = { player: Player; goals: number; assists: number; points: number; pim: number; plusMinus: number };
+    type Row = {
+      player: Player;
+      goals: number;
+      assists: number;
+      points: number;
+      pim: number;
+      plusMinus: number;
+      shots: number | null;
+      toi: number | null;
+    };
     const rows = stats
       .map((s) => {
         const player = byId.get(s.player_id);
@@ -146,6 +157,8 @@ export default function GameDetailPage() {
           points: s.goals + s.assists,
           pim: pim.get(s.player_id) ?? 0,
           plusMinus: plusMinus(player),
+          shots: shotsOf(player),
+          toi: toiOf(player),
         };
       })
       .filter((x): x is Row => !!x);
@@ -155,7 +168,7 @@ export default function GameDetailPage() {
     for (const [playerId, minutes] of pim) {
       if (rows.some((r) => r.player.id === playerId)) continue;
       const player = byId.get(playerId);
-      if (player) rows.push({ player, goals: 0, assists: 0, points: 0, pim: minutes, plusMinus: plusMinus(player) });
+      if (player) rows.push({ player, goals: 0, assists: 0, points: 0, pim: minutes, plusMinus: plusMinus(player), shots: shotsOf(player), toi: toiOf(player) });
     }
 
     // Un joueur peut n'avoir ni point ni punition et avoir été sur la glace :
@@ -163,11 +176,11 @@ export default function GameDetailPage() {
     for (const a of advancedStats) {
       const player = byId.get(a.player_id);
       if (!player || rows.some((r) => r.player.id === player.id)) continue;
-      rows.push({ player, goals: 0, assists: 0, points: 0, pim: 0, plusMinus: plusMinus(player) });
+      rows.push({ player, goals: 0, assists: 0, points: 0, pim: 0, plusMinus: plusMinus(player), shots: shotsOf(player), toi: toiOf(player) });
     }
 
     return rows
-      .filter((r) => r.points > 0 || r.pim > 0 || r.plusMinus !== 0)
+      .filter((r) => r.points > 0 || r.pim > 0 || r.plusMinus !== 0 || (r.toi ?? 0) > 0 || (r.shots ?? 0) > 0)
       .sort(
         (a, b) =>
           b.points - a.points ||
@@ -760,11 +773,13 @@ export default function GameDetailPage() {
                     <th className="py-2 pr-4 w-16">P</th>
                     <th className="py-2 pr-4 w-16">PTS</th>
                     <th className="py-2 pr-4 w-16" title="Plus/moins — sur la glace lors des buts à égalité ou en infériorité">+/-</th>
-                    <th className="py-2 pr-4 w-16" title="Minutes de punition">MIN</th>
+                    <th className="py-2 pr-4 w-16" title="Tirs au but">TIRS</th>
+                    <th className="py-2 pr-4 w-20" title="Temps de glace">TOI</th>
+                    <th className="py-2 pr-4 w-16" title="Minutes de punition">PUN</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {scorers.map(({ player, goals, assists, points, pim, plusMinus }) => (
+                  {scorers.map(({ player, goals, assists, points, pim, plusMinus, shots, toi }) => (
                     <tr key={player.id} className="border-b last:border-0">
                       <td className="py-2 pr-4 font-bold">{player.jersey_number ?? "-"}</td>
                       <td className="py-2 pr-4">{player.full_name}</td>
@@ -778,6 +793,8 @@ export default function GameDetailPage() {
                       >
                         {formatNet(plusMinus)}
                       </td>
+                      <td className="py-2 pr-4">{shots ?? "-"}</td>
+                      <td className="py-2 pr-4 tabular-nums">{toi != null ? secondsToToi(toi) : "-"}</td>
                       <td className="py-2 pr-4">{pim || "-"}</td>
                     </tr>
                   ))}
@@ -790,6 +807,8 @@ export default function GameDetailPage() {
                     <td className="py-2 pr-4">{totals.goals}</td>
                     <td className="py-2 pr-4">{totals.assists}</td>
                     <td className="py-2 pr-4">{totals.points}</td>
+                    <td className="py-2 pr-4"></td>
+                    <td className="py-2 pr-4">{scorers.reduce((n, r) => n + (r.shots ?? 0), 0) || "-"}</td>
                     <td className="py-2 pr-4"></td>
                     <td className="py-2 pr-4">{totals.pim}</td>
                   </tr>
