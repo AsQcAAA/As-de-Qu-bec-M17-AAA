@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { format } from "date-fns";
 import { Resend } from "resend";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeMeetingStatuses } from "@/lib/meetings";
+import { buildMissingLineupEmail, findMissingOpponentLineups } from "@/lib/opponentLineupReminder";
 import type { Meeting, Player } from "@/lib/types";
 
 // Called weekly by Vercel Cron (see vercel.json). Checks which active
@@ -20,18 +22,25 @@ export async function GET(req: NextRequest) {
     supabase.from("meetings").select("*"),
   ]);
 
+  const meetingResult = await sendOverdueMeetingsReminder(supabase, players, meetings);
+  const lineupResult = await sendMissingLineupReminder(supabase, new URL(req.url).origin);
+  return NextResponse.json({ ok: true, ...meetingResult, lineups: lineupResult });
+}
+
+async function sendOverdueMeetingsReminder(
+  supabase: ReturnType<typeof createServiceClient>,
+  players: unknown,
+  meetings: unknown
+) {
   const statuses = computeMeetingStatuses((players ?? []) as Player[], (meetings ?? []) as Meeting[]);
   const overdue = statuses.filter((s) => s.overdue);
 
   if (overdue.length === 0) {
-    return NextResponse.json({ ok: true, overdueCount: 0, emailSent: false });
+    return { overdueCount: 0, emailSent: false };
   }
 
   if (!process.env.RESEND_API_KEY || !process.env.COACH_EMAIL) {
-    return NextResponse.json(
-      { ok: true, overdueCount: overdue.length, emailSent: false, reason: "RESEND_API_KEY or COACH_EMAIL missing" },
-      { status: 200 }
-    );
+    return { overdueCount: overdue.length, emailSent: false, reason: "RESEND_API_KEY or COACH_EMAIL missing" };
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -56,5 +65,41 @@ export async function GET(req: NextRequest) {
     `,
   });
 
-  return NextResponse.json({ ok: true, overdueCount: overdue.length, emailSent: true });
+  return { overdueCount: overdue.length, emailSent: true };
 }
+
+/**
+ * Lundi matin : si l'alignement adverse manque pour un match du week-end
+ * précédent, on rappelle à Philippe et Jeff (les adjoints) de le saisir.
+ */
+async function sendMissingLineupReminder(supabase: ReturnType<typeof createServiceClient>, origin: string) {
+  const mondayKey = format(new Date(), "yyyy-MM-dd");
+  const missing = await findMissingOpponentLineups(supabase, mondayKey);
+  if (missing.length === 0) return { missing: 0, emailsSent: 0 };
+  if (!process.env.RESEND_API_KEY) return { missing: missing.length, emailsSent: 0, reason: "RESEND_API_KEY missing" };
+
+  const { data: coaches } = await supabase
+    .from("coach_profiles")
+    .select("id, full_name")
+    .in("full_name", RECIPIENT_NAMES);
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  let sent = 0;
+  for (const c of coaches ?? []) {
+    const { data } = await supabase.auth.admin.getUserById(c.id);
+    const to = data?.user?.email;
+    if (!to) continue;
+    const mail = buildMissingLineupEmail(missing, origin, c.full_name.split(" ")[0]);
+    const { error } = await resend.emails.send({
+      from: process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev",
+      to,
+      replyTo: process.env.COACH_EMAIL || undefined,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    });
+    if (!error) sent += 1;
+  }
+  return { missing: missing.length, emailsSent: sent };
+}
+
+const RECIPIENT_NAMES = ["Philippe Tremblay", "Jeff St-Louis"];
