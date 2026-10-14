@@ -563,7 +563,12 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const regulars = players.filter(
     (p) => !p.is_call_up || (!isGameDay && p.id === ALIGNMENT_CALL_UP_EXCEPTION_ID)
   );
-  const callUps = isGameDay ? players.filter((p) => p.is_call_up) : [];
+  // Un remplaçant déjà posé dans l'alignement (copié d'un match, par exemple)
+  // reste visible et retirable même un jour de pratique : sinon sa case
+  // s'affichait « Vide » dans le menu alors qu'il occupait la place, et
+  // choisir « Vide » ne changeait rien.
+  const placedIds = new Set(units.flatMap((u) => u.player_ids));
+  const callUps = players.filter((p) => p.is_call_up && (isGameDay || placedIds.has(p.id)));
 
   // Joueurs signalés ce jour-là : id → libellé. Sert à les marquer partout
   // (menus, chandails, cinq partant) plutôt qu'à les cacher. Un « sans
