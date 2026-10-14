@@ -35,6 +35,22 @@ const GROUPING: Record<"F" | "D", { unitType: "forward_line" | "defense_pair"; p
  * vestiaire. En mode diffusion, tout est agrandi et rafraîchi tout seul :
  * personne ne va cliquer sur un écran accroché au mur.
  */
+/**
+ * Libellé d'une ligne de l'horaire TV : le type de l'activité, ou le titre
+ * complet quand il le prolonge (« Meeting individuel & Études »).
+ */
+function tvEventLabel(e: { event_type: ScheduleEvent["event_type"]; title: string | null }): string {
+  const label = EVENT_TYPE_LABEL[e.event_type];
+  const title = e.title?.trim() ?? "";
+  if (!title) return label;
+  if (e.event_type === "other") return title;
+  const norm = (x: string) => x.toLowerCase();
+  // Un titre qui prolonge le type (« Meeting individuel & Études ») s'affiche
+  // en entier ; un détail sans rapport (thème d'un meeting…) reste hors de l'écran.
+  if (norm(title).startsWith(norm(label))) return title;
+  return label;
+}
+
 export default function TvDayBoard({ date, cast = false }: { date: string; cast?: boolean }) {
   const supabase = createClient();
   const captureRef = useRef<HTMLDivElement>(null);
@@ -204,11 +220,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                   {/* « Autre » ne dit rien aux joueurs : c'est le détail saisi
                       qui porte l'information. On l'affiche à la place, et on ne
                       retombe sur le libellé générique que s'il est vide. */}
-                  <span>
-                    {e.event_type === "other" && e.title?.trim()
-                      ? e.title.trim()
-                      : EVENT_TYPE_LABEL[e.event_type]}
-                  </span>
+                  <span>{tvEventLabel(e)}</span>
                   {/* Les meetings changent de salle : c'est la seule information
                       de lieu qui apprend quelque chose aux joueurs. */}
                   {e.location && showsLocation(e.event_type) && (
