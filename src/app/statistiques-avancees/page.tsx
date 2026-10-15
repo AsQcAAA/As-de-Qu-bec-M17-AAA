@@ -346,6 +346,11 @@ export default function StatistiquesAvanceesPage() {
         <>
           <div className="grid sm:grid-cols-3 gap-4">
             <StatCard label="Tirs au but" value={`${teamSummary.shotsFor} - ${teamSummary.shotsAgainst}`} hint={`Nous - adversaire, sur ${teamSummary.games} match(s)`} />
+            <StatCard
+              label="Tirs au but par match"
+              value={`${(teamSummary.shotsFor / teamSummary.games).toFixed(1)} - ${(teamSummary.shotsAgainst / teamSummary.games).toFixed(1)}`}
+              hint="Moyenne nous - adversaire"
+            />
             <StatCard label="Mises au jeu" value={teamSummary.faceoffPct === null ? "-" : `${teamSummary.faceoffPct.toFixed(1)} %`} hint="Gagnées" />
             {teamSummary.xgGames > 0 && (
               <StatCard label="xG d'équipe" value={`${teamSummary.xgFor.toFixed(1)} - ${teamSummary.xgAgainst.toFixed(1)}`} hint={`Nous - adversaire, sur ${teamSummary.xgGames} match(s)`} />

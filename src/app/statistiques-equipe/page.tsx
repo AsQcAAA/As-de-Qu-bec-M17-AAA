@@ -311,6 +311,11 @@ export default function StatistiquesEquipePage() {
                 hint={`Nous - adversaire, sur ${stats.shotsGames} match(s) avec rapport TPE`}
               />
               <StatCard
+                label="Tirs au but par match"
+                value={`${(stats.shotsFor / stats.shotsGames).toFixed(1)} - ${(stats.shotsAgainst / stats.shotsGames).toFixed(1)}`}
+                hint={`Moyenne nous - adversaire, sur ${stats.shotsGames} match(s) avec rapport TPE`}
+              />
+              <StatCard
                 label="Mises au jeu"
                 value={stats.faceoffPct === null ? "-" : `${fmt(stats.faceoffPct)} %`}
                 hint="Gagnées, rapport TPE"
