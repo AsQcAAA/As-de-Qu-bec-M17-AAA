@@ -496,6 +496,42 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     load();
   }
 
+  /** Tests regroupés par nom : une colonne par séance (A25, A26…) et l'évolution de la plus récente. */
+  const testTable = useMemo(() => {
+    const seasonOf = (date: string) => {
+      const month = Number(date.slice(5, 7));
+      return `${month >= 8 ? "A" : month <= 4 ? "H" : "É"}${date.slice(2, 4)}`;
+    };
+    const sessions = [...new Set(testResults.map((t) => t.test_date))].sort();
+    const counts = new Map<string, number>();
+    for (const d of sessions) counts.set(seasonOf(d), (counts.get(seasonOf(d)) ?? 0) + 1);
+    const labels = new Map(sessions.map((d) => [d, (counts.get(seasonOf(d)) ?? 0) > 1 ? d : seasonOf(d)]));
+    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m (1)", "Sprint 30 m (2)", "Grandeur assise"];
+    const names = [...new Set(testResults.map((t) => t.test_name))].sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+    });
+    const rows = names.map((name) => {
+      const mine = testResults.filter((t) => t.test_name === name).sort((a, b) => a.test_date.localeCompare(b.test_date));
+      const byDate = new Map(mine.map((t) => [t.test_date, t]));
+      const last = mine[mine.length - 1];
+      const prev = mine.length > 1 ? mine[mine.length - 2] : null;
+      const delta = prev ? last.value - prev.value : null;
+      const higher = last.higher_is_better;
+      return {
+        name,
+        byDate,
+        unit: last.unit,
+        delta,
+        improved: delta !== null && (higher ? delta > 0 : delta < 0),
+        fromLabel: prev ? labels.get(prev.test_date) : "",
+        toLabel: labels.get(last.test_date),
+      };
+    });
+    return { sessions, labels, rows };
+  }, [testResults]);
+
   async function addTestResult(e: React.FormEvent) {
     e.preventDefault();
     if (!testForm.test_name.trim() || testForm.value === "") return;
@@ -1294,8 +1330,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
             </button>
           </div>
           <p className="text-xs text-slate-500">
-            Résultats à venir en temps et lieu — une fois entrés, l'onglet « Tests physiques » classera
-            automatiquement tous les joueurs pour chaque test.
+            Une colonne par séance de tests. L&apos;évolution compare la dernière séance à la précédente : vert = amélioration, rouge = recul.
           </p>
 
           {showTestForm && (
@@ -1349,32 +1384,64 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
           {testResults.length === 0 ? (
             <p className="text-sm text-slate-500">Aucun test enregistré.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b">
-                  <th className="py-1.5 pr-4">Test</th>
-                  <th className="py-1.5 pr-4">Valeur</th>
-                  <th className="py-1.5 pr-4">Date</th>
-                  <th className="py-1.5 pr-4"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {testResults.map((t) => (
-                  <tr key={t.id} className="border-b last:border-0">
-                    <td className="py-1.5 pr-4">{t.test_name}</td>
-                    <td className="py-1.5 pr-4 font-medium">
-                      {t.value} {t.unit ?? ""}
-                    </td>
-                    <td className="py-1.5 pr-4">{t.test_date}</td>
-                    <td className="py-1.5 pr-4">
-                      <button onClick={() => deleteTestResult(t.id)} className="text-xs text-red-600 hover:underline">
-                        Retirer
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b">
+                    <th className="py-1.5 pr-4">Test</th>
+                    {testTable.sessions.map((d) => (
+                      <th key={d} className="py-1.5 pr-4" title={d}>
+                        {testTable.labels.get(d)}
+                      </th>
+                    ))}
+                    <th className="py-1.5 pr-2">Évolution</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {testTable.rows.map((row) => (
+                    <tr key={row.name} className="border-b last:border-0">
+                      <td className="py-1.5 pr-4">{row.name}</td>
+                      {testTable.sessions.map((d) => {
+                        const r = row.byDate.get(d);
+                        return (
+                          <td key={d} className="group py-1.5 pr-4 font-medium whitespace-nowrap">
+                            {r ? (
+                              <>
+                                {r.value}
+                                {r.unit ? <span className="text-xs font-normal text-slate-500"> {r.unit}</span> : null}
+                                <button
+                                  onClick={() => deleteTestResult(r.id)}
+                                  title="Retirer ce résultat"
+                                  className="ml-1.5 hidden text-xs text-red-600 group-hover:inline"
+                                >
+                                  ✕
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-slate-300">–</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="py-1.5 pr-2 whitespace-nowrap font-semibold">
+                        {row.delta === null ? (
+                          <span className="text-slate-300">–</span>
+                        ) : (
+                          <span
+                            className={row.delta === 0 ? "text-slate-500" : row.improved ? "text-green-700" : "text-red-600"}
+                            title={`${row.fromLabel} → ${row.toLabel}`}
+                          >
+                            {row.delta === 0 ? "=" : row.delta > 0 ? "▲" : "▼"} {row.delta > 0 ? "+" : ""}
+                            {Math.round(row.delta * 1000) / 1000}
+                            {row.unit ? ` ${row.unit}` : ""}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <Link href="/tests-physiques" className="text-sm text-ink-800 hover:text-gold-700 font-medium hover:underline">
             Voir le classement de l'équipe →
