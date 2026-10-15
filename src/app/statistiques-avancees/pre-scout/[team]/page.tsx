@@ -215,7 +215,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 if (g.pp_opportunities != null)
                   stats.push({ label: "Avantage numérique", value: `${g.pp_goals ?? 0}/${g.pp_opportunities}` });
                 if (g.pk_opportunities != null)
-                  stats.push({ label: "Désavantage numérique", value: `${g.pk_kills ?? 0}/${g.pk_opportunities} contrés` });
+                  stats.push({ label: "Désavantage numérique", value: `${g.pk_kills ?? 0}/${g.pk_opportunities}` });
                 if (g.faceoffs_us_won != null && g.faceoffs_us_lost != null) {
                   const t = g.faceoffs_us_won + g.faceoffs_us_lost;
                   stats.push({ label: "Mises au jeu", value: t ? `${Math.round((g.faceoffs_us_won / t) * 100)} %` : "-" });
