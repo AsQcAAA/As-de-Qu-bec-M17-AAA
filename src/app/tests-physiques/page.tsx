@@ -93,6 +93,21 @@ export default function TestsPhysiquesPage() {
   const [pickedSession, setPickedSession] = useState<string | null>(null);
   const session = pickedSession && sessionDates.includes(pickedSession) ? pickedSession : sessionDates[sessionDates.length - 1] ?? "";
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: "__name", desc: false });
+  // « rank » : couleurs vert / rouge selon la place dans l'équipe ; « evolution » :
+  // résultat de la séance + celui de la séance précédente entre parenthèses et une flèche.
+  const [viewMode, setViewMode] = useState<"rank" | "evolution">("rank");
+  const previousSession = useMemo(() => {
+    const i = sessionDates.indexOf(session);
+    return i > 0 ? sessionDates[i - 1] : null;
+  }, [sessionDates, session]);
+  const showEvolution = viewMode === "evolution" && previousSession !== null;
+  /** Résultats de la séance précédente : joueur|test → résultat. */
+  const previousResults = useMemo(() => {
+    const map = new Map<string, PlayerTestResult>();
+    if (!previousSession) return map;
+    for (const r of results) if (r.test_date === previousSession) map.set(`${r.player_id}|${r.test_name}`, r);
+    return map;
+  }, [results, previousSession]);
 
   /** Tests de la séance, dans un ordre stable (les tests habituels d'abord). */
   const testColumnsOfSession = useMemo(() => {
@@ -366,6 +381,24 @@ export default function TestsPhysiquesPage() {
       ) : (
         <>
           <div className="flex items-center gap-3 flex-wrap">
+            <div className="inline-flex rounded-lg overflow-hidden border border-white/20">
+              <button
+                className={`px-4 py-2 text-sm font-bold ${viewMode === "rank" ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"}`}
+                onClick={() => setViewMode("rank")}
+              >
+                🎨 Classement
+              </button>
+              <button
+                disabled={previousSession === null}
+                title={previousSession === null ? "Il faut une séance précédente pour comparer" : undefined}
+                className={`px-4 py-2 text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed ${
+                  showEvolution ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"
+                }`}
+                onClick={() => setViewMode("evolution")}
+              >
+                📈 Évolution{previousSession ? ` ${sessionLabels.get(previousSession)} → ${sessionLabels.get(session)}` : ""}
+              </button>
+            </div>
             <label className="text-sm font-semibold text-white">Séance de tests</label>
             <select className="input w-auto" value={session} onChange={(e) => setPickedSession(e.target.value)}>
               {[...sessionDates].reverse().map((d) => (
@@ -374,15 +407,22 @@ export default function TestsPhysiquesPage() {
                 </option>
               ))}
             </select>
-            <span className="inline-flex items-center gap-2 text-xs text-slate-300">
-              <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(120, 72%, 68%)", color: "#111" }}>
-                meilleur
+            {showEvolution ? (
+              <span className="text-xs text-slate-300">
+                Résultat {sessionLabels.get(session)} <span className="text-slate-400">(résultat {sessionLabels.get(previousSession!)})</span>{" "}
+                <span className="font-bold text-green-400">▲ mieux</span> <span className="font-bold text-red-400">▼ moins bien</span>
               </span>
-              <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(0, 72%, 68%)", color: "#111" }}>
-                pire
+            ) : (
+              <span className="inline-flex items-center gap-2 text-xs text-slate-300">
+                <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(120, 72%, 68%)", color: "#111" }}>
+                  meilleur
+                </span>
+                <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(0, 72%, 68%)", color: "#111" }}>
+                  pire
+                </span>
+                <span className="text-slate-400">par colonne — clique un titre pour trier</span>
               </span>
-              <span className="text-slate-400">par colonne — clique un titre pour trier</span>
-            </span>
+            )}
           </div>
 
           <div className="card overflow-x-auto">
@@ -427,15 +467,35 @@ export default function TestsPhysiquesPage() {
                           </td>
                         );
                       }
-                      const { bg, extreme } = cellColor(name, r.value);
+                      const { bg, extreme } = showEvolution ? { bg: "transparent", extreme: null } : cellColor(name, r.value);
+                      const prev = showEvolution ? previousResults.get(`${row.playerId}|${name}`) : undefined;
+                      const delta = prev ? Math.round((r.value - prev.value) * 1000) / 1000 : null;
+                      const better = delta !== null && (r.higher_is_better ? delta > 0 : delta < 0);
                       return (
                         <td
                           key={name}
                           className={`py-1.5 px-3 text-center border-b tabular-nums ${extreme ? "font-black text-ink-900" : "font-medium"}`}
                           style={{ background: bg }}
-                          title={extreme === "best" ? "Meilleur résultat" : extreme === "worst" ? "Moins bon résultat" : undefined}
+                          title={
+                            showEvolution && prev
+                              ? `${sessionLabels.get(previousSession!)} : ${prev.value} → ${sessionLabels.get(session)} : ${r.value}`
+                              : extreme === "best"
+                                ? "Meilleur résultat"
+                                : extreme === "worst"
+                                  ? "Moins bon résultat"
+                                  : undefined
+                          }
                         >
                           {r.value}
+                          {showEvolution && prev && (
+                            <>
+                              <span className="ml-1 text-xs font-normal text-slate-500">({prev.value})</span>
+                              {delta !== 0 && (
+                                <span className={`ml-1 font-black ${better ? "text-green-600" : "text-red-600"}`}>{delta! > 0 ? "▲" : "▼"}</span>
+                              )}
+                              {delta === 0 && <span className="ml-1 text-slate-400">=</span>}
+                            </>
+                          )}
                           {r.notes === INJURED_NOTE && (
                             <span title={INJURED_NOTE} className="ml-1">
                               🩹
