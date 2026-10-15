@@ -44,7 +44,6 @@ export default function TestsPhysiquesPage() {
   const supabase = createClient();
   const [players, setPlayers] = useState<Player[]>([]);
   const [results, setResults] = useState<PlayerTestResult[]>([]);
-  const [selectedTest, setSelectedTest] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const [importing, setImporting] = useState(false);
@@ -69,46 +68,15 @@ export default function TestsPhysiquesPage() {
     load();
   }, []);
 
-  const testNames = useMemo(() => [...new Set(results.map((r) => r.test_name))].sort(), [results]);
-
-  useEffect(() => {
-    if (!selectedTest && testNames.length > 0) setSelectedTest(testNames[0]);
-  }, [testNames, selectedTest]);
-
   const nameById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
 
-  const ranking = useMemo(() => {
-    if (!selectedTest) return [];
-    const latestByPlayer = new Map<string, PlayerTestResult>();
-    for (const r of results) {
-      if (r.test_name !== selectedTest) continue;
-      const existing = latestByPlayer.get(r.player_id);
-      if (!existing || r.test_date > existing.test_date) latestByPlayer.set(r.player_id, r);
-    }
-    const higherIsBetter = [...latestByPlayer.values()][0]?.higher_is_better ?? true;
-    return [...latestByPlayer.values()].sort((a, b) => (higherIsBetter ? b.value - a.value : a.value - b.value));
-  }, [selectedTest, results]);
+  /** Séances de tests, de la plus ancienne à la plus récente. */
+  const sessionDates = useMemo(() => [...new Set(results.map((r) => r.test_date))].sort(), [results]);
 
   /**
-   * Rang de chaque ligne du classement. Des résultats égaux partagent le même
-   * rang, et le suivant saute d'autant (1, 2, 2, 4) plutôt que de compter 1, 2, 3, 4.
-   */
-  const ranks = useMemo(() => {
-    const out: number[] = [];
-    ranking.forEach((r, i) => out.push(i > 0 && r.value === ranking[i - 1].value ? out[i - 1] : i + 1));
-    return out;
-  }, [ranking]);
-
-  /** Séances du test choisi, de la plus ancienne à la plus récente. */
-  const sessionDates = useMemo(
-    () => [...new Set(results.filter((r) => r.test_name === selectedTest).map((r) => r.test_date))].sort(),
-    [selectedTest, results]
-  );
-
-  /**
-   * Titre de colonne d'une séance : la saison plutôt que la date exacte
-   * (A25 = automne 2025, H26 = hiver 2026, É26 = été 2026). Si deux séances
-   * tombent dans la même saison, on retombe sur la date pour les distinguer.
+   * Titre d'une séance : la saison plutôt que la date exacte (A25 = automne
+   * 2025, H26 = hiver 2026, É26 = été 2026). Si deux séances tombent dans la
+   * même saison, on retombe sur la date pour les distinguer.
    */
   const sessionLabels = useMemo(() => {
     const seasonOf = (date: string) => {
@@ -121,31 +89,80 @@ export default function TestsPhysiquesPage() {
     return new Map(sessionDates.map((d) => [d, (counts.get(seasonOf(d)) ?? 0) > 1 ? d : seasonOf(d)]));
   }, [sessionDates]);
 
-  /** Résultat d'un joueur à une date précise pour le test choisi. */
-  const resultAt = useMemo(() => {
-    const map = new Map<string, PlayerTestResult>();
-    for (const r of results) if (r.test_name === selectedTest) map.set(`${r.player_id}|${r.test_date}`, r);
-    return map;
-  }, [selectedTest, results]);
+  // Séance affichée : la plus récente tant qu'on n'en choisit pas une autre.
+  const [pickedSession, setPickedSession] = useState<string | null>(null);
+  const session = pickedSession && sessionDates.includes(pickedSession) ? pickedSession : sessionDates[sessionDates.length - 1] ?? "";
+  const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: "__name", desc: false });
 
-  /** Note associée à une séance (ex. « Tests de l'automne 2025 »), pour l'infobulle de l'en-tête. */
-  const noteByDate = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const r of results) if (r.test_name === selectedTest && r.notes && r.notes !== INJURED_NOTE) map.set(r.test_date, r.notes);
-    return map;
-  }, [selectedTest, results]);
+  /** Tests de la séance, dans un ordre stable (les tests habituels d'abord). */
+  const testColumnsOfSession = useMemo(() => {
+    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m (1)", "Sprint 30 m (2)", "Grandeur assise"];
+    const names = [...new Set(results.filter((r) => r.test_date === session).map((r) => r.test_name))];
+    return names.sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+    });
+  }, [results, session]);
 
-  /** Écart entre le résultat le plus récent d'un joueur et celui qui le précède. */
-  function evolution(r: PlayerTestResult) {
-    let previous: PlayerTestResult | null = null;
-    for (const other of results) {
-      if (other.test_name !== selectedTest || other.player_id !== r.player_id || other.test_date >= r.test_date) continue;
-      if (!previous || other.test_date > previous.test_date) previous = other;
+  /** Une ligne par joueur ayant au moins un résultat à cette séance. */
+  const matrix = useMemo(() => {
+    const byPlayer = new Map<string, Map<string, PlayerTestResult>>();
+    for (const r of results) {
+      if (r.test_date !== session) continue;
+      if (!byPlayer.has(r.player_id)) byPlayer.set(r.player_id, new Map());
+      byPlayer.get(r.player_id)!.set(r.test_name, r);
     }
-    if (!previous) return null;
-    const delta = Math.round((r.value - previous.value) * 100) / 100;
-    const better = r.higher_is_better ? delta > 0 : delta < 0;
-    return { delta, better };
+    const rows = [...byPlayer.entries()]
+      .map(([playerId, tests]) => ({ player: nameById.get(playerId), playerId, tests }))
+      .filter((r) => r.player);
+
+    // Couleur par colonne : du pire (rouge) au meilleur (vert), selon le sens du test.
+    const scale = new Map<string, { min: number; max: number; higher: boolean; unit: string | null }>();
+    for (const name of testColumnsOfSession) {
+      const vals = rows.map((r) => r.tests.get(name)).filter((x): x is PlayerTestResult => !!x);
+      if (vals.length === 0) continue;
+      scale.set(name, {
+        min: Math.min(...vals.map((v) => v.value)),
+        max: Math.max(...vals.map((v) => v.value)),
+        higher: vals[0].higher_is_better,
+        unit: vals[0].unit,
+      });
+    }
+
+    const valueOf = (r: (typeof rows)[number]) =>
+      sort.key === "__name" ? null : r.tests.get(sort.key)?.value ?? null;
+    rows.sort((a, b) => {
+      if (sort.key === "__name") {
+        const cmp = lastName(a.player!.full_name).localeCompare(lastName(b.player!.full_name));
+        return sort.desc ? -cmp : cmp;
+      }
+      const va = valueOf(a);
+      const vb = valueOf(b);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1; // sans résultat : toujours en bas
+      if (vb === null) return -1;
+      return sort.desc ? vb - va : va - vb;
+    });
+    return { rows, scale };
+  }, [results, session, nameById, testColumnsOfSession, sort]);
+
+  function toggleSort(key: string) {
+    setSort((cur) => (cur.key === key ? { key, desc: !cur.desc } : { key, desc: key !== "__name" }));
+  }
+
+  /** Fond d'une cellule : vert = meilleur, rouge = pire ; plus c'est extrême, plus c'est soutenu. */
+  function cellColor(testName: string, value: number): { bg: string; extreme: "best" | "worst" | null } {
+    const sc = matrix.scale.get(testName);
+    if (!sc || sc.max === sc.min) return { bg: "transparent", extreme: null };
+    let t = (value - sc.min) / (sc.max - sc.min); // 0 = plus bas, 1 = plus haut
+    if (!sc.higher) t = 1 - t; // pour un temps, plus bas = meilleur
+    const distance = Math.abs(t - 0.5) * 2; // 0 au milieu, 1 aux extrêmes
+    const lightness = 95 - 27 * distance;
+    return {
+      bg: `hsl(${Math.round(t * 120)}, 72%, ${Math.round(lightness)}%)`,
+      extreme: t >= 0.999 ? "best" : t <= 0.001 ? "worst" : null,
+    };
   }
 
   async function handleFile(file: File) {
@@ -342,76 +359,96 @@ export default function TestsPhysiquesPage() {
 
       {loading ? (
         <p className="text-slate-500">Chargement...</p>
-      ) : testNames.length === 0 ? (
+      ) : sessionDates.length === 0 ? (
         <p className="text-sm text-slate-500">
           Aucun test enregistré pour l'instant. Importe un fichier Excel ci-dessus, ou ajoute des résultats depuis une fiche joueur.
         </p>
       ) : (
         <>
-          <select className="input w-auto" value={selectedTest} onChange={(e) => setSelectedTest(e.target.value)}>
-            {testNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm font-semibold text-white">Séance de tests</label>
+            <select className="input w-auto" value={session} onChange={(e) => setPickedSession(e.target.value)}>
+              {[...sessionDates].reverse().map((d) => (
+                <option key={d} value={d}>
+                  {sessionLabels.get(d)} — {d}
+                </option>
+              ))}
+            </select>
+            <span className="inline-flex items-center gap-2 text-xs text-slate-300">
+              <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(120, 72%, 68%)", color: "#111" }}>
+                meilleur
+              </span>
+              <span className="rounded px-2 py-0.5 font-bold" style={{ background: "hsl(0, 72%, 68%)", color: "#111" }}>
+                pire
+              </span>
+              <span className="text-slate-400">par colonne — clique un titre pour trier</span>
+            </span>
+          </div>
 
           <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
-                <tr className="text-left text-slate-500 border-b">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Joueur</th>
-                  {sessionDates.map((d) => (
-                    <th key={d} className="py-2 pr-4" title={noteByDate.get(d)}>
-                      {sessionLabels.get(d)}
+                <tr className="text-left text-slate-500">
+                  <th
+                    className="sticky left-0 bg-white py-2 pr-4 cursor-pointer select-none border-b"
+                    onClick={() => toggleSort("__name")}
+                  >
+                    Joueur {sort.key === "__name" ? (sort.desc ? "▼" : "▲") : ""}
+                  </th>
+                  {testColumnsOfSession.map((name) => (
+                    <th
+                      key={name}
+                      className="py-2 px-3 cursor-pointer select-none whitespace-nowrap border-b text-center hover:text-ink-900"
+                      onClick={() => toggleSort(name)}
+                      title={matrix.scale.get(name)?.higher === false ? "Moins = mieux" : "Plus = mieux"}
+                    >
+                      {name}
+                      {matrix.scale.get(name)?.unit ? <span className="font-normal text-slate-400"> ({matrix.scale.get(name)!.unit})</span> : null}{" "}
+                      {sort.key === name ? (sort.desc ? "▼" : "▲") : ""}
                     </th>
                   ))}
-                  {sessionDates.length > 1 && <th className="py-2 pr-4">Évolution</th>}
                 </tr>
               </thead>
               <tbody>
-                {ranking.map((r, i) => {
-                  const evo = evolution(r);
-                  const player = nameById.get(r.player_id);
-                  return (
-                    <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-bold text-ink-900">{ranks[i]}</td>
-                      <td className="py-2 pr-4">
-                        <Link href={`/joueurs/${r.player_id}`} className="hover:text-gold-700 hover:underline">
-                          {player?.jersey_number ? `#${player.jersey_number} ` : ""}
-                          {player?.full_name ?? "?"}
-                        </Link>
-                      </td>
-                      {sessionDates.map((d) => {
-                        const res = resultAt.get(`${r.player_id}|${d}`);
-                        const isLatest = d === sessionDates[sessionDates.length - 1];
+                {matrix.rows.map((row) => (
+                  <tr key={row.playerId}>
+                    <td className="sticky left-0 bg-white py-1.5 pr-4 border-b whitespace-nowrap">
+                      <Link href={`/joueurs/${row.playerId}`} className="hover:text-gold-700 hover:underline">
+                        {row.player?.jersey_number ? `#${row.player.jersey_number} ` : ""}
+                        {row.player?.full_name}
+                      </Link>
+                    </td>
+                    {testColumnsOfSession.map((name) => {
+                      const r = row.tests.get(name);
+                      if (!r) {
                         return (
-                          <td key={d} className={`py-2 pr-4 ${isLatest ? "font-bold" : ""}`}>
-                            {res ? `${res.value} ${res.unit ?? ""}` : "-"}
-                            {res?.notes === INJURED_NOTE && (
-                              <span title={INJURED_NOTE} className="ml-1">
-                                🩹
-                              </span>
-                            )}
+                          <td key={name} className="py-1.5 px-3 text-center text-slate-300 border-b">
+                            –
                           </td>
                         );
-                      })}
-                      {sessionDates.length > 1 && (
+                      }
+                      const { bg, extreme } = cellColor(name, r.value);
+                      return (
                         <td
-                          className={`py-2 pr-4 font-medium ${
-                            !evo || evo.delta === 0 ? "text-slate-400" : evo.better ? "text-green-600" : "text-red-600"
-                          }`}
+                          key={name}
+                          className={`py-1.5 px-3 text-center border-b tabular-nums ${extreme ? "font-black text-ink-900" : "font-medium"}`}
+                          style={{ background: bg }}
+                          title={extreme === "best" ? "Meilleur résultat" : extreme === "worst" ? "Moins bon résultat" : undefined}
                         >
-                          {evo ? `${evo.delta > 0 ? "+" : ""}${evo.delta}` : "-"}
+                          {r.value}
+                          {r.notes === INJURED_NOTE && (
+                            <span title={INJURED_NOTE} className="ml-1">
+                              🩹
+                            </span>
+                          )}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                      );
+                    })}
+                  </tr>
+                ))}
               </tbody>
             </table>
-            {results.some((r) => r.test_name === selectedTest && r.notes === INJURED_NOTE) && (
+            {results.some((r) => r.test_date === session && r.notes === INJURED_NOTE) && (
               <p className="text-xs text-slate-500 pt-2">🩹 Blessé lors du test</p>
             )}
           </div>
