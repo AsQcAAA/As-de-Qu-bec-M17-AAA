@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toPng } from "html-to-image";
 import { lastName } from "@/lib/players";
 import type { Player, TeamBuildingTeam } from "@/lib/types";
 
@@ -24,11 +25,36 @@ export default function TeamBuildingTeams({
   players,
   teams,
   onChange,
+  title,
+  subtitle,
+  fileKey,
 }: {
   players: Player[];
   teams: TeamBuildingTeam[];
   onChange: (next: TeamBuildingTeam[]) => void;
+  /** Titre de l'image exportée (ex. « Team Building — mercredi 14 octobre »). */
+  title: string;
+  subtitle?: string;
+  /** Sert au nom du fichier exporté (la date de la séance). */
+  fileKey: string;
 }) {
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportImage() {
+    if (!exportRef.current) return;
+    setExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, { pixelRatio: 2, backgroundColor: "#0d0c0c" });
+      const link = document.createElement("a");
+      link.download = `team-building-${fileKey}.png`;
+      link.href = dataUrl;
+      link.click();
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const byId = new Map(players.map((p) => [p.id, p]));
   const placed = new Set(teams.flatMap((t) => [t.captain_id, ...t.member_ids].filter(Boolean) as string[]));
   const pool = players.filter((p) => !placed.has(p.id));
@@ -200,7 +226,10 @@ export default function TeamBuildingTeams({
         <div className="flex flex-wrap gap-1.5">{pool.length === 0 ? <span className="text-sm text-slate-400">Tout le monde est placé.</span> : pool.map((p) => chip(p))}</div>
       </div>
 
-      <div className="flex gap-3 text-xs">
+      <div className="flex gap-3 text-xs items-center flex-wrap">
+        <button type="button" className="btn-secondary text-sm" disabled={exporting} onClick={exportImage}>
+          {exporting ? "Génération…" : "⬇ Exporter en image (PNG)"}
+        </button>
         <button
           type="button"
           className="text-slate-500 hover:underline"
@@ -219,6 +248,53 @@ export default function TeamBuildingTeams({
         >
           Défaire les équipes
         </button>
+      </div>
+
+      {/* Panneau d'export, rendu hors écran : une image propre à envoyer aux joueurs
+          (visages des capitaines, équipes et pointage), sans les boutons. */}
+      <div className="fixed -left-[9999px] top-0" aria-hidden>
+        <div ref={exportRef} className="w-[1080px] bg-ink-900 p-10 space-y-8">
+          <div className="text-center space-y-1">
+            <div className="text-sm font-black uppercase tracking-[0.3em] text-gold-400">As de Québec M17 AAA — Team Building</div>
+            <h2 className="text-4xl font-black text-white capitalize">{title}</h2>
+            {subtitle && <div className="text-xl font-semibold text-slate-300">{subtitle}</div>}
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            {teams.map((team, i) => {
+              const accent = ACCENTS[i];
+              const captain = team.captain_id ? byId.get(team.captain_id) : undefined;
+              const members = team.member_ids.map((id) => byId.get(id)).filter((p): p is Player => !!p);
+              const leader = team.score > 0 && team.score === topScore;
+              return (
+                <div
+                  key={i}
+                  className={`rounded-3xl p-6 flex flex-col items-center gap-4 border-4 ${
+                    leader ? "border-gold-400 bg-gold-500/10" : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <div className={`h-52 w-52 rounded-full overflow-hidden ring-8 ${accent.ring} bg-ink-800 flex items-center justify-center`}>
+                    {captain?.photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={captain.photo_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-7xl font-black text-gold-400">{captain?.jersey_number ?? "?"}</span>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-black uppercase tracking-widest text-gold-400">
+                      {accent.name} {leader && "👑"}
+                    </div>
+                    <div className="text-2xl font-black text-white leading-tight">{captain ? captain.full_name : "—"}</div>
+                  </div>
+                  <div className="text-center text-sm font-semibold text-slate-300 min-h-[3.5rem]">
+                    {members.map((p) => `#${p.jersey_number ?? "?"} ${lastName(p.full_name)}`).join("  ·  ")}
+                  </div>
+                  <div className="text-8xl font-black text-white tabular-nums leading-none">{team.score}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

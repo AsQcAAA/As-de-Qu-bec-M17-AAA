@@ -167,7 +167,14 @@ export default function TeamBuildingPage() {
           return open ? (
             <div className="pt-2 border-t space-y-2">
               <div className="text-xs font-black uppercase tracking-widest text-slate-500">🏆 Équipes et pointage</div>
-              <TeamBuildingTeams players={players} teams={teams} onChange={(next) => saveTeams(s.date, next)} />
+              <TeamBuildingTeams
+                players={players}
+                teams={teams}
+                onChange={(next) => saveTeams(s.date, next)}
+                title={format(parseISO(s.date), "EEEE d MMMM yyyy", { locale: fr })}
+                subtitle={s.log?.theme ?? undefined}
+                fileKey={s.date}
+              />
             </div>
           ) : (
             <button
