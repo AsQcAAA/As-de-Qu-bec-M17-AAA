@@ -164,6 +164,10 @@ export default function TeamBuildingPage() {
           const teams = s.log?.teams && s.log.teams.length === 3 ? s.log.teams : emptyTeams();
           const hasTeams = teams.some((t) => t.captain_id || t.member_ids.length > 0 || t.score > 0);
           const open = teamsOpen.has(s.date) || hasTeams;
+          // Dernière séance antérieure dont les équipes sont formées : on peut les reprendre.
+          const previous = [...sessions]
+            .reverse()
+            .find((x) => x.date < s.date && x.log?.teams && x.log.teams.length === 3 && x.log.teams.some((t) => t.captain_id));
           return open ? (
             <div className="pt-2 border-t space-y-2">
               <div className="text-xs font-black uppercase tracking-widest text-slate-500">🏆 Équipes et pointage</div>
@@ -177,12 +181,28 @@ export default function TeamBuildingPage() {
               />
             </div>
           ) : (
-            <button
-              className="btn-secondary text-sm w-fit"
-              onClick={() => setTeamsOpen((prev) => new Set(prev).add(s.date))}
-            >
-              🏆 Former les 3 équipes
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {previous && (
+                <>
+                  <button
+                    className="btn text-sm"
+                    onClick={() => saveTeams(s.date, previous.log!.teams!.map((t) => ({ ...t, member_ids: [...t.member_ids] })))}
+                    title="Mêmes capitaines, mêmes joueurs, et le pointage continue là où il s'était arrêté"
+                  >
+                    ↩ Reprendre les équipes et le score du {format(parseISO(previous.date), "d MMM", { locale: fr })}
+                  </button>
+                  <button
+                    className="btn-secondary text-sm"
+                    onClick={() => saveTeams(s.date, previous.log!.teams!.map((t) => ({ ...t, member_ids: [...t.member_ids], score: 0 })))}
+                  >
+                    Mêmes équipes, pointage à zéro
+                  </button>
+                </>
+              )}
+              <button className="btn-secondary text-sm" onClick={() => setTeamsOpen((prev) => new Set(prev).add(s.date))}>
+                🏆 {previous ? "Nouvelles équipes" : "Former les 3 équipes"}
+              </button>
+            </div>
           );
         })()}
       </div>

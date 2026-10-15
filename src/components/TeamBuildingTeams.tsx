@@ -11,6 +11,9 @@ const ACCENTS = [
   { ring: "ring-rose-400", bar: "bg-rose-400", text: "text-rose-700", chip: "bg-rose-100 text-rose-900", name: "Équipe 3" },
 ];
 
+/** 12 → « 12 », 12,5 → « 12,5 ». */
+export const formatScore = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
+
 export const emptyTeams = (): TeamBuildingTeam[] => [0, 1, 2].map(() => ({ captain_id: null, member_ids: [], score: 0 }));
 
 /**
@@ -82,7 +85,8 @@ export default function TeamBuildingTeams({
   }
 
   function adjustScore(teamIndex: number, delta: number) {
-    onChange(teams.map((t, i) => (i === teamIndex ? { ...t, score: Math.max(0, t.score + delta) } : t)));
+    // Par demi-points : on arrondit pour éviter les dérives de virgule flottante.
+    onChange(teams.map((t, i) => (i === teamIndex ? { ...t, score: Math.max(0, Math.round((t.score + delta) * 2) / 2) } : t)));
   }
 
   function chip(p: Player, extra = "") {
@@ -197,15 +201,21 @@ export default function TeamBuildingTeams({
               <div className={`text-xs font-black uppercase tracking-widest ${accent.text}`}>
                 {accent.name} {leader && "👑"}
               </div>
-              <div className="text-6xl font-black tabular-nums leading-none my-2">{team.score}</div>
-              <div className="flex items-center justify-center gap-2">
-                <button type="button" className="h-12 w-12 rounded-xl bg-slate-100 text-2xl font-black hover:bg-slate-200" onClick={() => adjustScore(i, -1)}>
+              <div className="text-6xl font-black tabular-nums leading-none my-2">{formatScore(team.score)}</div>
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <button type="button" className="h-12 w-11 rounded-xl bg-slate-100 text-2xl font-black hover:bg-slate-200" title="Retirer 1 point" onClick={() => adjustScore(i, -1)}>
                   −
                 </button>
-                <button type="button" className="h-12 w-16 rounded-xl bg-gold-500 text-2xl font-black text-ink-900 hover:bg-gold-400" onClick={() => adjustScore(i, 1)}>
+                <button type="button" className="h-12 w-12 rounded-xl bg-slate-100 text-sm font-black hover:bg-slate-200" title="Retirer 0,5 point" onClick={() => adjustScore(i, -0.5)}>
+                  −0,5
+                </button>
+                <button type="button" className="h-12 w-12 rounded-xl bg-gold-200 text-sm font-black text-ink-900 hover:bg-gold-300" title="Ajouter 0,5 point" onClick={() => adjustScore(i, 0.5)}>
+                  +0,5
+                </button>
+                <button type="button" className="h-12 w-14 rounded-xl bg-gold-500 text-2xl font-black text-ink-900 hover:bg-gold-400" onClick={() => adjustScore(i, 1)}>
                   +1
                 </button>
-                <button type="button" className="h-12 w-14 rounded-xl bg-gold-100 text-lg font-black text-ink-900 hover:bg-gold-200" onClick={() => adjustScore(i, 5)}>
+                <button type="button" className="h-12 w-12 rounded-xl bg-gold-100 text-lg font-black text-ink-900 hover:bg-gold-200" onClick={() => adjustScore(i, 5)}>
                   +5
                 </button>
               </div>
@@ -289,7 +299,7 @@ export default function TeamBuildingTeams({
                   <div className="text-center text-sm font-semibold text-slate-300 min-h-[3.5rem]">
                     {members.map((p) => `#${p.jersey_number ?? "?"} ${lastName(p.full_name)}`).join("  ·  ")}
                   </div>
-                  <div className="text-8xl font-black text-white tabular-nums leading-none">{team.score}</div>
+                  <div className="text-8xl font-black text-white tabular-nums leading-none">{formatScore(team.score)}</div>
                 </div>
               );
             })}
