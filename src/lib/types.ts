@@ -261,10 +261,19 @@ export interface WeeklyTheme {
   created_at: string;
 }
 
+/** Une des trois équipes d'une séance de Team Building. */
+export interface TeamBuildingTeam {
+  captain_id: string | null;
+  member_ids: string[];
+  score: number;
+}
+
 export interface TeamBuildingLog {
   log_date: string;
   theme: string | null;
   notes: string | null;
+  /** Trois équipes (capitaine, joueurs, pointage). Vide tant qu'elles ne sont pas formées. */
+  teams?: TeamBuildingTeam[];
   created_at: string;
 }
 

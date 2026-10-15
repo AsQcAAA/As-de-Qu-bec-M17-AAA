@@ -23,6 +23,7 @@ const TABS = [
   { href: "/tests-physiques", label: "Tests physiques" },
   { href: "/stats-combos", label: "Combinaisons" },
   { href: "/reunions", label: "Meeting" },
+  { href: "/team-building", label: "Team Building" },
   { href: "/medical", label: "Médical" },
   { href: "/remplacants", label: "Remplaçants" },
   { href: "/coachs", label: "Utilisateurs" },
