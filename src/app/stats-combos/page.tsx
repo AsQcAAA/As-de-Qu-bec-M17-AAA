@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { matchupLabel } from "@/lib/gameResults";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { lastName } from "@/lib/players";
+import LineCombosSection from "@/components/LineCombosSection";
 import type { Game, GameCategory, GameEvent, Player } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<GameCategory, string> = {
@@ -180,6 +181,16 @@ export default function StatsCombosPage() {
             </button>
           );
         })}
+      </div>
+
+      {/* Trios et duos : mêmes filtres de catégorie et de match que les buts ci-dessous. */}
+      {!loading && (
+        <LineCombosSection games={selectedGame ? [selectedGame] : visibleGames} players={players} />
+      )}
+
+      <div>
+        <h2 className="text-xl font-bold">Combinaisons de buts</h2>
+        <p className="text-slate-400 text-sm">Quels joueurs produisent ensemble, d&apos;après les buts inscrits.</p>
       </div>
 
       <div className="card grid sm:grid-cols-2 gap-3">
