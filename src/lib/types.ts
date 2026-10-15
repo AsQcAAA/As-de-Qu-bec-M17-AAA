@@ -33,6 +33,8 @@ export interface CoachProfile {
   full_name: string;
   role: CoachRole;
   created_at: string;
+  /** Dernière visite dans l'app (migration 040). */
+  last_seen_at?: string | null;
 }
 
 export interface Player {

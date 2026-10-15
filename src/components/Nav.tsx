@@ -60,6 +60,18 @@ export default function Nav() {
     checkRole();
   }, []);
 
+  // Dernière activité : on note la visite, au plus une fois toutes les 5 minutes
+  // par navigateur. Silencieux si la migration 040 n'est pas encore exécutée.
+  useEffect(() => {
+    if (pathname === "/login" || pathname === "/definir-mot-de-passe") return;
+    try {
+      const last = Number(localStorage.getItem("coach-last-seen-ping") ?? 0);
+      if (Date.now() - last < 5 * 60 * 1000) return;
+      localStorage.setItem("coach-last-seen-ping", String(Date.now()));
+    } catch {}
+    createClient().rpc("touch_coach_seen").then(() => {}, () => {});
+  }, [pathname]);
+
   const tabs = isHeadCoach ? [...TABS, ...HEAD_COACH_ONLY_TABS] : TABS;
 
   if (pathname === "/login" || pathname === "/definir-mot-de-passe") return null;

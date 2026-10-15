@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatDistanceToNow, format } from "date-fns";
+import { fr } from "date-fns/locale";
 import Modal from "@/components/Modal";
 import type { CoachProfile, CoachRole } from "@/lib/types";
 
@@ -180,6 +182,7 @@ export default function CoachsPage() {
               <th className="py-2 pr-4">Nom</th>
               <th className="py-2 pr-4">Rôle</th>
               <th className="py-2 pr-4">Depuis</th>
+              {isHeadCoach && <th className="py-2 pr-4">Dernière activité</th>}
               {isHeadCoach && <th className="py-2 pr-4"></th>}
             </tr>
           </thead>
@@ -193,6 +196,17 @@ export default function CoachsPage() {
                   </span>
                 </td>
                 <td className="py-2 pr-4">{c.created_at?.slice(0, 10)}</td>
+                {isHeadCoach && (
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {c.last_seen_at ? (
+                      <span title={format(new Date(c.last_seen_at), "d MMMM yyyy 'à' HH:mm", { locale: fr })}>
+                        {formatDistanceToNow(new Date(c.last_seen_at), { addSuffix: true, locale: fr })}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Pas encore enregistrée</span>
+                    )}
+                  </td>
+                )}
                 {isHeadCoach && (
                   <td className="py-2 pr-4">
                     {c.id !== me?.id && (
