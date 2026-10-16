@@ -15,6 +15,7 @@ import {
   subMonths,
 } from "date-fns";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_TYPE_LABEL, EVENT_TYPE_ORDER, EVENT_TYPE_SOLID_COLOR } from "@/lib/eventTypes";
 import { scoreInDisplayOrder } from "@/lib/gameResults";
@@ -126,6 +127,7 @@ export default function CalendrierPage() {
   const supabase = createClient();
   const [month, setMonth] = useState(new Date());
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [weeklyThemes, setWeeklyThemes] = useState<WeeklyTheme[]>([]);
   /** Thèmes de pratique et de meeting saisis dans le rapport quotidien. */
@@ -407,7 +409,16 @@ export default function CalendrierPage() {
           return (
             <Tag
               key={key}
-              onClick={locked ? undefined : () => setSelectedDate(key)}
+              onClick={
+                locked
+                  ? undefined
+                  : () => {
+                      // Match déjà passé : on va directement à ses détails, sans la fenêtre de la journée.
+                      const past = gameByDate.get(key);
+                      if (past && key < format(new Date(), "yyyy-MM-dd")) router.push(`/resultats/${past.id}`);
+                      else setSelectedDate(key);
+                    }
+              }
               className={`flex flex-col h-[150px] sm:h-[165px] rounded-lg border p-2 text-sm text-left transition-colors overflow-hidden ${
                 primary
                   ? `${cellColor(primary, gameByDate.get(key), practiceThemeByDate.get(key))} border-transparent ${locked ? "cursor-default" : "hover:brightness-110"}`

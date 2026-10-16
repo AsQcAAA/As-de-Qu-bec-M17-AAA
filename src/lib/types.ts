@@ -130,6 +130,8 @@ export interface Game {
   plan_point_4: string | null;
   bus_departure_time: string | null;
   category: GameCategory;
+  /** Aucun rapport TPE n'existe pour ce match (ne pas le réclamer). */
+  no_tpe_report?: boolean;
   /** Unités spéciales, lues sur la feuille de match. */
   pp_goals: number | null;
   pp_opportunities: number | null;

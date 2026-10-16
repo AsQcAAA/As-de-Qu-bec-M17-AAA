@@ -10,6 +10,7 @@ import { RESULT_LABEL, RESULT_COLOR, matchupLabel } from "@/lib/gameResults";
 import { findTeamByOpponent, teamColor, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTeams";
 import { matchPlayer, parseGameSheet, type ParsedGameSheet } from "@/lib/gameSheet";
 import Modal from "@/components/Modal";
+import GamePlanEditor from "@/components/GamePlanEditor";
 import OpponentLineupEditor from "@/components/OpponentLineupEditor";
 import GameLineupReadOnly from "@/components/GameLineupReadOnly";
 import GameSheetImport, { type ImportDecision } from "@/components/GameSheetImport";
@@ -493,21 +494,29 @@ export default function GameDetailPage() {
       {/* Notes du match. Aucune saisie manuelle du pointage : chaque match —
           hors concours, saison, tournoi, séries, provinciaux — a sa feuille
           officielle, qui reste la seule source du résultat et des points. */}
-      <form onSubmit={saveNotes} className="card space-y-3">
-        <div>
-          <label className="label">Notes sur le match</label>
-          <textarea
-            className="input"
-            rows={3}
-            placeholder="Observations, ajustements, points à revoir avec l'équipe..."
-            value={resultForm.notes}
-            onChange={(e) => setResultForm({ ...resultForm, notes: e.target.value })}
-          />
+      {game.game_date < format(new Date(), "yyyy-MM-dd") ? (
+        // Dès le lendemain du match, la case de notes laisse la place au plan de match.
+        <div className="card space-y-3">
+          <h2 className="font-semibold">Plan de match — 4 points clés</h2>
+          <GamePlanEditor key={game.id} game={game} onSaved={load} />
         </div>
-        <button type="submit" className="btn" disabled={savingResult}>
-          {savingResult ? "Enregistrement..." : "Enregistrer les notes"}
-        </button>
-      </form>
+      ) : (
+        <form onSubmit={saveNotes} className="card space-y-3">
+          <div>
+            <label className="label">Notes sur le match</label>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder="Observations, ajustements, points à revoir avec l'équipe..."
+              value={resultForm.notes}
+              onChange={(e) => setResultForm({ ...resultForm, notes: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="btn" disabled={savingResult}>
+            {savingResult ? "Enregistrement..." : "Enregistrer les notes"}
+          </button>
+        </form>
+      )}
 
       <div className="card space-y-4">
         <h2 className="font-semibold">Documents du match</h2>

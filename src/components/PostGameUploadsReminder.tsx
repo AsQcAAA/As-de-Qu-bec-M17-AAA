@@ -56,7 +56,7 @@ export default function PostGameUploadsReminder({ today }: { today: string }) {
         (games ?? [])
           .map((g) => ({
             game: g,
-            missing: REQUIRED.filter((r) => !byGame.get(g.id)?.has(r.type)).map((r) => r.type),
+            missing: REQUIRED.filter((r) => !byGame.get(g.id)?.has(r.type) && !(r.type === "stats_avancees" && g.no_tpe_report)).map((r) => r.type),
           }))
           .filter((r) => r.missing.length > 0)
       );
@@ -66,6 +66,10 @@ export default function PostGameUploadsReminder({ today }: { today: string }) {
   }, [today]);
 
   function dismiss(key: string) {
+    // « Pas de rapport TPE pour ce match » : retenu en base, pour tous.
+    if (key.endsWith(":stats_avancees")) {
+      supabase.from("games").update({ no_tpe_report: true }).eq("id", key.split(":")[0]).then(() => {});
+    }
     const next = [...dismissed, key];
     setDismissed(next);
     try {
