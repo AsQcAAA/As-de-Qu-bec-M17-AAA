@@ -30,7 +30,7 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
     { label: "1-3-1", positions: [[85, 140], [22, 94], [85, 94], [148, 94], [85, 45]] },
     { label: "Umbrella", positions: [[85, 136], [21, 110], [150, 108], [67, 39], [106, 38]] },
   ],
-  // Sortie de zone (glace complète) : aucun modèle, on part d'une glace vide.
+  // Sortie de zone (glace complète) : pas de menu de modèles, 5 joueurs de départ (BO_DEFAULT).
   bo: [],
   // Mise au jeu en zone offensive (cercle gauche), demi-glace.
   fo: [
@@ -45,8 +45,11 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+/** Sortie de zone : 5 joueurs adverses de départ dans leur zone (en bas), à déplacer. */
+const BO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296], [85, 262]];
+
 export const emptyFormation = (kind: Kind): FormationValue => ({
-  markers: (PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
+  markers: (kind === "bo" ? BO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
   note: "",
 });
 
