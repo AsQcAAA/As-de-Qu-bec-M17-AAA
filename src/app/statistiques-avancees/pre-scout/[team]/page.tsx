@@ -667,6 +667,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               </div>
             </header>
 
+            {isPp && (
             <div className="grid grid-cols-3 gap-3">
               <section>
                 <h2 className={h}>Fiche</h2>
@@ -720,8 +721,9 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 )}
               </section>
             </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={isPp ? "grid grid-cols-2 gap-3" : ""}>
               <section>
                 <h2 className={h}>Meilleurs pointeurs</h2>
                 {scorers.length === 0 ? (
@@ -734,6 +736,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                   ))
                 )}
               </section>
+              {isPp && (
               <section>
                 <h2 className={h}>Gardiens</h2>
                 {goalies.length === 0 ? (
@@ -746,9 +749,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                   ))
                 )}
               </section>
+              )}
             </div>
 
-            {form.notes.trim() && (
+            {isPp && form.notes.trim() && (
               <section>
                 <h2 className={h}>Notes de pre-scout</h2>
                 <p className="whitespace-pre-line">{form.notes}</p>
