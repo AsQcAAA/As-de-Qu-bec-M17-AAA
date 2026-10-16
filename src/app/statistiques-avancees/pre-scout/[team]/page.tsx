@@ -442,10 +442,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             {(() => {
               const w = ppWave;
               const cfg = [
-                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ PP Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
-                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ PP Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
-                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ PP Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
-                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "⚡ PP Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "🛡️ PK Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "🛡️ PK Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "🛡️ PK Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
+                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "🛡️ PK Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
                 <div>
@@ -465,7 +465,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             })()}
             <FormationMap
               kind="pk"
-              title="🛡️ PK Pre-Scout"
+              title="⚡ PP Pre-Scout"
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.`}
               value={pkMap}
               onChange={(v) => saveMap("pk", v)}
@@ -646,7 +646,9 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
     {/* ---- Feuille imprimable (PDF) : Pre-scout PP ou Pre-scout PK ---- */}
     <div className="hidden print:block text-black bg-white">
       {(() => {
-        const isPp = sheet === "pp";
+        // PK Pre-Scout = leur formation en avantage numérique (on la tue) ; PP Pre-Scout = leur formation en désavantage.
+        const full = sheet === "pp";
+        const theirPp = sheet === "pk";
         const played = leagueGames.filter((g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0));
         const last5 = played.slice(-5).reverse();
         const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
@@ -658,7 +660,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <div className="space-y-3 text-[10pt]">
             <header className="flex items-center justify-between border-b-4 border-black pb-2">
               <div>
-                <h1 className="text-[20pt] font-black uppercase leading-none">{isPp ? "PP" : "PK"} Pre-Scout</h1>
+                <h1 className="text-[20pt] font-black uppercase leading-none">{theirPp ? "PK" : "PP"} Pre-Scout</h1>
                 <p className="text-[13pt] font-bold">{team.name}</p>
               </div>
               <div className="text-right text-[9pt]">
@@ -667,7 +669,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               </div>
             </header>
 
-            {isPp && (
+            {full && (
             <div className="grid grid-cols-3 gap-3">
               <section>
                 <h2 className={h}>Fiche</h2>
@@ -723,7 +725,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             </div>
             )}
 
-            <div className={isPp ? "grid grid-cols-2 gap-3" : ""}>
+            <div className={full ? "grid grid-cols-2 gap-3" : ""}>
               <section>
                 <h2 className={h}>Meilleurs pointeurs</h2>
                 {scorers.length === 0 ? (
@@ -736,7 +738,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                   ))
                 )}
               </section>
-              {isPp && (
+              {full && (
               <section>
                 <h2 className={h}>Gardiens</h2>
                 {goalies.length === 0 ? (
@@ -752,22 +754,22 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               )}
             </div>
 
-            {isPp && form.notes.trim() && (
+            {full && form.notes.trim() && (
               <section>
                 <h2 className={h}>Notes de pre-scout</h2>
                 <p className="whitespace-pre-line">{form.notes}</p>
               </section>
             )}
 
-            {isPp ? (
+            {theirPp ? (
               <>
                 <div className="grid grid-cols-2 gap-4" style={{ breakInside: "avoid" }}>
                   <section>
-                    <h2 className={h}>PP1</h2>
+                    <h2 className={h}>Leur PP1</h2>
                     <FormationStatic kind="pp" value={ppMap} />
                   </section>
                   <section>
-                    <h2 className={h}>PP2</h2>
+                    <h2 className={h}>Leur PP2</h2>
                     <FormationStatic kind="pp" value={pp2Map} />
                   </section>
                 </div>
@@ -784,7 +786,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               </>
             ) : (
               <section className="max-w-[120mm] mx-auto" style={{ breakInside: "avoid" }}>
-                <h2 className={h}>PK</h2>
+                <h2 className={h}>Leur PK</h2>
                 <FormationStatic kind="pk" value={pkMap} />
               </section>
             )}
