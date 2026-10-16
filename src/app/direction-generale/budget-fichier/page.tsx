@@ -7,11 +7,10 @@ import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { money, normText, type BudgetLine, type BudgetSheet } from "@/lib/dgDocuments";
 
-type Metric = "projection" | "montant" | "prev" | "reel";
+type Metric = "projection" | "montant" | "reel";
 const METRIC_LABEL: Record<Metric, string> = {
   projection: "Projection 26-27",
   montant: "Montant (par unité)",
-  prev: "Montant 25-26",
   reel: "Réel",
 };
 const COMPARE = "__compare__";
@@ -249,16 +248,14 @@ export default function BudgetFichierPage() {
                       <th className="py-2 px-3 text-right">{sheet?.headers[0] || "Nombre"}</th>
                       <th className="py-2 px-3 text-right">{sheet?.headers[1] || "Montant"}</th>
                       <th className="py-2 px-3 text-right">{sheet?.headers[2] || "Réel"}</th>
-                      <th className="py-2 px-3 text-right">{sheet?.headers[3] || "Projection"}</th>
-                      <th className="py-2 px-3 text-right">{sheet?.headers[4] || "Année précédente"}</th>
-                      <th className="py-2 pl-3 text-right">Écart</th>
+                      <th className="py-2 pl-3 text-right">{sheet?.headers[3] || "Projection"}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {teamRows.map((r) =>
                       r.kind === "head" ? (
                         <tr key={r.key}>
-                          <td colSpan={7} className="pt-4 pb-1 text-[11px] font-black uppercase tracking-widest text-gold-700">
+                          <td colSpan={5} className="pt-4 pb-1 text-[11px] font-black uppercase tracking-widest text-gold-700">
                             {r.text}
                           </td>
                         </tr>
@@ -267,8 +264,7 @@ export default function BudgetFichierPage() {
                           <td colSpan={4} className="py-1.5 pr-4 text-xs font-bold text-slate-600">
                             {r.text}
                           </td>
-                          <td className="py-1.5 px-3 text-right font-bold tabular-nums">{money(r.sum)}</td>
-                          <td colSpan={2}></td>
+                          <td className="py-1.5 pl-3 text-right font-bold tabular-nums">{money(r.sum)}</td>
                         </tr>
                       ) : (
                         <tr key={r.key} className="border-b last:border-0">
@@ -279,19 +275,7 @@ export default function BudgetFichierPage() {
                           <td className="py-1.5 px-3 text-right tabular-nums text-slate-500">{r.line!.nombre ?? ""}</td>
                           <td className="py-1.5 px-3 text-right tabular-nums">{money(r.line!.montant)}</td>
                           <td className="py-1.5 px-3 text-right tabular-nums">{money(r.line!.reel)}</td>
-                          <td className="py-1.5 px-3 text-right tabular-nums font-bold">{money(r.line!.projection)}</td>
-                          <td className="py-1.5 px-3 text-right tabular-nums text-slate-500">{money(r.line!.prev)}</td>
-                          <td
-                            className={`py-1.5 pl-3 text-right tabular-nums ${
-                              r.line!.projection != null && r.line!.prev != null && r.line!.projection !== r.line!.prev
-                                ? (r.line!.projection > r.line!.prev) === (r.line!.group === "Revenus")
-                                  ? "text-green-700"
-                                  : "text-red-600"
-                                : "text-slate-300"
-                            }`}
-                          >
-                            {r.line!.projection != null && r.line!.prev != null ? money(r.line!.projection - r.line!.prev) : "—"}
-                          </td>
+                          <td className="py-1.5 pl-3 text-right tabular-nums font-bold">{money(r.line!.projection)}</td>
                         </tr>
                       )
                     )}
