@@ -20,7 +20,7 @@ const H = 178;
 /** Modèles de départ : positions seulement ; les numéros déjà saisis sont conservés dans l'ordre. */
 const PRESETS: Record<"pp" | "pk", { label: string; positions: [number, number][] }[]> = {
   pp: [
-    { label: "Spread", positions: [[45, 142], [125, 142], [24, 96], [146, 96], [85, 66]] },
+    { label: "Spread", positions: [[31, 128], [24, 49], [140, 134], [85, 78], [143, 51]] },
     { label: "Overload", positions: [[85, 143], [24, 106], [144, 104], [41, 23], [85, 43]] },
     { label: "1-3-1", positions: [[85, 140], [22, 94], [85, 94], [148, 94], [85, 45]] },
     { label: "Umbrella", positions: [[85, 136], [21, 110], [150, 108], [67, 39], [106, 38]] },
@@ -78,13 +78,21 @@ export default function FormationMap({
   subtitle,
   value,
   onChange,
+  waveLabels,
+  wave = 0,
+  onWave,
 }: {
   kind: "pp" | "pk";
   title: string;
   subtitle: string;
   value: FormationValue;
   onChange: (next: FormationValue) => void;
+  /** Vagues (ex. ["PP1", "PP2"]) : un bouton par vague pour passer de l'une à l'autre. */
+  waveLabels?: string[];
+  wave?: number;
+  onWave?: (i: number) => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -126,9 +134,28 @@ export default function FormationMap({
 
   return (
     <div className="card space-y-3">
-      <div>
-        <h3 className="font-semibold">{title}</h3>
-        <p className="text-xs text-slate-500">{subtitle}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="font-semibold">{title}</h3>
+          <p className="text-xs text-slate-500">{subtitle}</p>
+        </div>
+        {waveLabels && onWave && (
+          <div className="inline-flex rounded-lg overflow-hidden border border-slate-300">
+            {waveLabels.map((l, i) => (
+              <button
+                key={l}
+                onClick={() => {
+                  setSelectedId(null);
+                  setEditingId(null);
+                  onWave(i);
+                }}
+                className={`px-3 py-1.5 text-sm font-black ${wave === i ? "bg-gold-500 text-ink-900" : "bg-white text-slate-600 hover:bg-slate-100"}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -208,12 +235,37 @@ export default function FormationMap({
                 setSelectedId(m.id);
                 setDrag({ id: m.id, x: m.x, y: m.y });
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setDrag(null);
+                setSelectedId(m.id);
+                setEditingId(m.id);
+              }}
             >
               {isSel && <circle r="13" fill="none" stroke="#2563eb" strokeWidth="2" strokeDasharray="3 2" />}
               <circle r="10" fill={m.number ? "#fdca37" : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.6" />
-              <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
-                {m.number || "?"}
-              </text>
+              {editingId === m.id ? (
+                // Double-clic : on tape le numéro directement sur le rond.
+                <foreignObject x={-13} y={-8} width={26} height={16}>
+                  <input
+                    autoFocus
+                    inputMode="numeric"
+                    value={m.number}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      update(value.markers.map((x) => (x.id === m.id ? { ...x, number: e.target.value.replace(/\D/g, "").slice(0, 3) } : x)))
+                    }
+                    onBlur={() => setEditingId(null)}
+                    onKeyDown={(e) => (e.key === "Enter" || e.key === "Escape") && e.currentTarget.blur()}
+                    style={{ width: "100%", height: "100%", textAlign: "center", fontWeight: 900, fontSize: 11, border: "none", outline: "none", borderRadius: 4, background: "#fff", padding: 0 }}
+                  />
+                </foreignObject>
+              ) : (
+                <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
+                  {m.number || "?"}
+                </text>
+              )}
             </g>
           );
         })}

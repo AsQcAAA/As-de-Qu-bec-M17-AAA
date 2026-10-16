@@ -49,17 +49,20 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [lastGame, setLastGame] = useState<Game | null>(null);
   const [ppMap, setPpMap] = useState<FormationValue>(() => emptyFormation("pp"));
   const [pkMap, setPkMap] = useState<FormationValue>(() => emptyFormation("pk"));
+  const [pp2Map, setPp2Map] = useState<FormationValue>(() => emptyFormation("pp"));
+  const [pk2Map, setPk2Map] = useState<FormationValue>(() => emptyFormation("pk"));
+  const [ppWave, setPpWave] = useState(0);
+  const [pkWave, setPkWave] = useState(0);
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
-  function saveMap(kind: "pp" | "pk", value: FormationValue) {
-    if (kind === "pp") setPpMap(value);
-    else setPkMap(value);
+  function saveMap(kind: "pp" | "pp2" | "pk" | "pk2", value: FormationValue) {
+    ({ pp: setPpMap, pp2: setPp2Map, pk: setPkMap, pk2: setPk2Map })[kind](value);
     clearTimeout(mapTimers.current[kind]);
     mapTimers.current[kind] = setTimeout(() => {
       supabase
         .from("scout_notes")
-        .upsert({ team_slug: teamSlug, [kind === "pp" ? "pp_map" : "pk_map"]: value }, { onConflict: "team_slug" })
+        .upsert({ team_slug: teamSlug, [`${kind}_map`]: value }, { onConflict: "team_slug" })
         .then(() => {});
     }, 500);
   }
@@ -90,6 +93,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       const note = data as ScoutNote | null;
       setPpMap(note?.pp_map ?? emptyFormation("pp"));
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
+      setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
+      setPk2Map(note?.pk2_map ?? emptyFormation("pk"));
       if (note) {
         setForm({
           wins: note.wins?.toString() ?? "",
@@ -414,17 +419,23 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <div className="grid lg:grid-cols-2 gap-6">
             <FormationMap
               kind="pp"
-              title="⚡ Avantage numérique (PP)"
+              title={`⚡ Avantage numérique (${ppWave === 0 ? "PP1" : "PP2"})`}
               subtitle={`Comment ${team.name} se dispose quand elle a l'avantage — zone offensive, but en haut.`}
-              value={ppMap}
-              onChange={(v) => saveMap("pp", v)}
+              value={ppWave === 0 ? ppMap : pp2Map}
+              onChange={(v) => saveMap(ppWave === 0 ? "pp" : "pp2", v)}
+              waveLabels={["PP1", "PP2"]}
+              wave={ppWave}
+              onWave={setPpWave}
             />
             <FormationMap
               kind="pk"
-              title="🛡️ Désavantage numérique (PK)"
+              title={`🛡️ Désavantage numérique (${pkWave === 0 ? "PK1" : "PK2"})`}
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en haut.`}
-              value={pkMap}
-              onChange={(v) => saveMap("pk", v)}
+              value={pkWave === 0 ? pkMap : pk2Map}
+              onChange={(v) => saveMap(pkWave === 0 ? "pk" : "pk2", v)}
+              waveLabels={["PK1", "PK2"]}
+              wave={pkWave}
+              onWave={setPkWave}
             />
           </div>
         </section>

@@ -291,6 +291,8 @@ export interface ScoutNote {
   /** Disposition en avantage / désavantage numérique (migration 042). */
   pp_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   pk_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pp2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pk2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
 }
 
 export interface Absence {
