@@ -169,7 +169,7 @@ export default function StatistiquesAvanceesPage() {
   const gamesById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
 
   const filteredGames = useMemo(
-    () => games.filter((g) => g.result && categories.has(g.category)),
+    () => games.filter((g) => g.result && categories.has(g.category) && !g.no_tpe_report),
     [games, categories]
   );
   const filteredGameIds = useMemo(() => new Set(filteredGames.map((g) => g.id)), [filteredGames]);
