@@ -14,16 +14,29 @@ export interface FormationValue {
   note: string;
 }
 
-const W = 170;
-const H = 178;
+type Kind = "pp" | "pk" | "bo" | "fo";
+const HALF = { W: 170, H: 178 };
+/** Glace complète, à l'horizontale : 2 unités = 1 pied (200 pi × 85 pi). */
+const FULL = { W: 400, H: 170 };
+const dimsOf = (kind: Kind) => (kind === "bo" ? FULL : HALF);
 
 /** Modèles de départ : positions seulement ; les numéros déjà saisis sont conservés dans l'ordre. */
-const PRESETS: Record<"pp" | "pk", { label: string; positions: [number, number][] }[]> = {
+const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> = {
   pp: [
     { label: "Spread", positions: [[31, 128], [24, 49], [140, 134], [85, 78], [143, 51]] },
     { label: "Overload", positions: [[85, 143], [24, 106], [144, 104], [41, 23], [85, 43]] },
     { label: "1-3-1", positions: [[85, 140], [22, 94], [85, 94], [148, 94], [85, 45]] },
     { label: "Umbrella", positions: [[85, 136], [21, 110], [150, 108], [67, 39], [106, 38]] },
+  ],
+  // Sortie de zone en avantage numérique : glace complète, notre zone à gauche.
+  bo: [
+    { label: "Sortie standard", positions: [[22, 85], [56, 40], [56, 130], [118, 62], [118, 108]] },
+    { label: "Derrière le filet", positions: [[14, 85], [60, 34], [60, 136], [100, 85], [150, 85]] },
+  ],
+  // Mise au jeu en zone offensive (cercle gauche), demi-glace.
+  fo: [
+    { label: "Cercle gauche", positions: [[41, 70], [12, 58], [72, 66], [30, 104], [60, 104]] },
+    { label: "Cercle droit", positions: [[129, 70], [98, 66], [158, 58], [110, 104], [140, 104]] },
   ],
   pk: [
     { label: "Boîte", positions: [[58, 70], [112, 70], [58, 104], [112, 104]] },
@@ -34,13 +47,14 @@ const PRESETS: Record<"pp" | "pk", { label: string; positions: [number, number][
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-export const emptyFormation = (kind: "pp" | "pk"): FormationValue => ({
+export const emptyFormation = (kind: Kind): FormationValue => ({
   markers: PRESETS[kind][0].positions.map(([x, y]) => ({ id: uid(), number: "", x, y })),
   note: "",
 });
 
 /** Demi-patinoire (zone offensive de l'équipe, but en haut), proportions réelles : 2 unités = 1 pied. */
 function Rink() {
+  const { W, H } = HALF;
   return (
     <g fill="none" strokeLinecap="round">
       {/* Glace + bandes */}
@@ -67,6 +81,45 @@ function Rink() {
   );
 }
 
+/** Glace complète à l'horizontale (notre zone à gauche), proportions réelles. */
+function FullRink() {
+  const { W, H } = FULL;
+  const ends = [
+    { goal: 22, dir: 1 },
+    { goal: W - 22, dir: -1 },
+  ];
+  return (
+    <g fill="none" strokeLinecap="round">
+      <path d={`M 56 0 H ${W - 56} A 56 56 0 0 1 ${W} 56 V ${H - 56} A 56 56 0 0 1 ${W - 56} ${H} H 56 A 56 56 0 0 1 0 ${H - 56} V 56 A 56 56 0 0 1 56 0 Z`} fill="#f8fafc" stroke="#334155" strokeWidth="2.5" />
+      {/* Lignes bleues et ligne rouge centrale */}
+      <line x1="150" y1="0" x2="150" y2={H} stroke="#2563eb" strokeWidth="5" />
+      <line x1="250" y1="0" x2="250" y2={H} stroke="#2563eb" strokeWidth="5" />
+      <line x1="200" y1="0" x2="200" y2={H} stroke="#dc2626" strokeWidth="3" strokeDasharray="6 3" />
+      <circle cx="200" cy={H / 2} r="30" stroke="#2563eb" strokeWidth="1.2" />
+      <circle cx="200" cy={H / 2} r="2.6" fill="#2563eb" stroke="none" />
+      {ends.map(({ goal, dir }) => (
+        <g key={goal}>
+          <line x1={goal} y1="4" x2={goal} y2={H - 4} stroke="#dc2626" strokeWidth="1.2" />
+          {/* Filet et demi-cercle du gardien */}
+          <path d={`M ${goal} ${H / 2 - 12} H ${goal - dir * 10} V ${H / 2 + 12} H ${goal}`} stroke="#dc2626" strokeWidth="1.2" />
+          <path d={`M ${goal} ${H / 2 - 18} A 18 18 0 0 ${dir === 1 ? 1 : 0} ${goal} ${H / 2 + 18} Z`} fill="#bfdbfe" fillOpacity="0.7" stroke="#dc2626" strokeWidth="1.2" />
+          {/* Cercles de mise au jeu de zone */}
+          {[41, 129].map((cy) => (
+            <g key={cy}>
+              <circle cx={goal + dir * 40} cy={cy} r="30" stroke="#dc2626" strokeWidth="1.2" />
+              <circle cx={goal + dir * 40} cy={cy} r="2.6" fill="#dc2626" stroke="none" />
+            </g>
+          ))}
+        </g>
+      ))}
+      {/* Points de mise au jeu de la zone neutre */}
+      {[160, 240].map((cx) =>
+        [41, 129].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.6" fill="#dc2626" stroke="none" />)
+      )}
+    </g>
+  );
+}
+
 /**
  * Patinoire interactive : on y place des numéros de joueurs et on les déplace au
  * doigt ou à la souris. Utilisée pour la disposition d'une équipe en avantage
@@ -82,7 +135,7 @@ export default function FormationMap({
   wave = 0,
   onWave,
 }: {
-  kind: "pp" | "pk";
+  kind: Kind;
   title: string;
   subtitle: string;
   value: FormationValue;
@@ -93,6 +146,7 @@ export default function FormationMap({
   onWave?: (i: number) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { W, H } = dimsOf(kind);
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -206,7 +260,7 @@ export default function FormationMap({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full max-w-md mx-auto touch-none select-none"
+        className={`w-full ${kind === "bo" ? "max-w-3xl" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => drag && setDrag({ id: drag.id, ...toSvg(e) })}
         onPointerUp={() => {
           if (drag) update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
@@ -220,7 +274,7 @@ export default function FormationMap({
           if (e.target === e.currentTarget) setSelectedId(null);
         }}
       >
-        <Rink />
+        {kind === "bo" ? <FullRink /> : <Rink />}
         {value.markers.map((m) => {
           const pos = drag?.id === m.id ? drag : m;
           const isSel = m.id === selectedId;

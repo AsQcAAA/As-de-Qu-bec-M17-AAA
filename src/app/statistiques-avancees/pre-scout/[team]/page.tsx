@@ -50,12 +50,15 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [ppMap, setPpMap] = useState<FormationValue>(() => emptyFormation("pp"));
   const [pkMap, setPkMap] = useState<FormationValue>(() => emptyFormation("pk"));
   const [pp2Map, setPp2Map] = useState<FormationValue>(() => emptyFormation("pp"));
+  const [ppBoMap, setPpBoMap] = useState<FormationValue>(() => emptyFormation("bo"));
+  const [foMap, setFoMap] = useState<FormationValue>(() => emptyFormation("fo"));
+  /** Onglet affiché dans la carte PP : 0 = PP1, 1 = PP2, 2 = PP BO, 3 = FO. */
   const [ppWave, setPpWave] = useState(0);
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
-  function saveMap(kind: "pp" | "pp2" | "pk", value: FormationValue) {
-    ({ pp: setPpMap, pp2: setPp2Map, pk: setPkMap })[kind](value);
+  function saveMap(kind: "pp" | "pp2" | "ppbo" | "fo" | "pk", value: FormationValue) {
+    ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, fo: setFoMap, pk: setPkMap })[kind](value);
     clearTimeout(mapTimers.current[kind]);
     mapTimers.current[kind] = setTimeout(() => {
       supabase
@@ -92,6 +95,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       setPpMap(note?.pp_map ?? emptyFormation("pp"));
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
+      setPpBoMap(note?.ppbo_map ?? emptyFormation("bo"));
+      setFoMap(note?.fo_map ?? emptyFormation("fo"));
       if (note) {
         setForm({
           wins: note.wins?.toString() ?? "",
@@ -414,16 +419,30 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             </p>
           </div>
           <div className="grid lg:grid-cols-2 gap-6">
-            <FormationMap
-              kind="pp"
-              title={`⚡ Avantage numérique (${ppWave === 0 ? "PP1" : "PP2"})`}
-              subtitle={`Comment ${team.name} se dispose quand elle a l'avantage — zone offensive, but en haut.`}
-              value={ppWave === 0 ? ppMap : pp2Map}
-              onChange={(v) => saveMap(ppWave === 0 ? "pp" : "pp2", v)}
-              waveLabels={["PP1", "PP2"]}
-              wave={ppWave}
-              onWave={setPpWave}
-            />
+            {(() => {
+              const w = ppWave;
+              const cfg = [
+                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ Avantage numérique (PP1)", sub: `Comment ${team.name} se dispose quand elle a l'avantage — zone offensive, but en haut.` },
+                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ Avantage numérique (PP2)", sub: `Deuxième vague de ${team.name} — zone offensive, but en haut.` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "🚀 Sortie de zone en avantage (PP BO)", sub: `Sortie de zone de ${team.name} en avantage numérique — glace complète, leur zone à gauche.` },
+                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "🔵 Mise au jeu (FO)", sub: `Formation de ${team.name} sur une mise au jeu — zone offensive, but en haut.` },
+              ][w];
+              return (
+                <div className={w === 2 ? "lg:col-span-2" : ""}>
+                  <FormationMap
+                    key={cfg.key}
+                    kind={cfg.kind}
+                    title={cfg.title}
+                    subtitle={cfg.sub}
+                    value={cfg.value}
+                    onChange={(v) => saveMap(cfg.key, v)}
+                    waveLabels={["PP1", "PP2", "PP BO", "FO"]}
+                    wave={w}
+                    onWave={setPpWave}
+                  />
+                </div>
+              );
+            })()}
             <FormationMap
               kind="pk"
               title="🛡️ Désavantage numérique (PK)"
