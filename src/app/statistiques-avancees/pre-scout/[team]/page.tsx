@@ -495,11 +495,11 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-xl font-bold">Special Units</h2>
               <div className="flex gap-2 flex-wrap">
-                <button className="btn-secondary text-sm" onClick={() => printSheet("pp")}>
-                  🖨️ Exporter PP Pre-Scout (PDF)
-                </button>
                 <button className="btn-secondary text-sm" onClick={() => printSheet("pk")}>
                   🖨️ Exporter PK Pre-Scout (PDF)
+                </button>
+                <button className="btn-secondary text-sm" onClick={() => printSheet("pp")}>
+                  🖨️ Exporter PP Pre-Scout (PDF)
                 </button>
               </div>
             </div>
