@@ -177,7 +177,7 @@ export default function FicheRecrutementPage({ params }: { params: Promise<{ id:
       <div className="print-card bg-white text-ink-900 rounded-xl shadow-sm border border-slate-200 p-8 space-y-6">
         <div className="flex items-center justify-between border-b pb-4">
           <div className="flex items-center gap-3">
-            <Crest className="h-16" />
+            <Crest className="h-16 w-auto" />
             <div>
               <div className="font-bold text-lg leading-tight">As de Québec M17 AAA</div>
               <div className="text-sm text-slate-500">Fiche de recrutement</div>

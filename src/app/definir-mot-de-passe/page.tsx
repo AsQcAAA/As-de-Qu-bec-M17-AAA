@@ -91,7 +91,7 @@ export default function DefinirMotDePassePage() {
     <div className="min-h-screen flex items-center justify-center bg-ink-900 px-4">
       <div className="card w-full max-w-sm space-y-4">
         <div className="flex items-center gap-3">
-          <Crest className="h-16" />
+          <Crest className="h-16 w-auto" />
           <h1 className="text-lg font-bold text-ink-900 leading-tight">Bienvenue chez les As</h1>
         </div>
 

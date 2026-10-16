@@ -88,7 +88,7 @@ export default function Nav() {
     <>
       <div className="md:hidden fixed top-0 inset-x-0 z-30 bg-black text-white border-b border-gold-900/40 flex items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
-          <Crest className="h-10" />
+          <Crest className="h-10 w-8" src="/logos/as-de-quebec-ancien.png" />
           <span className="font-bold tracking-tight leading-tight text-sm">
             As de Québec
             <span className="block text-[10px] font-normal text-gold-400">M17 AAA</span>
@@ -112,7 +112,7 @@ export default function Nav() {
         }`}
       >
         <Link href="/" className="flex items-center gap-2 px-4 py-4 shrink-0 border-b border-white/10">
-          <Crest className="h-14" />
+          <Crest className="h-14 w-12" src="/logos/as-de-quebec-ancien.png" />
           <span className="font-bold tracking-tight leading-tight">
             As de Québec
             <span className="block text-xs font-normal text-gold-400">M17 AAA</span>
