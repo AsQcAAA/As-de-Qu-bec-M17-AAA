@@ -5,6 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import FormationMap, { type FormationValue } from "@/components/FormationMap";
 import type { Lineup } from "@/lib/types";
 
+/** Glace vide au départ : les « X » vides des anciennes versions sont retirés, seuls les joueurs posés restent. */
+const clean = (v?: FormationValue | null): FormationValue => ({
+  ...(v ?? { note: "" }),
+  note: v?.note ?? "",
+  markers: (v?.markers ?? []).filter((m) => m.number !== ""),
+});
+
 /**
  * Nos deux unités de avantage numérique, posées sur une demi-glace : on place nos
  * joueurs (par leur numéro) là où ils jouent. Enregistré avec l'alignement du jour.
@@ -19,8 +26,8 @@ export default function PowerPlayLineups({
   roster: { number: string; name: string }[];
 }) {
   const supabase = createClient();
-  const [pp1, setPp1] = useState<FormationValue>(() => lineup?.pp1_map ?? { markers: [], note: "" });
-  const [pp2, setPp2] = useState<FormationValue>(() => lineup?.pp2_map ?? { markers: [], note: "" });
+  const [pp1, setPp1] = useState<FormationValue>(() => clean(lineup?.pp1_map));
+  const [pp2, setPp2] = useState<FormationValue>(() => clean(lineup?.pp2_map));
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function save(key: "pp1_map" | "pp2_map", value: FormationValue) {
