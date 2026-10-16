@@ -740,63 +740,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               </div>
             </header>
 
-            {full && (
-            <div className="grid grid-cols-3 gap-3">
-              <section>
-                <h2 className={h}>Fiche</h2>
-                <div className="font-bold text-[12pt]">
-                  {form.wins || "–"} V · {form.losses || "–"} D · {form.otl_losses || "–"} DP
-                </div>
-                <div className="font-mono">5 derniers : {form.last5 || "–"}</div>
-                {last5.map((g) => {
-                  const home = g.home === teamSlug;
-                  const own = home ? g.home_score! : g.away_score!;
-                  const other = home ? g.away_score! : g.home_score!;
-                  return (
-                    <div key={`${g.game_date}-${g.home}`} className="text-[9pt]">
-                      {own > other ? "V" : own < other ? "D" : "N"} {g.game_date.slice(5)} {home ? "vs" : "@"} {nameOf(home ? g.away : g.home)} {own}-{other}
-                    </div>
-                  );
-                })}
-              </section>
-              <section>
-                <h2 className={h}>Contre nous</h2>
-                {lastGame ? (
-                  <>
-                    <div className="font-bold">
-                      {lastGame.game_date} — {lastGame.goals_for ?? "-"}–{lastGame.goals_against ?? "-"}
-                    </div>
-                    <div className="text-[9pt]">
-                      {lastGame.pp_opportunities != null && <div>PP nous : {lastGame.pp_goals ?? 0}/{lastGame.pp_opportunities}</div>}
-                      {lastGame.pk_opportunities != null && <div>PK nous : {(lastGame.pk_kills ?? 0)}/{lastGame.pk_opportunities}</div>}
-                      {lastGame.shots_on_goal_us != null && <div>Tirs : {lastGame.shots_on_goal_us}–{lastGame.shots_on_goal_opponent ?? "?"}</div>}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-[9pt]">Aucun match joué.</div>
-                )}
-                {theirScorers.slice(0, 4).map((p) => (
-                  <div key={p.name} className="text-[9pt]">
-                    #{p.jersey ?? "-"} {p.name} — {p.goals}B {p.assists}A
-                  </div>
-                ))}
-              </section>
-              <section>
-                <h2 className={h}>2e année</h2>
-                {secondYear.length === 0 ? (
-                  <div className="text-[9pt]">Aucun.</div>
-                ) : (
-                  secondYear.map((p) => (
-                    <div key={p.name} className="text-[9pt]">
-                      #{jerseyOf(teamSlug, p.name) ?? "-"} {p.name} {p.goalie ? "(G)" : `— ${p.gp} MJ, ${(p.g ?? 0) + (p.a ?? 0)} pts`}
-                    </div>
-                  ))
-                )}
-              </section>
-            </div>
-            )}
-
-            <div className={full ? "grid grid-cols-2 gap-3" : ""}>
+            {/* PK Pre-Scout : meilleurs pointeurs. PP Pre-Scout : seulement leurs cartes (PK, PK FC, FO). */}
+            {theirPp && (
               <section>
                 <h2 className={h}>Meilleurs pointeurs</h2>
                 {scorers.length === 0 ? (
@@ -808,27 +753,6 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     </div>
                   ))
                 )}
-              </section>
-              {full && (
-              <section>
-                <h2 className={h}>Gardiens</h2>
-                {goalies.length === 0 ? (
-                  <div className="text-[9pt]">–</div>
-                ) : (
-                  goalies.map((g) => (
-                    <div key={g.name} className="text-[9pt]">
-                      #{jerseyOf(teamSlug, g.name) ?? "-"} {g.name} — {g.gp} MJ · {g.w ?? "-"}-{g.l ?? "-"}-{g.otl ?? "-"} · {g.gaa.toFixed(2)}
-                    </div>
-                  ))
-                )}
-              </section>
-              )}
-            </div>
-
-            {full && form.notes.trim() && (
-              <section>
-                <h2 className={h}>Notes de pre-scout</h2>
-                <p className="whitespace-pre-line">{form.notes}</p>
               </section>
             )}
 
