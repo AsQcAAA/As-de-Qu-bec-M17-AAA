@@ -141,31 +141,6 @@ export default function TestsPhysiquesPage() {
     };
   }
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function runSync() {
-    setSyncing(true);
-    setSyncMessage(null);
-    try {
-      const res = await fetch("/api/tests-physiques/sync", { method: "POST" });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error ?? "Synchronisation impossible.");
-      setSyncMessage({
-        ok: true,
-        text:
-          json.inserted > 0
-            ? `${json.inserted} nouveau(x) résultat(s) ajouté(s).${json.unmatched.length ? ` Noms ignorés (hors alignement) : ${json.unmatched.join(", ")}.` : ""}`
-            : `Rien de nouveau — tout est déjà à jour (${json.alreadyThere} résultats déjà présents).`,
-      });
-      load();
-    } catch (e) {
-      setSyncMessage({ ok: false, text: e instanceof Error ? e.message : "Synchronisation impossible." });
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -175,11 +150,7 @@ export default function TestsPhysiquesPage() {
 
       <p className="text-xs text-slate-400">
         Synchronisé automatiquement chaque jour avec le fichier Google Drive des tests (onglet M17) — les nouveaux résultats
-        s&apos;ajoutent tout seuls, sans rien écraser.{" "}
-        <button className="underline hover:text-gold-400 disabled:opacity-50" disabled={syncing} onClick={runSync}>
-          {syncing ? "Synchronisation…" : "Synchroniser maintenant"}
-        </button>
-        {syncMessage && <span className={syncMessage.ok ? " text-green-400" : " text-red-400"}> — {syncMessage.text}</span>}
+        s&apos;ajoutent tout seuls, sans rien écraser.
       </p>
 
       {loading ? (
