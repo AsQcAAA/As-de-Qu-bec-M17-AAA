@@ -21,9 +21,9 @@ const H = 178;
 const PRESETS: Record<"pp" | "pk", { label: string; positions: [number, number][] }[]> = {
   pp: [
     { label: "Spread", positions: [[45, 142], [125, 142], [24, 96], [146, 96], [85, 66]] },
-    { label: "Overload", positions: [[85, 142], [30, 98], [46, 58], [88, 70], [138, 84]] },
-    { label: "1-3-1", positions: [[85, 142], [30, 98], [85, 98], [140, 98], [85, 48]] },
-    { label: "Umbrella", positions: [[85, 140], [35, 112], [135, 112], [55, 62], [115, 62]] },
+    { label: "Overload", positions: [[85, 143], [24, 106], [144, 104], [41, 23], [85, 43]] },
+    { label: "1-3-1", positions: [[85, 140], [22, 94], [85, 94], [148, 94], [85, 45]] },
+    { label: "Umbrella", positions: [[85, 136], [21, 110], [150, 108], [67, 39], [106, 38]] },
   ],
   pk: [
     { label: "Boîte", positions: [[58, 70], [112, 70], [58, 104], [112, 104]] },
