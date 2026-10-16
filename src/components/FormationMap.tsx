@@ -60,13 +60,16 @@ function ArrowDefs({ id }: { id: string }) {
   );
 }
 
-type Kind = "pp" | "pk" | "bo" | "fo";
+type Kind = "pp" | "pk" | "bo" | "fo" | "pkbo" | "pkfo";
+/** Glace complète à la verticale (sortie de zone) / demi-glace retournée (leur zone défensive, but en bas). */
+const isFull = (k: Kind) => k === "bo" || k === "pkbo";
+const isFlip = (k: Kind) => k === "pk" || k === "pkfo";
 const HALF = { W: 170, H: 178 };
 /** Glace complète, à la verticale (même largeur que la demi-glace) : 2 unités = 1 pied (85 pi × 200 pi). */
 const FULL = { W: 170, H: 400 };
 /** Dessin de la glace complète : fait à l'horizontale puis pivoté, notre zone (celle de l'équipe étudiée) en bas. */
 const FULL_DRAW = { W: 400, H: 170 };
-const dimsOf = (kind: Kind) => (kind === "bo" ? FULL : HALF);
+const dimsOf = (kind: Kind) => (isFull(kind) ? FULL : HALF);
 
 /** Modèles de départ : positions seulement ; les numéros déjà saisis sont conservés dans l'ordre. */
 const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> = {
@@ -83,6 +86,12 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
     { label: "Cercle gauche", positions: [[41, 70], [12, 58], [72, 66], [30, 104], [60, 104]] },
     { label: "Cercle droit", positions: [[129, 70], [98, 66], [158, 58], [110, 104], [140, 104]] },
   ],
+  // Leur infériorité : sortie de zone (glace complète, 4 joueurs, sans modèle) et mise au jeu dans leur zone (but en bas).
+  pkbo: [],
+  pkfo: [
+    { label: "Cercle gauche", positions: [[41, 108], [12, 120], [72, 112], [30, 74]] },
+    { label: "Cercle droit", positions: [[129, 108], [98, 112], [158, 120], [140, 74]] },
+  ],
   pk: [
     { label: "Diamond", positions: [[85, 120], [52, 90], [118, 90], [85, 60]] },
     { label: "Flush", positions: [[55, 128], [113, 127], [85, 94], [86, 55]] },
@@ -93,9 +102,10 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 /** Sortie de zone : 5 joueurs adverses de départ dans leur zone (en bas), à déplacer. */
 const BO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296], [85, 262]];
+const PKBO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296]];
 
 export const emptyFormation = (kind: Kind): FormationValue => ({
-  markers: (kind === "bo" ? BO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
+  markers: (kind === "bo" ? BO_DEFAULT : kind === "pkbo" ? PKBO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
   note: "",
 });
 
@@ -380,7 +390,7 @@ export default function FormationMap({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className={`w-full ${kind === "bo" ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
+        className={`w-full ${isFull(kind) ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => {
           if (bend) { setBend({ ...bend, ...toSvg(e) }); return; }
           if (drawing) {
@@ -454,7 +464,7 @@ export default function FormationMap({
         }}
       >
         <ArrowDefs id={arrowMarkerId} />
-        {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
+        {isFull(kind) ? <FullRink /> : <Rink flip={isFlip(kind)} />}
         {[...arrows, ...(drawing ? [{ id: "__drawing", ...drawing, dashed: tool === "pass" }] : [])].map((a) => {
           const sel = a.id === selectedArrowId;
           return (
@@ -573,9 +583,9 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
   const staticMarkerId = `ahs${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid", maxWidth: kind === "bo" ? "75mm" : undefined }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid", maxWidth: isFull(kind) ? "75mm" : undefined }}>
         <ArrowDefs id={staticMarkerId} />
-        {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
+        {isFull(kind) ? <FullRink /> : <Rink flip={isFlip(kind)} />}
         {(value.arrows ?? []).map((a) => (
           <path key={a.id} d={arrowPath(a)} fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeDasharray={a.dashed ? "5 3" : undefined} markerEnd={`url(#${staticMarkerId})`} />
         ))}

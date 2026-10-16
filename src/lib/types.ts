@@ -294,6 +294,8 @@ export interface ScoutNote {
   pp2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   ppbo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   fo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pkbo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pkfo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
 }
 
 export interface Absence {

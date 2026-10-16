@@ -53,6 +53,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [pp2Map, setPp2Map] = useState<FormationValue>(() => emptyFormation("pp"));
   const [ppBoMap, setPpBoMap] = useState<FormationValue>(() => emptyFormation("bo"));
   const [foMap, setFoMap] = useState<FormationValue>(() => emptyFormation("fo"));
+  const [pkBoMap, setPkBoMap] = useState<FormationValue>(() => emptyFormation("pkbo"));
+  const [pkFoMap, setPkFoMap] = useState<FormationValue>(() => emptyFormation("pkfo"));
+  /** Onglet affiché dans la carte PK (leur infériorité) : 0 = PK, 1 = PK FC, 2 = FO. */
+  const [pkWave, setPkWave] = useState(0);
   /** Onglet affiché dans la carte PP : 0 = PP1, 1 = PP2, 2 = PP BO, 3 = FO. */
   const [ppWave, setPpWave] = useState(0);
   /** Feuille à imprimer : « pp » ou « pk » (rendue hors écran, visible seulement à l'impression). */
@@ -66,8 +70,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
-  function saveMap(kind: "pp" | "pp2" | "ppbo" | "fo" | "pk", value: FormationValue) {
-    ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, fo: setFoMap, pk: setPkMap })[kind](value);
+  function saveMap(kind: "pp" | "pp2" | "ppbo" | "fo" | "pk" | "pkbo" | "pkfo", value: FormationValue) {
+    ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, fo: setFoMap, pk: setPkMap, pkbo: setPkBoMap, pkfo: setPkFoMap })[kind](value);
     clearTimeout(mapTimers.current[kind]);
     mapTimers.current[kind] = setTimeout(() => {
       supabase
@@ -106,6 +110,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
       setPpBoMap(note?.ppbo_map ?? emptyFormation("bo"));
       setFoMap(note?.fo_map ?? emptyFormation("fo"));
+      setPkBoMap(note?.pkbo_map ?? emptyFormation("pkbo"));
+      setPkFoMap(note?.pkfo_map ?? emptyFormation("pkfo"));
       if (note) {
         setForm({
           wins: note.wins?.toString() ?? "",
@@ -527,13 +533,28 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 </div>
               );
             })()}
-            <FormationMap
-              kind="pk"
-              title="PP Pre-Scout"
-              subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.`}
-              value={pkMap}
-              onChange={(v) => saveMap("pk", v)}
-            />
+            {(() => {
+              const cfg = [
+                { kind: "pk" as const, key: "pk" as const, value: pkMap, sub: `Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.` },
+                { kind: "pkbo" as const, key: "pkbo" as const, value: pkBoMap, sub: `PK FC — sortie de zone de ${team.name} en infériorité (glace complète, leur zone en bas, 4 joueurs).` },
+                { kind: "pkfo" as const, key: "pkfo" as const, value: pkFoMap, sub: `FO — mise au jeu de ${team.name} en infériorité, dans leur zone (but en bas, 4 joueurs).` },
+              ][pkWave];
+              return (
+                <div>
+                  <FormationMap
+                    key={cfg.key}
+                    kind={cfg.kind}
+                    title="PP Pre-Scout"
+                    subtitle={cfg.sub}
+                    value={cfg.value}
+                    onChange={(v) => saveMap(cfg.key, v)}
+                    waveLabels={["PK", "PK FC", "FO"]}
+                    wave={pkWave}
+                    onWave={setPkWave}
+                  />
+                </div>
+              );
+            })()}
           </div>
         </section>
       )}
@@ -717,10 +738,6 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 <h1 className="text-[20pt] font-black uppercase leading-none">{theirPp ? "PK" : "PP"} Pre-Scout</h1>
                 <p className="text-[13pt] font-bold">{team.name}</p>
               </div>
-              <div className="text-right text-[9pt]">
-                <div className="font-bold">As de Québec M17 AAA</div>
-                <div>Imprimé le {format(new Date(), "d MMMM yyyy", { locale: fr })}</div>
-              </div>
             </header>
 
             {full && (
@@ -839,10 +856,22 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 </div>
               </>
             ) : (
+              <>
               <section className="max-w-[120mm] mx-auto" style={{ breakInside: "avoid" }}>
                 <h2 className={h}>Leur PK</h2>
                 <FormationStatic kind="pk" value={pkMap} />
               </section>
+              <div className="grid grid-cols-2 gap-4" style={{ breakBefore: "page" }}>
+                <section>
+                  <h2 className={h}>PK FC — sortie de zone</h2>
+                  <FormationStatic kind="pkbo" value={pkBoMap} />
+                </section>
+                <section>
+                  <h2 className={h}>FO — mise au jeu (infériorité)</h2>
+                  <FormationStatic kind="pkfo" value={pkFoMap} />
+                </section>
+              </div>
+              </>
             )}
           </div>
         );
