@@ -16,8 +16,10 @@ export interface FormationValue {
 
 type Kind = "pp" | "pk" | "bo" | "fo";
 const HALF = { W: 170, H: 178 };
-/** Glace complète, à l'horizontale : 2 unités = 1 pied (200 pi × 85 pi). */
-const FULL = { W: 400, H: 170 };
+/** Glace complète, à la verticale (même largeur que la demi-glace) : 2 unités = 1 pied (85 pi × 200 pi). */
+const FULL = { W: 170, H: 400 };
+/** Dessin de la glace complète : fait à l'horizontale puis pivoté, notre zone (celle de l'équipe étudiée) en bas. */
+const FULL_DRAW = { W: 400, H: 170 };
 const dimsOf = (kind: Kind) => (kind === "bo" ? FULL : HALF);
 
 /** Modèles de départ : positions seulement ; les numéros déjà saisis sont conservés dans l'ordre. */
@@ -28,11 +30,8 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
     { label: "1-3-1", positions: [[85, 140], [22, 94], [85, 94], [148, 94], [85, 45]] },
     { label: "Umbrella", positions: [[85, 136], [21, 110], [150, 108], [67, 39], [106, 38]] },
   ],
-  // Sortie de zone en avantage numérique : glace complète, notre zone à gauche.
-  bo: [
-    { label: "Sortie standard", positions: [[22, 85], [56, 40], [56, 130], [118, 62], [118, 108]] },
-    { label: "Derrière le filet", positions: [[14, 85], [60, 34], [60, 136], [100, 85], [150, 85]] },
-  ],
+  // Sortie de zone (glace complète) : aucun modèle, on part d'une glace vide.
+  bo: [],
   // Mise au jeu en zone offensive (cercle gauche), demi-glace.
   fo: [
     { label: "Cercle gauche", positions: [[41, 70], [12, 58], [72, 66], [30, 104], [60, 104]] },
@@ -47,7 +46,7 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const emptyFormation = (kind: Kind): FormationValue => ({
-  markers: PRESETS[kind][0].positions.map(([x, y]) => ({ id: uid(), number: "", x, y })),
+  markers: (PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
   note: "",
 });
 
@@ -82,13 +81,13 @@ function Rink({ flip = false }: { flip?: boolean }) {
 
 /** Glace complète à l'horizontale (notre zone à gauche), proportions réelles. */
 function FullRink() {
-  const { W, H } = FULL;
+  const { W, H } = FULL_DRAW;
   const ends = [
     { goal: 22, dir: 1 },
     { goal: W - 22, dir: -1 },
   ];
   return (
-    <g fill="none" strokeLinecap="round">
+    <g fill="none" strokeLinecap="round" transform={`translate(0 ${FULL.H}) rotate(-90)`}>
       <path d={`M 56 0 H ${W - 56} A 56 56 0 0 1 ${W} 56 V ${H - 56} A 56 56 0 0 1 ${W - 56} ${H} H 56 A 56 56 0 0 1 0 ${H - 56} V 56 A 56 56 0 0 1 56 0 Z`} fill="#f8fafc" stroke="#334155" strokeWidth="2.5" />
       {/* Lignes bleues et ligne rouge centrale */}
       <line x1="150" y1="0" x2="150" y2={H} stroke="#2563eb" strokeWidth="5" />
@@ -212,14 +211,16 @@ export default function FormationMap({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {PRESETS[kind].length > 0 && (
         <select className="input w-auto text-xs" value="" onChange={(e) => e.target.value !== "" && applyPreset(Number(e.target.value))}>
-          <option value="">Modèle…</option>
-          {PRESETS[kind].map((p, i) => (
-            <option key={p.label} value={i}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+            <option value="">Modèle…</option>
+            {PRESETS[kind].map((p, i) => (
+              <option key={p.label} value={i}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        )}
         {kind !== "pk" && (
         <input
             className="input w-24 text-xs"
@@ -250,7 +251,7 @@ export default function FormationMap({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className={`w-full ${kind === "bo" ? "max-w-3xl" : "max-w-md"} mx-auto touch-none select-none`}
+        className={`w-full ${kind === "bo" ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => drag && setDrag({ id: drag.id, ...toSvg(e) })}
         onPointerUp={() => {
           if (drag) {
@@ -340,7 +341,7 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
   const { W, H } = dimsOf(kind);
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid", maxWidth: kind === "bo" ? "75mm" : undefined }}>
         {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>

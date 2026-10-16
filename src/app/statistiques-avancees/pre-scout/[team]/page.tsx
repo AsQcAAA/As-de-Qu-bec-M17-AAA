@@ -444,11 +444,11 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               const cfg = [
                 { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ Pre-scout PP", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
                 { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ Pre-scout PP", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
-                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ Pre-scout PP", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone à gauche).` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ Pre-scout PP", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
                 { kind: "fo" as const, key: "fo" as const, value: foMap, title: "⚡ Pre-scout PP", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
-                <div className={w === 2 ? "lg:col-span-2" : ""}>
+                <div>
                   <FormationMap
                     key={cfg.key}
                     kind={cfg.kind}
@@ -767,12 +767,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     <FormationStatic kind="pp" value={pp2Map} />
                   </section>
                 </div>
-                <div className="grid grid-cols-5 gap-4" style={{ breakBefore: "page" }}>
-                  <section className="col-span-5">
+                <div className="grid grid-cols-2 gap-4" style={{ breakBefore: "page" }}>
+                  <section>
                     <h2 className={h}>PP BO — sortie de zone</h2>
                     <FormationStatic kind="bo" value={ppBoMap} />
                   </section>
-                  <section className="col-span-3">
+                  <section>
                     <h2 className={h}>FO — mise au jeu</h2>
                     <FormationStatic kind="fo" value={foMap} />
                   </section>
