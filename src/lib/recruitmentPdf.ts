@@ -124,10 +124,10 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
 
   function crest(x: number, yTop: number) {
     if (logoImg) {
-      // Logo officiel des As, dans un médaillon blanc pour rester lisible sur fond sombre.
-      const size = 46;
-      page.drawCircle({ x: x + size / 2, y: yTop - size / 2, size: size / 2 + 2, color: WHITE });
-      page.drawImage(logoImg, { x, y: yTop - size, width: size, height: size });
+      // Logo officiel des As (fond transparent), directement sur le fond sombre.
+      const h = 54;
+      const w = (h * logoImg.width) / logoImg.height;
+      page.drawImage(logoImg, { x, y: yTop - h, width: w, height: h });
       return;
     }
     // Repli : blason monogramme dessiné.
@@ -147,9 +147,9 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
 
   // ---- En-tête ----
   crest(M, y);
-  text("AS DE QUÉBEC M17 AAA", M + 56, y - 22, 17, bold, WHITE);
-  text("FICHE DE RECRUTEMENT", M + 56, y - 38, 9, bold, GOLD);
-  y -= 58;
+  text("AS DE QUÉBEC M17 AAA", M + 56, y - 24, 17, bold, WHITE);
+  text("FICHE DE RECRUTEMENT", M + 56, y - 40, 9, bold, GOLD);
+  y -= 64;
   page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.8, color: GOLD, opacity: 0.6 });
   y -= 22;
 
