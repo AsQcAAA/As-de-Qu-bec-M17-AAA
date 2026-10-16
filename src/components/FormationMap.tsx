@@ -242,6 +242,23 @@ export default function FormationMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedArrowId]);
 
+  // Touche Supprimer / Retour arrière : retire le joueur sélectionné.
+  useEffect(() => {
+    if (!selectedId || selectedArrowId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      e.preventDefault();
+      const v = valueRef.current;
+      onChange({ ...v, markers: v.markers.filter((m) => m.id !== selectedId) });
+      setSelectedId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, selectedArrowId]);
+
   function toSvg(e: React.PointerEvent) {
     const svg = svgRef.current!;
     const pt = svg.createSVGPoint();
