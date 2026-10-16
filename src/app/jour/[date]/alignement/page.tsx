@@ -29,6 +29,7 @@ import {
 } from "@/lib/lineupPositions";
 import Modal from "@/components/Modal";
 import GamePlanEditor from "@/components/GamePlanEditor";
+import PowerPlayLineups from "@/components/PowerPlayLineups";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
 import type { Absence, AbsenceReason, Game, Lineup, LineupUnit, Player, ScheduleEvent, UnitType } from "@/lib/types";
 
@@ -156,7 +157,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const [addAbsentId, setAddAbsentId] = useState("");
   // Horaire du jour (meetings, départ, etc.) — repris dans la feuille imprimée.
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [editing, setEditing] = useState<"plan" | "horaire" | null>(null);
+  const [editing, setEditing] = useState<"plan" | "horaire" | "pp" | null>(null);
   // Chaque modification est déjà écrite en base au fil de l'eau ; ce bouton
   // réécrit l'alignement complet et le confirme à l'écran.
   const [savingAll, setSavingAll] = useState(false);
@@ -694,6 +695,9 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               <button className="btn-secondary" onClick={() => setEditing("horaire")}>
                 🕐 Horaire
               </button>
+              <button className="btn-secondary" onClick={() => setEditing("pp")}>
+                ⚡ Power Play
+              </button>
               {isGameDay && (
                 <button className="btn-secondary" onClick={() => setEditing("plan")}>
                   📋 Plan de match
@@ -995,7 +999,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
       )}
     </div>
 
-    {editing && (
+    {(editing === "plan" || editing === "horaire") && (
       <Modal onClose={() => setEditing(null)}>
         <div className="space-y-4">
           <h2 className="text-lg font-bold text-white">
@@ -1014,6 +1018,30 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               <DayScheduleEditor date={date} isGameDay={isGameDay} onChanged={load} />
             )}
           </div>
+          <button className="btn-dark" onClick={() => setEditing(null)}>
+            Fermer
+          </button>
+        </div>
+      </Modal>
+    )}
+
+    {editing === "pp" && (
+      <Modal onClose={() => setEditing(null)}>
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-white">Power Play — nos deux unités</h2>
+          <PowerPlayLineups
+            lineup={lineup}
+            ensureLineup={ensureLineup}
+            roster={(() => {
+              const inLineup = new Set(unitsRef.current.flatMap((u) => u.player_ids));
+              const skaters = players.filter((p) => p.position !== "G" && p.jersey_number != null);
+              const base = skaters.some((p) => inLineup.has(p.id)) ? skaters.filter((p) => inLineup.has(p.id)) : skaters;
+              return base
+                .slice()
+                .sort((a, b) => (a.jersey_number ?? 0) - (b.jersey_number ?? 0))
+                .map((p) => ({ number: String(p.jersey_number), name: lastName(p.full_name) }));
+            })()}
+          />
           <button className="btn-dark" onClick={() => setEditing(null)}>
             Fermer
           </button>

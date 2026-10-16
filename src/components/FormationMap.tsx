@@ -191,6 +191,7 @@ export default function FormationMap({
   waveLabels,
   wave = 0,
   onWave,
+  roster,
 }: {
   kind: Kind;
   title: string;
@@ -201,6 +202,8 @@ export default function FormationMap({
   waveLabels?: string[];
   wave?: number;
   onWave?: (i: number) => void;
+  /** Nos joueurs : une pastille par joueur, un clic le pose sur la glace avec son numéro. */
+  roster?: { number: string; name: string }[];
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { W, H } = dimsOf(kind);
@@ -297,6 +300,27 @@ export default function FormationMap({
           </div>
         )}
       </div>
+
+      {roster && roster.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {roster.map((r) => {
+            const placed = value.markers.some((m) => m.number === r.number);
+            return (
+              <button
+                key={r.number}
+                type="button"
+                onClick={() => !placed && addMarker(r.number)}
+                title={placed ? "Déjà sur la glace" : "Poser ce joueur sur la glace"}
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                  placed ? "border-slate-200 bg-slate-100 text-slate-400" : "border-gold-400 bg-gold-50 text-ink-900 hover:bg-gold-100"
+                }`}
+              >
+                {r.number} {r.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {PRESETS[kind].length > 0 && (

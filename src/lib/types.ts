@@ -100,6 +100,9 @@ export interface Lineup {
   notes: string | null;
   /** Dernier entraîneur à avoir touché cet alignement — visible à l'entraîneur-chef seulement. */
   updated_by: string | null;
+  /** Nos unités de avantage numérique (Power Play 1 et 2), posées sur la glace. */
+  pp1_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pp2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
 }
 
 export interface LineupUnit {
