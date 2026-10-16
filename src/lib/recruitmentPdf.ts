@@ -64,6 +64,8 @@ const FULL_LABEL: Record<string, string> = {
 export interface RecruitmentPdfOptions {
   /** Octets de la photo de fond (JPEG). Sans elle, fond uni foncé. */
   background?: Uint8Array | null;
+  /** Octets du logo des As (PNG). Sans lui, un blason dessiné prend sa place. */
+  logo?: Uint8Array | null;
 }
 
 /** Fiche de recrutement d'un joueur, en PDF (A4 portrait) — prête à joindre à un courriel. */
@@ -73,6 +75,7 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const serif = await doc.embedFont(StandardFonts.TimesRomanBold);
   const bg = await embedImage(doc, options.background);
+  const logoImg = await embedImage(doc, options.logo);
   const photo = await embedImage(doc, await fetchBytes(data.player.photo_url));
 
   const W = 595.28;
@@ -120,7 +123,14 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
   }
 
   function crest(x: number, yTop: number) {
-    // Blason monogramme du club (même dessin que l'application).
+    if (logoImg) {
+      // Logo officiel des As, dans un médaillon blanc pour rester lisible sur fond sombre.
+      const size = 46;
+      page.drawCircle({ x: x + size / 2, y: yTop - size / 2, size: size / 2 + 2, color: WHITE });
+      page.drawImage(logoImg, { x, y: yTop - size, width: size, height: size });
+      return;
+    }
+    // Repli : blason monogramme dessiné.
     page.drawSvgPath("M24 1 L46 9 V27 C46 40 37 50 24 55 C11 50 2 40 2 27 V9 Z", {
       x,
       y: yTop,
@@ -255,6 +265,11 @@ export async function buildRecruitmentPdf(data: RecruitmentData, options: Recrui
 /** Récupère la photo de fond de l'application (même origine que la page). */
 export async function loadPdfBackground(): Promise<Uint8Array | null> {
   return fetchBytes("/backgrounds/bg-1.jpg");
+}
+
+/** Logo des As (même origine que la page). */
+export async function loadPdfLogo(): Promise<Uint8Array | null> {
+  return fetchBytes("/logos/as-de-quebec.png");
 }
 
 /** Uint8Array → base64, par morceaux (les grosses chaînes plantent String.fromCharCode). */
