@@ -78,9 +78,15 @@ export default function DirectionGeneralePage() {
             adjoints invités sur le reste de la plateforme.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/direction-generale/budgets" className="btn-secondary">
-            💰 Budgets
+            💰 Budgets (suivi)
+          </Link>
+          <Link href="/direction-generale/budget-fichier" className="btn-secondary">
+            📊 Budget 2026-27
+          </Link>
+          <Link href="/direction-generale/distribution" className="btn-secondary">
+            👥 Distribution monétaire
           </Link>
           <button className="btn" onClick={() => (showForm ? setShowForm(false) : startNew())}>
             {showForm ? "Annuler" : "+ Nouvelle note"}
