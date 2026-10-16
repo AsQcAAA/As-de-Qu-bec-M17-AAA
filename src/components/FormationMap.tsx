@@ -53,7 +53,7 @@ export interface FormationValue {
 function ArrowDefs({ id }: { id: string }) {
   return (
     <defs>
-      <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="#111827" />
       </marker>
     </defs>
