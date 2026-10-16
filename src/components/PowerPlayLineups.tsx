@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import FormationMap, { emptyFormation, type FormationValue } from "@/components/FormationMap";
+import FormationMap, { type FormationValue } from "@/components/FormationMap";
 import type { Lineup } from "@/lib/types";
 
 /**
@@ -19,8 +19,8 @@ export default function PowerPlayLineups({
   roster: { number: string; name: string }[];
 }) {
   const supabase = createClient();
-  const [pp1, setPp1] = useState<FormationValue>(() => lineup?.pp1_map ?? emptyFormation("pp"));
-  const [pp2, setPp2] = useState<FormationValue>(() => lineup?.pp2_map ?? emptyFormation("pp"));
+  const [pp1, setPp1] = useState<FormationValue>(() => lineup?.pp1_map ?? { markers: [], note: "" });
+  const [pp2, setPp2] = useState<FormationValue>(() => lineup?.pp2_map ?? { markers: [], note: "" });
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function save(key: "pp1_map" | "pp2_map", value: FormationValue) {

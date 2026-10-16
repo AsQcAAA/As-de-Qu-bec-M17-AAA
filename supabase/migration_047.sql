@@ -6,3 +6,4 @@
 alter table lineups add column if not exists pp1_map jsonb;
 alter table lineups add column if not exists pp2_map jsonb;
 notify pgrst, 'reload schema';
+
