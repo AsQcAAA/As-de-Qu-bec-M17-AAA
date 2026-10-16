@@ -8,7 +8,8 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import FormationMap, { emptyFormation, type FormationValue } from "@/components/FormationMap";
+import FormationMap, { FormationStatic, emptyFormation, type FormationValue } from "@/components/FormationMap";
+import { printWithOrientation } from "@/lib/print";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
 import { OPPONENT_ROSTERS, jerseyOf } from "@/lib/opponentRosters";
 import { titleCase } from "@/lib/players";
@@ -54,6 +55,14 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [foMap, setFoMap] = useState<FormationValue>(() => emptyFormation("fo"));
   /** Onglet affiché dans la carte PP : 0 = PP1, 1 = PP2, 2 = PP BO, 3 = FO. */
   const [ppWave, setPpWave] = useState(0);
+  /** Feuille à imprimer : « pp » ou « pk » (rendue hors écran, visible seulement à l'impression). */
+  const [sheet, setSheet] = useState<"pp" | "pk">("pp");
+
+  function printSheet(kind: "pp" | "pk") {
+    setSheet(kind);
+    // Laisse React afficher la bonne feuille avant d'ouvrir l'impression.
+    setTimeout(() => printWithOrientation("portrait", "8mm"), 150);
+  }
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
@@ -179,7 +188,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   }
 
   return (
-    <div className="space-y-6">
+    <>
+    <div className="space-y-6 print:hidden">
       <Link href="/statistiques-avancees/pre-scout" className="text-sm text-ink-800 hover:text-gold-700 font-medium hover:underline">
         ← Pre-Scout
       </Link>
@@ -412,9 +422,19 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       {!loading && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-xl font-bold">Dispositions spéciales</h2>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-xl font-bold">Special Units</h2>
+              <div className="flex gap-2 flex-wrap">
+                <button className="btn-secondary text-sm" onClick={() => printSheet("pp")}>
+                  🖨️ Exporter Pre-scout PP (PDF)
+                </button>
+                <button className="btn-secondary text-sm" onClick={() => printSheet("pk")}>
+                  🖨️ Exporter Pre-scout PK (PDF)
+                </button>
+              </div>
+            </div>
             <p className="text-slate-400 text-sm">
-              Glisse les numéros pour reproduire la formation de {team.name}. Touche un joueur pour changer son numéro ;
+              Glisse les numéros pour reproduire la formation de {team.name}. Clique un rond pour écrire son numéro directement dessus ;
               tout s&apos;enregistre automatiquement.
             </p>
           </div>
@@ -422,10 +442,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             {(() => {
               const w = ppWave;
               const cfg = [
-                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ Avantage numérique (PP1)", sub: `Comment ${team.name} se dispose quand elle a l'avantage — zone offensive, but en haut.` },
-                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ Avantage numérique (PP2)", sub: `Deuxième vague de ${team.name} — zone offensive, but en haut.` },
-                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "🚀 Sortie de zone en avantage (PP BO)", sub: `Sortie de zone de ${team.name} en avantage numérique — glace complète, leur zone à gauche.` },
-                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "🔵 Mise au jeu (FO)", sub: `Formation de ${team.name} sur une mise au jeu — zone offensive, but en haut.` },
+                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ Pre-scout PP", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ Pre-scout PP", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ Pre-scout PP", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone à gauche).` },
+                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "⚡ Pre-scout PP", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
                 <div className={w === 2 ? "lg:col-span-2" : ""}>
@@ -445,7 +465,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             })()}
             <FormationMap
               kind="pk"
-              title="🛡️ Désavantage numérique (PK)"
+              title="🛡️ Pre-scout PK"
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en haut.`}
               value={pkMap}
               onChange={(v) => saveMap("pk", v)}
@@ -622,5 +642,152 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         {updatedAt && <span className="text-xs text-slate-400">Mis à jour le {updatedAt.slice(0, 10)}</span>}
       </div>
     </div>
+
+    {/* ---- Feuille imprimable (PDF) : Pre-scout PP ou Pre-scout PK ---- */}
+    <div className="hidden print:block text-black bg-white">
+      {(() => {
+        const isPp = sheet === "pp";
+        const played = leagueGames.filter((g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0));
+        const last5 = played.slice(-5).reverse();
+        const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
+        const scorers = (LEAGUE_SCORERS[teamSlug] ?? []).slice().sort((a, b) => b.g + b.a - (a.g + a.a));
+        const goalies = (LEAGUE_GOALIES[teamSlug] ?? []).slice().sort((a, b) => b.gp - a.gp);
+        const secondYear = SECOND_YEAR_PLAYERS[teamSlug] ?? [];
+        const h = "text-[10pt] font-black uppercase tracking-widest border-b-2 border-black pb-0.5 mb-1";
+        return (
+          <div className="space-y-3 text-[10pt]">
+            <header className="flex items-center justify-between border-b-4 border-black pb-2">
+              <div>
+                <h1 className="text-[20pt] font-black uppercase leading-none">Pre-scout {isPp ? "PP" : "PK"}</h1>
+                <p className="text-[13pt] font-bold">{team.name}</p>
+              </div>
+              <div className="text-right text-[9pt]">
+                <div className="font-bold">As de Québec M17 AAA</div>
+                <div>Imprimé le {format(new Date(), "d MMMM yyyy", { locale: fr })}</div>
+              </div>
+            </header>
+
+            <div className="grid grid-cols-3 gap-3">
+              <section>
+                <h2 className={h}>Fiche</h2>
+                <div className="font-bold text-[12pt]">
+                  {form.wins || "–"} V · {form.losses || "–"} D · {form.otl_losses || "–"} DP
+                </div>
+                <div className="font-mono">5 derniers : {form.last5 || "–"}</div>
+                {last5.map((g) => {
+                  const home = g.home === teamSlug;
+                  const own = home ? g.home_score! : g.away_score!;
+                  const other = home ? g.away_score! : g.home_score!;
+                  return (
+                    <div key={`${g.game_date}-${g.home}`} className="text-[9pt]">
+                      {own > other ? "V" : own < other ? "D" : "N"} {g.game_date.slice(5)} {home ? "vs" : "@"} {nameOf(home ? g.away : g.home)} {own}-{other}
+                    </div>
+                  );
+                })}
+              </section>
+              <section>
+                <h2 className={h}>Contre nous</h2>
+                {lastGame ? (
+                  <>
+                    <div className="font-bold">
+                      {lastGame.game_date} — {lastGame.goals_for ?? "-"}–{lastGame.goals_against ?? "-"}
+                    </div>
+                    <div className="text-[9pt]">
+                      {lastGame.pp_opportunities != null && <div>PP nous : {lastGame.pp_goals ?? 0}/{lastGame.pp_opportunities}</div>}
+                      {lastGame.pk_opportunities != null && <div>PK nous : {(lastGame.pk_kills ?? 0)}/{lastGame.pk_opportunities}</div>}
+                      {lastGame.shots_on_goal_us != null && <div>Tirs : {lastGame.shots_on_goal_us}–{lastGame.shots_on_goal_opponent ?? "?"}</div>}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[9pt]">Aucun match joué.</div>
+                )}
+                {theirScorers.slice(0, 4).map((p) => (
+                  <div key={p.name} className="text-[9pt]">
+                    #{p.jersey ?? "-"} {p.name} — {p.goals}B {p.assists}A
+                  </div>
+                ))}
+              </section>
+              <section>
+                <h2 className={h}>2e année</h2>
+                {secondYear.length === 0 ? (
+                  <div className="text-[9pt]">Aucun.</div>
+                ) : (
+                  secondYear.map((p) => (
+                    <div key={p.name} className="text-[9pt]">
+                      #{jerseyOf(teamSlug, p.name) ?? "-"} {p.name} {p.goalie ? "(G)" : `— ${p.gp} MJ, ${(p.g ?? 0) + (p.a ?? 0)} pts`}
+                    </div>
+                  ))
+                )}
+              </section>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <section>
+                <h2 className={h}>Meilleurs pointeurs</h2>
+                {scorers.length === 0 ? (
+                  <div className="text-[9pt]">–</div>
+                ) : (
+                  scorers.map((p) => (
+                    <div key={p.name} className="text-[9pt]">
+                      #{jerseyOf(teamSlug, p.name) ?? "-"} {p.name} — {p.gp} MJ · {p.g}B {p.a}A = {p.g + p.a}
+                    </div>
+                  ))
+                )}
+              </section>
+              <section>
+                <h2 className={h}>Gardiens</h2>
+                {goalies.length === 0 ? (
+                  <div className="text-[9pt]">–</div>
+                ) : (
+                  goalies.map((g) => (
+                    <div key={g.name} className="text-[9pt]">
+                      #{jerseyOf(teamSlug, g.name) ?? "-"} {g.name} — {g.gp} MJ · {g.w ?? "-"}-{g.l ?? "-"}-{g.otl ?? "-"} · {g.gaa.toFixed(2)}
+                    </div>
+                  ))
+                )}
+              </section>
+            </div>
+
+            {form.notes.trim() && (
+              <section>
+                <h2 className={h}>Notes de pre-scout</h2>
+                <p className="whitespace-pre-line">{form.notes}</p>
+              </section>
+            )}
+
+            {isPp ? (
+              <>
+                <div className="grid grid-cols-2 gap-4" style={{ breakInside: "avoid" }}>
+                  <section>
+                    <h2 className={h}>PP1</h2>
+                    <FormationStatic kind="pp" value={ppMap} />
+                  </section>
+                  <section>
+                    <h2 className={h}>PP2</h2>
+                    <FormationStatic kind="pp" value={pp2Map} />
+                  </section>
+                </div>
+                <div className="grid grid-cols-5 gap-4" style={{ breakBefore: "page" }}>
+                  <section className="col-span-5">
+                    <h2 className={h}>PP BO — sortie de zone</h2>
+                    <FormationStatic kind="bo" value={ppBoMap} />
+                  </section>
+                  <section className="col-span-3">
+                    <h2 className={h}>FO — mise au jeu</h2>
+                    <FormationStatic kind="fo" value={foMap} />
+                  </section>
+                </div>
+              </>
+            ) : (
+              <section className="max-w-[120mm] mx-auto" style={{ breakInside: "avoid" }}>
+                <h2 className={h}>PK</h2>
+                <FormationStatic kind="pk" value={pkMap} />
+              </section>
+            )}
+          </div>
+        );
+      })()}
+    </div>
+    </>
   );
 }

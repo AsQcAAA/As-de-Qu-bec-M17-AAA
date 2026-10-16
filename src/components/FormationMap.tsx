@@ -39,9 +39,8 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
     { label: "Cercle droit", positions: [[129, 70], [98, 66], [158, 58], [110, 104], [140, 104]] },
   ],
   pk: [
-    { label: "Boîte", positions: [[58, 70], [112, 70], [58, 104], [112, 104]] },
-    { label: "Losange", positions: [[85, 58], [52, 88], [118, 88], [85, 118]] },
-    { label: "Triangle + 1", positions: [[85, 56], [58, 92], [112, 92], [85, 124]] },
+    { label: "Diamond", positions: [[85, 58], [52, 88], [118, 88], [85, 118]] },
+    { label: "Flush", positions: [[55, 50], [113, 51], [85, 84], [86, 123]] },
   ],
 };
 
@@ -233,27 +232,16 @@ export default function FormationMap({
           + Ajouter
         </button>
         {selected && (
-          <>
-            <span className="text-xs text-slate-500">Sélectionné :</span>
-            <input
-              className="input w-20 text-xs"
-              inputMode="numeric"
-              placeholder="#"
-              value={selected.number}
-              onChange={(e) =>
-                update(value.markers.map((m) => (m.id === selected.id ? { ...m, number: e.target.value.replace(/\D/g, "").slice(0, 3) } : m)))
-              }
-            />
-            <button
-              className="text-xs text-red-600 hover:underline"
-              onClick={() => {
-                update(value.markers.filter((m) => m.id !== selected.id));
-                setSelectedId(null);
-              }}
-            >
-              Retirer
-            </button>
-          </>
+          <button
+            className="text-xs text-red-600 hover:underline"
+            onClick={() => {
+              update(value.markers.filter((m) => m.id !== selected.id));
+              setSelectedId(null);
+              setEditingId(null);
+            }}
+          >
+            Retirer le joueur sélectionné
+          </button>
         )}
       </div>
 
@@ -263,7 +251,13 @@ export default function FormationMap({
         className={`w-full ${kind === "bo" ? "max-w-3xl" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => drag && setDrag({ id: drag.id, ...toSvg(e) })}
         onPointerUp={() => {
-          if (drag) update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
+          if (drag) {
+            const m0 = value.markers.find((m) => m.id === drag.id);
+            const moved = m0 ? Math.hypot(drag.x - m0.x, drag.y - m0.y) : 0;
+            // Un simple clic (sans glisser) ouvre la saisie du numéro directement sur le rond.
+            if (moved < 2) setEditingId(drag.id);
+            else update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
+          }
           setDrag(null);
         }}
         onPointerLeave={() => {
@@ -332,6 +326,27 @@ export default function FormationMap({
         value={value.note}
         onChange={(e) => onChange({ ...value, note: e.target.value })}
       />
+    </div>
+  );
+}
+
+/** Version imprimable (sans commandes) : la patinoire, les numéros posés et les remarques. */
+export function FormationStatic({ kind, value }: { kind: Kind; value: FormationValue }) {
+  const { W, H } = dimsOf(kind);
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid" }}>
+        {kind === "bo" ? <FullRink /> : <Rink />}
+        {value.markers.map((m) => (
+          <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
+            <circle r="10" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.6" />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
+              {m.number || "?"}
+            </text>
+          </g>
+        ))}
+      </svg>
+      {value.note.trim() && <p className="mt-1 text-[10pt] whitespace-pre-line border-l-4 border-black pl-2">{value.note}</p>}
     </div>
   );
 }
