@@ -220,16 +220,18 @@ export default function FormationMap({
             </option>
           ))}
         </select>
+        {kind !== "pk" && (
         <input
-          className="input w-24 text-xs"
-          inputMode="numeric"
-          placeholder="# joueur"
-          value={newNumber}
-          onChange={(e) => setNewNumber(e.target.value.replace(/\D/g, "").slice(0, 3))}
-          onKeyDown={(e) => e.key === "Enter" && addMarker(newNumber)}
-        />
+            className="input w-24 text-xs"
+            inputMode="numeric"
+            placeholder="# joueur"
+            value={newNumber}
+            onChange={(e) => setNewNumber(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            onKeyDown={(e) => e.key === "Enter" && addMarker(newNumber)}
+          />
+        )}
         <button className="btn-secondary text-xs" onClick={() => addMarker(newNumber)}>
-          + Ajouter
+          {kind === "pk" ? "+ Ajouter un joueur" : "+ Ajouter"}
         </button>
         {selected && (
           <button
@@ -255,7 +257,9 @@ export default function FormationMap({
             const m0 = value.markers.find((m) => m.id === drag.id);
             const moved = m0 ? Math.hypot(drag.x - m0.x, drag.y - m0.y) : 0;
             // Un simple clic (sans glisser) ouvre la saisie du numéro directement sur le rond.
-            if (moved < 2) setEditingId(drag.id);
+            if (moved < 2) {
+              if (kind !== "pk") setEditingId(drag.id);
+            }
             else update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
           }
           setDrag(null);
@@ -287,7 +291,8 @@ export default function FormationMap({
                 e.stopPropagation();
                 setDrag(null);
                 setSelectedId(m.id);
-                setEditingId(m.id);
+                // Le PK adverse n'a jamais de numéros : des X seulement.
+                if (kind !== "pk") setEditingId(m.id);
               }}
             >
               {isSel && <circle r="13" fill="none" stroke="#2563eb" strokeWidth="2" strokeDasharray="3 2" />}
@@ -311,7 +316,7 @@ export default function FormationMap({
                 </foreignObject>
               ) : (
                 <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
-                  {m.number || "?"}
+                  {m.number || "X"}
                 </text>
               )}
             </g>
@@ -341,7 +346,7 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
             <circle r="10" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.6" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
-              {m.number || "?"}
+              {m.number || "X"}
             </text>
           </g>
         ))}
