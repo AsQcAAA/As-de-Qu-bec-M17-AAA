@@ -95,6 +95,38 @@ export interface ParsedResult {
   note: string | null;
 }
 
+/**
+ * Disposition des joueurs de 2e année pour la séance de l'an dernier (A25), sans
+ * titres de colonnes : Nom, Poids, Taille, Grandeur assise, Saut horizontal
+ * (2 essais, on garde le meilleur), Lancer de ballon (cm), Chin up, Agilité R
+ * (2 essais), Agilité L (2 essais), Sprint 30 m (1), Sprint 30 m (2), 30-15.
+ */
+function parseSecondYearRow(name: string, cells: unknown[], date: string): ParsedResult[] {
+  // Excel transforme parfois « 05.05 » en date (5 mai) : on la relit comme 5,05 s.
+  const n = (i: number) => {
+    const raw = cellValue(cells[i]);
+    if (raw instanceof Date) return raw.getUTCMonth() + 1 + raw.getUTCDate() / 100;
+    return toNumber(raw);
+  };
+  const ok = (test: string, v: number | null) => v !== null && v >= TEST_DEFS[test].min && v <= TEST_DEFS[test].max;
+  const best = (test: string, values: (number | null)[], pick: "min" | "max") => {
+    const valid = values.filter((v): v is number => ok(test, v));
+    return valid.length ? (pick === "max" ? Math.max(...valid) : Math.min(...valid)) : null;
+  };
+  const found: [string, number | null][] = [
+    ["Grandeur assise", n(3)],
+    ["Saut horizontal", best("Saut horizontal", [n(4), n(5)], "max")],
+    ["Lancer de ballon", n(6)],
+    ["Chin up", n(7)],
+    ["Agilité 5-10-5 R", best("Agilité 5-10-5 R", [n(8), n(9)], "min")],
+    ["Agilité 5-10-5 L", best("Agilité 5-10-5 L", [n(10), n(11)], "min")],
+    ["Sprint 30 m (1)", n(12)],
+    ["Sprint 30 m (2)", n(13)],
+    ["Pallier 30-15", n(14)],
+  ];
+  return found.filter(([test, v]) => ok(test, v)).map(([test, value]) => ({ name, test, date, value: value as number, note: null }));
+}
+
 /** Lit l'onglet M17 : une liste de résultats (joueur, test, séance, valeur). */
 export async function parseTestsWorkbook(buffer: ArrayBuffer): Promise<ParsedResult[]> {
   const ExcelJS = (await import("exceljs")).default;
@@ -120,12 +152,17 @@ export async function parseTestsWorkbook(buffer: ArrayBuffer): Promise<ParsedRes
     const date = BLOCK_DATES[blockIndex];
     if (!date || !first) return;
 
-    // Une ligne dont le saut horizontal est hors de la plage plausible est une ligne
-    // d'une autre disposition (ex. grandeur assise à la place du saut) : on l'ignore
-    // plutôt que de ranger des valeurs dans les mauvaises colonnes.
+    // Une ligne dont le saut horizontal est hors de la plage plausible n'a pas la
+    // disposition du tableau. Quand on y trouve une grandeur assise (25-45 po) à la
+    // place du saut, c'est la disposition « 2e année » de l'an dernier (voir
+    // parseSecondYearRow) ; toute autre anomalie est ignorée plutôt que de ranger
+    // des valeurs dans les mauvaises colonnes.
     if (sautIndex >= 0) {
       const saut = toNumber(cells[sautIndex]);
-      if (saut !== null && (saut < TEST_DEFS["Saut horizontal"].min || saut > TEST_DEFS["Saut horizontal"].max)) return;
+      if (saut !== null && (saut < TEST_DEFS["Saut horizontal"].min || saut > TEST_DEFS["Saut horizontal"].max)) {
+        if (date === BLOCK_DATES[1] && saut >= 25 && saut <= 45) out.push(...parseSecondYearRow(first, cells, date));
+        return;
+      }
     }
 
     // Agilités : deux essais par côté, on retient le meilleur (le plus petit temps).
