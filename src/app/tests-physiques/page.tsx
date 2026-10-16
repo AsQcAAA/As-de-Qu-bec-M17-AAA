@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { lastName } from "@/lib/players";
+import Modal from "@/components/Modal";
+import TestsEmailModal from "@/components/TestsEmailModal";
+import { useCoachDirectory } from "@/lib/useCoach";
 import type { Player, PlayerTestResult } from "@/lib/types";
 
 /** Note marquant un résultat obtenu par un joueur blessé — affiché par un emoji dans le tableau. */
@@ -14,6 +17,8 @@ export default function TestsPhysiquesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [results, setResults] = useState<PlayerTestResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isHeadCoach } = useCoachDirectory();
+  const [showEmail, setShowEmail] = useState(false);
 
 
   async function load() {
@@ -144,8 +149,17 @@ export default function TestsPhysiquesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Tests physiques</h1>
-        <p className="text-slate-500 text-sm">Classement de l'équipe pour chaque test.</p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold">Tests physiques</h1>
+            <p className="text-slate-500 text-sm">Classement de l'équipe pour chaque test.</p>
+          </div>
+          {isHeadCoach && sessionDates.length > 0 && (
+            <button className="btn" onClick={() => setShowEmail(true)}>
+              ✉️ Envoyer aux joueurs
+            </button>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-slate-400">
@@ -294,6 +308,17 @@ export default function TestsPhysiquesPage() {
             )}
           </div>
         </>
+      )}
+
+      {showEmail && (
+        <Modal onClose={() => setShowEmail(false)}>
+          <TestsEmailModal
+            results={results}
+            players={players.filter((p) => p.active && !p.is_call_up)}
+            initialSession={session}
+            onClose={() => setShowEmail(false)}
+          />
+        </Modal>
       )}
     </div>
   );

@@ -48,6 +48,31 @@ function splitAssistants(block: DistPerson, existing: Set<string>): DistPerson[]
 }
 
 /**
+ * Le bloc « Maxime Chabot » regroupe les TROIS préparateurs physiques : ses
+ * propres séances, plus deux lignes au nom de ses collègues (Amélie Tremblay,
+ * Jérémie Smith). On sépare chacun pour voir son montant.
+ */
+function splitTrainers(person: DistPerson): DistPerson[] {
+  if (normText(person.name) !== "maxime chabot") return [person];
+  const own: DistPerson = { ...person, group: "Préparateur physique", tasks: [] };
+  const others = new Map<string, DistPerson>();
+  for (const t of person.tasks) {
+    const m = t.label.match(/^([A-ZÉ][a-zéèêëïîôùûç'-]+ [A-ZÉ][a-zéèêëïîôùûç'-]+)\s+(.*)$/);
+    if (!m) {
+      own.tasks.push(t);
+      continue;
+    }
+    const name = m[1];
+    const label = m[2].replace(/^\d+\s*[-–]\s*/, "").replace(/\s+-\s+/g, " – ") || t.label;
+    const other =
+      others.get(name) ?? { name, group: "Préparateur physique", status: null, tasks: [], notes: [], sheetTotal: null };
+    other.tasks.push({ ...t, label });
+    others.set(name, other);
+  }
+  return [own, ...others.values()];
+}
+
+/**
  * Distribution monétaire 2026-27 (première feuille du fichier du Drive) : chaque
  * employé avec le montant octroyé pour chaque tâche. Réservé à l'entraîneur-chef.
  */
@@ -59,7 +84,6 @@ export default function DistributionPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string>("__all__");
   const [showDas, setShowDas] = useState(false);
-  const [sortBy, setSortBy] = useState<"file" | "name" | "amount">("file");
 
   useEffect(() => {
     supabase
@@ -82,22 +106,21 @@ export default function DistributionPage() {
     const out: DistPerson[] = [];
     for (const p of raw) {
       if (normText(p.name) === ASSISTANTS_BLOCK) out.push(...splitAssistants(p, named));
-      else out.push(p);
+      else out.push(...splitTrainers(p));
     }
     return out;
   }, [doc]);
 
   const q = normText(search);
   const list = useMemo(() => {
-    let l = everyone.filter((p) => !q || normText(p.name).includes(q) || p.tasks.some((t) => normText(t.label).includes(q)));
-    if (sortBy === "name") l = [...l].sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === "amount") l = [...l].sort((a, b) => sumTasks(b) - sumTasks(a));
-    return l;
-  }, [everyone, q, sortBy]);
+    // Toujours du salaire le plus élevé au plus bas.
+    return everyone
+      .filter((p) => !q || normText(p.name).includes(q) || p.tasks.some((t) => normText(t.label).includes(q)))
+      .sort((a, b) => sumTasks(b) - sumTasks(a) || a.name.localeCompare(b.name));
+  }, [everyone, q]);
 
   const keyOf = (p: DistPerson) => `${p.group}|${p.name}`;
   const current = selected === "__all__" ? null : everyone.find((p) => keyOf(p) === selected) ?? null;
-  const groups = [...new Set(list.map((p) => p.group))];
   const grandTotal = everyone.reduce((n, p) => n + sumTasks(p), 0);
 
   if (loading) return <p className="text-slate-500">Chargement...</p>;
@@ -190,25 +213,21 @@ export default function DistributionPage() {
               >
                 👥 Tous les employés ({list.length})
               </button>
-              {groups.map((g) => (
-                <div key={g} className="mt-2">
-                  <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{g}</div>
-                  {list
-                    .filter((p) => p.group === g)
-                    .map((p) => (
-                      <button
-                        key={keyOf(p)}
-                        onClick={() => setSelected(keyOf(p))}
-                        className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-sm text-left ${
-                          selected === keyOf(p) ? "bg-gold-500 text-ink-900 font-bold" : "hover:bg-slate-100"
-                        }`}
-                      >
-                        <span className="truncate">{p.name}</span>
-                        <span className="tabular-nums text-xs shrink-0">{money(sumTasks(p))}</span>
-                      </button>
-                    ))}
-                </div>
-              ))}
+              <div className="mt-1">
+                {list.map((p) => (
+                  <button
+                    key={keyOf(p)}
+                    onClick={() => setSelected(keyOf(p))}
+                    className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-sm text-left ${
+                      selected === keyOf(p) ? "bg-gold-500 text-ink-900 font-bold" : "hover:bg-slate-100"
+                    }`}
+                    title={p.group}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="tabular-nums text-xs shrink-0">{money(sumTasks(p))}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" checked={showDas} onChange={(e) => setShowDas(e.target.checked)} />
@@ -221,7 +240,7 @@ export default function DistributionPage() {
               detail(current)
             ) : (
               <>
-                <div className="grid sm:grid-cols-3 gap-3">
+                <div className="grid sm:grid-cols-2 gap-3">
                   <div className="card">
                     <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Employés</div>
                     <div className="text-2xl font-black">{everyone.length}</div>
@@ -230,14 +249,6 @@ export default function DistributionPage() {
                     <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Total des tâches</div>
                     <div className="text-2xl font-black">{money(grandTotal)}</div>
                     <div className="text-xs text-slate-400">Avant DAS</div>
-                  </div>
-                  <div className="card">
-                    <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Tri</div>
-                    <select className="input mt-1" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
-                      <option value="file">Ordre du fichier</option>
-                      <option value="name">Nom</option>
-                      <option value="amount">Montant (du plus élevé)</option>
-                    </select>
                   </div>
                 </div>
 
