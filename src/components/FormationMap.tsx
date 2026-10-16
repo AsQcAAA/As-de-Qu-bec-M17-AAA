@@ -413,6 +413,7 @@ export default function FormationMap({
               }
               const a: FormationArrow = { id: uid(), ...line, dashed: tool === "pass", pts };
               onChange({ ...value, arrows: [...arrows, a] });
+              setSelectedArrowId(a.id); // reste sélectionnée : Suppr ou le bouton la retire sans changer d'outil
             }
             setDrawing(null);
             return;
@@ -442,6 +443,7 @@ export default function FormationMap({
             // Outil flèche : le trait commence là où l'on appuie (même sur un joueur).
             const p = toSvg(e);
             e.currentTarget.setPointerCapture(e.pointerId);
+            setSelectedArrowId(null);
             setDrawing({ x1: p.x, y1: p.y, x2: p.x, y2: p.y, pts: [[p.x, p.y]] });
             return;
           }
