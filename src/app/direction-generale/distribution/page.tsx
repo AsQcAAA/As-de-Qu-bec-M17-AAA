@@ -48,6 +48,34 @@ function splitAssistants(block: DistPerson, existing: Set<string>): DistPerson[]
 }
 
 /**
+ * Précisions apportées par la direction sur les adjoints dont le fichier du Drive
+ * ne donne pas le nom ou le bon poste (ex. « ??? »). Elles s'appliquent à chaque
+ * affichage, donc survivent à une réimportation du fichier.
+ */
+function applyCorrections(list: DistPerson[]): DistPerson[] {
+  const out: DistPerson[] = [];
+  for (const p of list) {
+    const key = normText(p.name);
+    if (key.startsWith("olivier simoneau") && p.tasks.every((t) => !t.montant)) continue; // à 0 $ : retiré
+    if (key === normText("À déterminer — M15 D3 (2)")) continue; // retiré complètement
+    if (key === normText("À déterminer — M15 D3")) {
+      out.push({ ...p, name: "Bryan Cloutier", tasks: p.tasks.map((t) => ({ ...t, montant: 5250, das: null, total: null })) });
+      continue;
+    }
+    if (key === "romain") {
+      out.push({ ...p, name: "Romain Gagnon", tasks: p.tasks.map((t) => ({ ...t, label: "M15 D1 Relève" })) });
+      continue;
+    }
+    if (key === normText("À déterminer — M15 D1 R")) {
+      out.push({ ...p, name: "Mathias St-Laurent", tasks: p.tasks.map((t) => ({ ...t, label: "M13 D1 Relève" })) });
+      continue;
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+/**
  * Le bloc « Maxime Chabot » regroupe les TROIS préparateurs physiques : ses
  * propres séances, plus deux lignes au nom de ses collègues (Amélie Tremblay,
  * Jérémie Smith). On sépare chacun pour voir son montant.
@@ -108,7 +136,7 @@ export default function DistributionPage() {
       if (normText(p.name) === ASSISTANTS_BLOCK) out.push(...splitAssistants(p, named));
       else out.push(...splitTrainers(p));
     }
-    return out;
+    return applyCorrections(out);
   }, [doc]);
 
   const q = normText(search);
