@@ -696,7 +696,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                 🕐 Horaire
               </button>
               <button className="btn-secondary" onClick={() => setEditing("pp")}>
-                ⚡ Power Play
+                Power Play
               </button>
               {isGameDay && (
                 <button className="btn-secondary" onClick={() => setEditing("plan")}>
