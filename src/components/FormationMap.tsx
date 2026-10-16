@@ -39,8 +39,8 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
     { label: "Cercle droit", positions: [[129, 70], [98, 66], [158, 58], [110, 104], [140, 104]] },
   ],
   pk: [
-    { label: "Diamond", positions: [[85, 58], [52, 88], [118, 88], [85, 118]] },
-    { label: "Flush", positions: [[55, 50], [113, 51], [85, 84], [86, 123]] },
+    { label: "Diamond", positions: [[85, 120], [52, 90], [118, 90], [85, 60]] },
+    { label: "Flush", positions: [[55, 128], [113, 127], [85, 94], [86, 55]] },
   ],
 };
 
@@ -52,10 +52,10 @@ export const emptyFormation = (kind: Kind): FormationValue => ({
 });
 
 /** Demi-patinoire (zone offensive de l'équipe, but en haut), proportions réelles : 2 unités = 1 pied. */
-function Rink() {
+function Rink({ flip = false }: { flip?: boolean }) {
   const { W, H } = HALF;
   return (
-    <g fill="none" strokeLinecap="round">
+    <g fill="none" strokeLinecap="round" transform={flip ? `translate(0 ${H}) scale(1 -1)` : undefined}>
       {/* Glace + bandes */}
       <path d={`M 56 0 H ${W - 56} A 56 56 0 0 1 ${W} 56 V ${H} H 0 V 56 A 56 56 0 0 1 56 0 Z`} fill="#f8fafc" stroke="#334155" strokeWidth="2.5" />
       {/* Ligne de but */}
@@ -272,7 +272,7 @@ export default function FormationMap({
           if (e.target === e.currentTarget) setSelectedId(null);
         }}
       >
-        {kind === "bo" ? <FullRink /> : <Rink />}
+        {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
         {value.markers.map((m) => {
           const pos = drag?.id === m.id ? drag : m;
           const isSel = m.id === selectedId;
@@ -341,7 +341,7 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid" }}>
-        {kind === "bo" ? <FullRink /> : <Rink />}
+        {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
             <circle r="10" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.6" />

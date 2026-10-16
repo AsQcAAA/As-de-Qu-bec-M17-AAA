@@ -466,7 +466,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             <FormationMap
               kind="pk"
               title="🛡️ Pre-scout PK"
-              subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en haut.`}
+              subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.`}
               value={pkMap}
               onChange={(v) => saveMap("pk", v)}
             />
