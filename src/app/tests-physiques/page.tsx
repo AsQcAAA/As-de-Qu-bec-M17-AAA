@@ -74,14 +74,13 @@ export default function TestsPhysiquesPage() {
   const sessionDates = useMemo(() => [...new Set(results.map((r) => r.test_date))].sort(), [results]);
 
   /**
-   * Titre d'une séance : la saison plutôt que la date exacte (A25 = automne
-   * 2025, H26 = hiver 2026, É26 = été 2026). Si deux séances tombent dans la
+   * Titre d'une séance : la saison plutôt que la date exacte (A26 = automne 2026, H27 = hiver 2027, P26 = printemps 2026). Si deux séances tombent dans la
    * même saison, on retombe sur la date pour les distinguer.
    */
   const sessionLabels = useMemo(() => {
     const seasonOf = (date: string) => {
       const month = Number(date.slice(5, 7));
-      const letter = month >= 8 ? "A" : month <= 4 ? "H" : "É";
+      const letter = month >= 8 ? "A" : month <= 3 ? "H" : "P";
       return `${letter}${date.slice(2, 4)}`;
     };
     const counts = new Map<string, number>();

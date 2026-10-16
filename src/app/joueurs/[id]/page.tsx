@@ -496,11 +496,11 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     load();
   }
 
-  /** Tests regroupés par nom : une colonne par séance (A25, A26…) et l'évolution de la plus récente. */
+  /** Tests regroupés par nom : une colonne par séance (P26, A26…) et l'évolution de la plus récente. */
   const testTable = useMemo(() => {
     const seasonOf = (date: string) => {
       const month = Number(date.slice(5, 7));
-      return `${month >= 8 ? "A" : month <= 4 ? "H" : "É"}${date.slice(2, 4)}`;
+      return `${month >= 8 ? "A" : month <= 3 ? "H" : "P"}${date.slice(2, 4)}`;
     };
     const sessions = [...new Set(testResults.map((t) => t.test_date))].sort();
     const counts = new Map<string, number>();

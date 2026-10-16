@@ -5,7 +5,7 @@
 //
 // L'onglet empile plusieurs tableaux, chacun précédé d'une ligne d'en-tête dont
 // la première cellule est « Nom » : le premier est la séance de cette année
-// (A26), le deuxième celle de l'an dernier (A25). Les colonnes sont repérées par
+// (A26), le deuxième celle de la fin de la saison 2025-26 (P26, printemps 2026). Les colonnes sont repérées par
 // leur titre, pas par leur position, donc l'ajout d'un test ou d'une colonne
 // ne casse rien.
 
@@ -15,7 +15,7 @@ export const TESTS_SHEET_ID = process.env.TESTS_SHEET_ID || "10WpjPYPFdp0iRFbCFT
 const SHEET_TAB = "M17";
 
 /** Séance de chaque tableau, dans l'ordre où ils apparaissent dans l'onglet. */
-const BLOCK_DATES = ["2026-09-08", "2025-09-01"];
+const BLOCK_DATES = ["2026-09-08", "2026-05-01"];
 
 const TEST_DEFS: Record<string, { unit: string | null; higherIsBetter: boolean; min: number; max: number }> = {
   "Saut horizontal": { unit: "cm", higherIsBetter: true, min: 120, max: 330 },
@@ -96,7 +96,7 @@ export interface ParsedResult {
 }
 
 /**
- * Disposition des joueurs de 2e année pour la séance de l'an dernier (A25), sans
+ * Disposition des joueurs de 2e année pour la séance P26 (fin de la saison 2025-26), sans
  * titres de colonnes : Nom, Poids, Taille, Grandeur assise, Saut horizontal
  * (2 essais, on garde le meilleur), Lancer de ballon (cm), Chin up, Agilité R
  * (2 essais), Agilité L (2 essais), Sprint 30 m (1), Sprint 30 m (2), 30-15.
@@ -219,7 +219,7 @@ export async function syncTestsFromSheet(supabase: SupabaseClient): Promise<Sync
   const findPlayer = matcher((players ?? []) as { id: string; full_name: string }[]);
   const have = new Set((existing ?? []).map((e) => `${e.player_id}|${e.test_name}|${e.test_date}`));
   const sessionNotes: Record<string, string> = {
-    "2025-09-01": "Tests de l'automne 2025 (date exacte non précisée)",
+    "2026-05-01": "Tests de fin de saison 2025-26 — printemps 2026 (date exacte non précisée)",
   };
 
   const unmatched = new Set<string>();
