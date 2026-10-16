@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { computeFiche, ficheHtml, sessionLabel, type TestResultLike } from "@/lib/testsFiche";
+import { computeFiche, ficheHtml, sessionName, type TestResultLike } from "@/lib/testsFiche";
 import type { Player } from "@/lib/types";
 
 /**
@@ -31,9 +31,9 @@ export default function TestsEmailModal({
 
   const dates = useMemo(() => [...new Set(results.map((r) => r.test_date))].sort(), [results]);
   const roster = useMemo(() => new Set(players.map((p) => p.id)), [players]);
-  const label = sessionLabel(session, dates);
+  const label = sessionName(session, dates);
   const previousDate = [...dates].reverse().find((d) => d < session) ?? null;
-  const previousLabel = previousDate ? sessionLabel(previousDate, dates) : null;
+  const previousLabel = previousDate ? sessionName(previousDate, dates) : null;
 
   // Joueurs de l'équipe ayant au moins un résultat à cette séance.
   const candidates = useMemo(
@@ -47,12 +47,12 @@ export default function TestsEmailModal({
   const previewPlayer = candidates.find((p) => p.id === previewId) ?? candidates[0];
   const preview = previewPlayer ? ficheHtml(previewPlayer.full_name, computeFiche(previewPlayer.id, session, results, roster)) : "";
 
-  const subject = subjectEdit ?? `Tes résultats aux tests physiques ${label} — As de Québec M17 AAA`;
+  const subject = subjectEdit ?? `Tes résultats aux tests physiques — ${label} — As de Québec M17 AAA`;
   const message =
     messageEdit ??
-    `Salut {joueur},\n\nVoici tes résultats aux tests physiques (${label}) : ton classement dans l'équipe${
-      previousLabel ? ` et ton évolution depuis ${previousLabel}` : ""
-    }.\n\nContinue le beau travail !`;
+    `Salut {joueur},\n\nVoici tes résultats aux tests physiques (${label.toLowerCase()}) : ton classement dans l'équipe${
+      previousLabel ? ` et ton évolution par rapport aux tests du ${previousLabel.toLowerCase()}` : ""
+    }.`;
 
   function toggle(id: string) {
     setExcluded((prev) => {
@@ -103,7 +103,7 @@ export default function TestsEmailModal({
           <h2 className="text-lg font-bold text-white">Envoyer les résultats aux joueurs</h2>
           <p className="text-sm text-slate-400">
             Chaque joueur reçoit (à sa famille) sa fiche : ses résultats, son classement dans l&apos;équipe et son évolution
-            {previousLabel ? ` depuis ${previousLabel}` : ""}.
+            {previousLabel ? ` depuis ${previousLabel.toLowerCase()}` : ""}.
           </p>
         </div>
         <button className="btn-secondary shrink-0" onClick={onClose}>
@@ -117,7 +117,7 @@ export default function TestsEmailModal({
           <select className="input w-auto" value={session} onChange={(e) => { setSession(e.target.value); setPreviewId(""); setConfirm(false); setResult(null); }}>
             {[...dates].reverse().map((d) => (
               <option key={d} value={d}>
-                {sessionLabel(d, dates)} — {d}
+                {sessionName(d, dates)}
               </option>
             ))}
           </select>

@@ -178,15 +178,15 @@ async function sendTestsFicheTest(supabase: ReturnType<typeof createServiceClien
   const fiche = computeFiche(player.id, session, all, new Set((players ?? []).map((p) => p.id)));
   if (fiche.rows.length === 0) return { ok: false, error: "Aucun résultat" };
   const first = player.full_name.split(" ")[0];
-  const message = `Salut ${first},\n\nVoici tes résultats aux tests physiques (${fiche.sessionLabel}) : ton classement dans l'équipe${
-    fiche.previousLabel ? ` et ton évolution depuis ${fiche.previousLabel}` : ""
-  }.\n\nContinue le beau travail !`;
+  const message = `Salut ${first},\n\nVoici tes résultats aux tests physiques (${fiche.sessionLabel.toLowerCase()}) : ton classement dans l'équipe${
+    fiche.previousLabel ? ` et ton évolution par rapport aux tests du ${fiche.previousLabel.toLowerCase()}` : ""
+  }.`;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: `Jean Grignon-Francke <${coachEmail}>`,
     to: [coachEmail],
     replyTo: coachEmail,
-    subject: `[TEST] Tes résultats aux tests physiques ${fiche.sessionLabel} — As de Québec M17 AAA`,
+    subject: `[TEST] Tes résultats aux tests physiques — ${fiche.sessionLabel} — As de Québec M17 AAA`,
     html: buildEmailHtml(message, ficheHtml(player.full_name, fiche)),
     text: buildEmailText(message),
     attachments: [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],

@@ -56,6 +56,18 @@ export function sessionLabel(date: string, allDates: string[]): string {
   return same > 1 ? date : seasonOf(date);
 }
 
+/** Nom de la séance en toutes lettres, pour les joueurs : « Automne 2026 », « Printemps 2026 », « Hiver 2027 ». */
+export function sessionName(date: string, allDates: string[]): string {
+  const m = Number(date.slice(5, 7));
+  const season = m >= 8 ? "Automne" : m <= 3 ? "Hiver" : "Printemps";
+  const base = `${season} ${date.slice(0, 4)}`;
+  const same = allDates.filter((d) => {
+    const mm = Number(d.slice(5, 7));
+    return d.slice(0, 4) === date.slice(0, 4) && (mm >= 8) === (m >= 8) && (mm <= 3) === (m <= 3);
+  }).length;
+  return same > 1 ? `${base} (${date})` : base;
+}
+
 export function computeFiche(playerId: string, sessionDate: string, results: TestResultLike[], eligible: Set<string>): Fiche {
   const dates = [...new Set(results.map((r) => r.test_date))].sort();
   const previousDate = [...dates].reverse().find((d) => d < sessionDate) ?? null;
@@ -84,9 +96,9 @@ export function computeFiche(playerId: string, sessionDate: string, results: Tes
   }
   return {
     sessionDate,
-    sessionLabel: sessionLabel(sessionDate, dates),
+    sessionLabel: sessionName(sessionDate, dates),
     previousDate,
-    previousLabel: previousDate ? sessionLabel(previousDate, dates) : null,
+    previousLabel: previousDate ? sessionName(previousDate, dates) : null,
     rows,
   };
 }
@@ -120,9 +132,10 @@ export function ficheHtml(playerName: string, fiche: Fiche): string {
     })
     .join("");
   const prev = fiche.previousLabel ?? "séance précédente";
+  const prevLower = prev.toLowerCase();
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;font-family:Arial,Helvetica,sans-serif;">
 <tr><td style="padding:14px 16px;background:#0d0c0c;border-radius:8px 8px 0 0;">
-<div style="font-size:11px;letter-spacing:.12em;color:#fdca37;font-weight:bold;">AS DE QUÉBEC M17 AAA — TESTS PHYSIQUES ${esc(fiche.sessionLabel)}</div>
+<div style="font-size:11px;letter-spacing:.12em;color:#fdca37;font-weight:bold;">AS DE QUÉBEC M17 AAA — TESTS PHYSIQUES — ${esc(fiche.sessionLabel.toUpperCase())}</div>
 <div style="font-size:20px;color:#ffffff;font-weight:bold;margin-top:2px;">${esc(playerName)}</div>
 </td></tr>
 <tr><td style="padding:0;">
@@ -131,6 +144,6 @@ export function ficheHtml(playerName: string, fiche: Fiche): string {
 ${body}
 </table>
 </td></tr>
-<tr><td style="padding:10px 16px;font-size:12px;color:#6b7280;">Classement parmi les joueurs de l'équipe ayant fait le test. Vert = tiers supérieur, rouge = tiers inférieur. L'évolution compare à ${esc(prev)} : ▲ amélioration, ▼ recul (pour un temps, moins est mieux).</td></tr>
+<tr><td style="padding:10px 16px;font-size:12px;color:#6b7280;">Classement parmi les joueurs de l'équipe ayant fait le test. Vert = tiers supérieur, rouge = tiers inférieur. L'évolution compare au résultat de ${esc(prevLower)} : ▲ amélioration, ▼ recul (pour un temps, moins est mieux).</td></tr>
 </table>`;
 }
