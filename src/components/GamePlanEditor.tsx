@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Game } from "@/lib/types";
 
 /** Les 4 points clés du plan de match, conservés avec le match. */
-export default function GamePlanEditor({ game, onSaved }: { game: Game; onSaved?: () => void }) {
+export default function GamePlanEditor({ game, onSaved, readOnly = false }: { game: Game; onSaved?: () => void; readOnly?: boolean }) {
   const supabase = createClient();
   const [form, setForm] = useState({
     plan_point_1: game.plan_point_1 ?? "",
@@ -41,14 +41,17 @@ export default function GamePlanEditor({ game, onSaved }: { game: Game; onSaved?
           <input
             className="input"
             placeholder={`Point clé ${n}`}
+            readOnly={readOnly}
             value={form[`plan_point_${n}` as keyof typeof form]}
             onChange={(e) => setForm({ ...form, [`plan_point_${n}`]: e.target.value })}
           />
         </div>
       ))}
-      <button type="submit" className="btn" disabled={saving}>
-        {saving ? "Enregistrement..." : "Enregistrer le plan de match"}
-      </button>
+      {!readOnly && (
+        <button type="submit" className="btn" disabled={saving}>
+          {saving ? "Enregistrement..." : "Enregistrer le plan de match"}
+        </button>
+      )}
     </form>
   );
 }

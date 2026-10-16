@@ -498,7 +498,7 @@ export default function GameDetailPage() {
         // Dès le lendemain du match, la case de notes laisse la place au plan de match.
         <div className="card space-y-3">
           <h2 className="font-semibold">Plan de match — 4 points clés</h2>
-          <GamePlanEditor key={game.id} game={game} onSaved={load} />
+          <GamePlanEditor key={game.id} game={game} onSaved={load} readOnly />
         </div>
       ) : (
         <form onSubmit={saveNotes} className="card space-y-3">
