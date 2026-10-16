@@ -582,17 +582,19 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           <section className="card space-y-3">
-            <h2 className="font-semibold">5 derniers matchs</h2>
-            <p className="text-xs text-slate-500">Mis à jour automatiquement à partir du calendrier de la ligue (PDF).</p>
+            <h2 className="font-semibold">Game log</h2>
+            <p className="text-xs text-slate-500">Tous leurs matchs joués cette saison, du plus récent au plus ancien (calendrier de la ligue).</p>
             {(() => {
               const played = leagueGames.filter(
                 (g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0)
               );
-              const last = played.slice(-5).reverse();
+              const last = [...played].reverse();
               if (last.length === 0) return null;
               const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
+              const logoOf = (slug: string) =>
+                OPPONENT_TEAMS.find((t) => t.slug === slug)?.logo ?? (slug === "as-de-quebec" ? "/logos/as-de-quebec.png" : null);
               return (
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-[28rem] overflow-y-auto pr-1">
                   {last.map((g) => {
                     const isHome = g.home === teamSlug;
                     const own = isHome ? g.home_score! : g.away_score!;
@@ -611,8 +613,14 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                         <span className="text-slate-500 w-24 shrink-0 capitalize">
                           {format(parseISO(g.game_date), "EEE d MMM", { locale: fr })}
                         </span>
-                        <span className="flex-1 min-w-0 truncate">
-                          {isHome ? "vs" : "@"} {nameOf(opp)}
+                        <span className="flex-1 min-w-0 flex items-center gap-2" title={nameOf(opp)}>
+                          <span className="w-4 text-slate-500">{isHome ? "vs" : "@"}</span>
+                          {logoOf(opp) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={logoOf(opp)!} alt={nameOf(opp)} className="h-7 w-7 object-contain" />
+                          ) : (
+                            <span className="truncate">{nameOf(opp)}</span>
+                          )}
                         </span>
                         <span className="font-black">
                           {own}–{other}

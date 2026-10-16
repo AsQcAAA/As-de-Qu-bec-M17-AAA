@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export interface FormationMarker {
   id: string;
@@ -182,6 +182,25 @@ export default function FormationMap({
   const arrows = value.arrows ?? [];
   const arrowMarkerId = `ah${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
+  // Touche Supprimer / Retour arrière : retire la flèche ou la passe sélectionnée.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  useEffect(() => {
+    if (!selectedArrowId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      const v = valueRef.current;
+      onChange({ ...v, arrows: (v.arrows ?? []).filter((a) => a.id !== selectedArrowId) });
+      setSelectedArrowId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedArrowId]);
+
   function toSvg(e: React.PointerEvent) {
     const svg = svgRef.current!;
     const pt = svg.createSVGPoint();
@@ -311,7 +330,7 @@ export default function FormationMap({
               setSelectedArrowId(null);
             }}
           >
-            Retirer la flèche sélectionnée
+            Retirer la flèche sélectionnée (Suppr)
           </button>
         )}
         {arrows.length > 0 && (
