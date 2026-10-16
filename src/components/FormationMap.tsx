@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 export interface FormationMarker {
   id: string;
@@ -9,9 +9,31 @@ export interface FormationMarker {
   y: number;
 }
 
+/** Flèche dessinée sur la glace : déplacement (trait plein) ou passe (pointillé). */
+export interface FormationArrow {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  dashed: boolean;
+}
+
 export interface FormationValue {
   markers: FormationMarker[];
   note: string;
+  arrows?: FormationArrow[];
+}
+
+/** Tête de flèche partagée par les traits (un identifiant par patinoire affichée). */
+function ArrowDefs({ id }: { id: string }) {
+  return (
+    <defs>
+      <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#111827" />
+      </marker>
+    </defs>
+  );
 }
 
 type Kind = "pp" | "pk" | "bo" | "fo";
@@ -153,6 +175,12 @@ export default function FormationMap({
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [newNumber, setNewNumber] = useState("");
   const selected = value.markers.find((m) => m.id === selectedId) ?? null;
+  // Outils : déplacer les joueurs, ou dessiner une flèche (trait plein) / une passe (pointillé).
+  const [tool, setTool] = useState<"move" | "arrow" | "pass">("move");
+  const [drawing, setDrawing] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
+  const arrows = value.arrows ?? [];
+  const arrowMarkerId = `ah${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   function toSvg(e: React.PointerEvent) {
     const svg = svgRef.current!;
@@ -251,12 +279,73 @@ export default function FormationMap({
         )}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg overflow-hidden border border-slate-300 text-xs font-bold">
+          {(
+            [
+              ["move", "✋ Déplacer"],
+              ["arrow", "➜ Flèche"],
+              ["pass", "⇢ Passe"],
+            ] as const
+          ).map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => {
+                setTool(t);
+                setSelectedId(null);
+                setEditingId(null);
+                setSelectedArrowId(null);
+              }}
+              className={`px-3 py-1.5 ${tool === t ? "bg-gold-500 text-ink-900" : "bg-white text-slate-600 hover:bg-slate-100"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {tool !== "move" && <span className="text-xs text-slate-500">Glisse sur la glace pour tracer.</span>}
+        {selectedArrowId && (
+          <button
+            className="text-xs text-red-600 hover:underline"
+            onClick={() => {
+              onChange({ ...value, arrows: arrows.filter((a) => a.id !== selectedArrowId) });
+              setSelectedArrowId(null);
+            }}
+          >
+            Retirer la flèche sélectionnée
+          </button>
+        )}
+        {arrows.length > 0 && (
+          <button
+            className="text-xs text-slate-500 hover:underline"
+            onClick={() => {
+              if (window.confirm("Effacer toutes les flèches de cette patinoire ?")) {
+                onChange({ ...value, arrows: [] });
+                setSelectedArrowId(null);
+              }
+            }}
+          >
+            Effacer les flèches
+          </button>
+        )}
+      </div>
+
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className={`w-full ${kind === "bo" ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
-        onPointerMove={(e) => drag && setDrag({ id: drag.id, ...toSvg(e) })}
+        onPointerMove={(e) => {
+          if (drawing) setDrawing({ ...drawing, ...(() => { const p = toSvg(e); return { x2: p.x, y2: p.y }; })() });
+          else if (drag) setDrag({ id: drag.id, ...toSvg(e) });
+        }}
         onPointerUp={() => {
+          if (drawing) {
+            if (Math.hypot(drawing.x2 - drawing.x1, drawing.y2 - drawing.y1) > 8) {
+              const a: FormationArrow = { id: uid(), ...drawing, dashed: tool === "pass" };
+              onChange({ ...value, arrows: [...arrows, a] });
+            }
+            setDrawing(null);
+            return;
+          }
           if (drag) {
             const m0 = value.markers.find((m) => m.id === drag.id);
             const moved = m0 ? Math.hypot(drag.x - m0.x, drag.y - m0.y) : 0;
@@ -273,10 +362,56 @@ export default function FormationMap({
           setDrag(null);
         }}
         onPointerDown={(e) => {
-          if (e.target === e.currentTarget) setSelectedId(null);
+          if (tool !== "move") {
+            // Outil flèche : le trait commence là où l'on appuie (même sur un joueur).
+            const p = toSvg(e);
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDrawing({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+            return;
+          }
+          if (e.target === e.currentTarget) {
+            setSelectedId(null);
+            setSelectedArrowId(null);
+          }
         }}
       >
+        <ArrowDefs id={arrowMarkerId} />
         {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
+        {[...arrows, ...(drawing ? [{ id: "__drawing", ...drawing, dashed: tool === "pass" }] : [])].map((a) => {
+          const sel = a.id === selectedArrowId;
+          return (
+            <g key={a.id}>
+              <line
+                x1={a.x1}
+                y1={a.y1}
+                x2={a.x2}
+                y2={a.y2}
+                stroke={sel ? "#2563eb" : "#111827"}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeDasharray={a.dashed ? "5 3" : undefined}
+                markerEnd={`url(#${arrowMarkerId})`}
+              />
+              {a.id !== "__drawing" && tool === "move" && (
+                // Zone de sélection plus large : toucher la flèche la sélectionne.
+                <line
+                  x1={a.x1}
+                  y1={a.y1}
+                  x2={a.x2}
+                  y2={a.y2}
+                  stroke="transparent"
+                  strokeWidth="12"
+                  className="cursor-pointer"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setSelectedArrowId(a.id);
+                    setSelectedId(null);
+                  }}
+                />
+              )}
+            </g>
+          );
+        })}
         {value.markers.map((m) => {
           const pos = drag?.id === m.id ? drag : m;
           const isSel = m.id === selectedId;
@@ -286,7 +421,9 @@ export default function FormationMap({
               transform={`translate(${pos.x} ${pos.y})`}
               className="cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
+                if (tool !== "move") return; // l'outil flèche laisse le geste à la glace
                 e.stopPropagation();
+                setSelectedArrowId(null);
                 (e.currentTarget as SVGGElement).ownerSVGElement?.setPointerCapture(e.pointerId);
                 setSelectedId(m.id);
                 setDrag({ id: m.id, x: m.x, y: m.y });
@@ -299,11 +436,11 @@ export default function FormationMap({
                 if (kind !== "pk") setEditingId(m.id);
               }}
             >
-              {isSel && <circle r="13" fill="none" stroke="#2563eb" strokeWidth="2" strokeDasharray="3 2" />}
-              <circle r="10" fill={m.number ? "#fdca37" : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.6" />
+              {isSel && <circle r="10.5" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeDasharray="3 2" />}
+              <circle r="7" fill={m.number ? "#fdca37" : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.3" />
               {editingId === m.id ? (
                 // Double-clic : on tape le numéro directement sur le rond.
-                <foreignObject x={-13} y={-8} width={26} height={16}>
+                <foreignObject x={-10} y={-6} width={20} height={12}>
                   <input
                     autoFocus
                     inputMode="numeric"
@@ -315,11 +452,11 @@ export default function FormationMap({
                     }
                     onBlur={() => setEditingId(null)}
                     onKeyDown={(e) => (e.key === "Enter" || e.key === "Escape") && e.currentTarget.blur()}
-                    style={{ width: "100%", height: "100%", textAlign: "center", fontWeight: 900, fontSize: 11, border: "none", outline: "none", borderRadius: 4, background: "#fff", padding: 0 }}
+                    style={{ width: "100%", height: "100%", textAlign: "center", fontWeight: 900, fontSize: 8.5, border: "none", outline: "none", borderRadius: 4, background: "#fff", padding: 0 }}
                   />
                 </foreignObject>
               ) : (
-                <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
+                <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
                   {m.number || "X"}
                 </text>
               )}
@@ -342,14 +479,19 @@ export default function FormationMap({
 /** Version imprimable (sans commandes) : la patinoire, les numéros posés et les remarques. */
 export function FormationStatic({ kind, value }: { kind: Kind; value: FormationValue }) {
   const { W, H } = dimsOf(kind);
+  const staticMarkerId = `ahs${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ breakInside: "avoid", maxWidth: kind === "bo" ? "75mm" : undefined }}>
+        <ArrowDefs id={staticMarkerId} />
         {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
+        {(value.arrows ?? []).map((a) => (
+          <line key={a.id} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeDasharray={a.dashed ? "5 3" : undefined} markerEnd={`url(#${staticMarkerId})`} />
+        ))}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
-            <circle r="10" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.6" />
-            <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 8 : 10} fontWeight="900" fill="#0d0c0c">
+            <circle r="7" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
               {m.number || "X"}
             </text>
           </g>
