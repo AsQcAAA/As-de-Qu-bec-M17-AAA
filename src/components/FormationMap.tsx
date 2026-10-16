@@ -17,7 +17,18 @@ export interface FormationArrow {
   x2: number;
   y2: number;
   dashed: boolean;
+  /** Point de contrôle d'une flèche courbe (courbe de Bézier) ; absent = trait droit. */
+  cx?: number;
+  cy?: number;
 }
+
+const arrowPath = (a: { x1: number; y1: number; x2: number; y2: number; cx?: number; cy?: number }) =>
+  a.cx != null && a.cy != null ? `M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}` : `M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}`;
+/** Point du milieu de la courbe (là où se place la poignée). */
+const arrowMid = (a: FormationArrow) =>
+  a.cx != null && a.cy != null
+    ? { x: 0.25 * a.x1 + 0.5 * a.cx + 0.25 * a.x2, y: 0.25 * a.y1 + 0.5 * a.cy + 0.25 * a.y2 }
+    : { x: (a.x1 + a.x2) / 2, y: (a.y1 + a.y2) / 2 };
 
 export interface FormationValue {
   markers: FormationMarker[];
@@ -179,7 +190,11 @@ export default function FormationMap({
   const [tool, setTool] = useState<"move" | "arrow" | "pass">("move");
   const [drawing, setDrawing] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
-  const arrows = value.arrows ?? [];
+  const [bend, setBend] = useState<{ id: string; x: number; y: number } | null>(null);
+  const arrowsRaw = value.arrows ?? [];
+  const arrows = bend
+    ? arrowsRaw.map((a) => (a.id === bend.id ? { ...a, cx: 2 * bend.x - (a.x1 + a.x2) / 2, cy: 2 * bend.y - (a.y1 + a.y2) / 2 } : a))
+    : arrowsRaw;
   const arrowMarkerId = `ah${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   // Touche Supprimer / Retour arrière : retire la flèche ou la passe sélectionnée.
@@ -321,6 +336,7 @@ export default function FormationMap({
             </button>
           ))}
         </div>
+        {tool === "move" && selectedArrowId && <span className="text-xs text-slate-500">Glisse le point bleu pour courber.</span>}
         {tool !== "move" && <span className="text-xs text-slate-500">Glisse sur la glace pour tracer.</span>}
         {selectedArrowId && (
           <button
@@ -353,10 +369,16 @@ export default function FormationMap({
         viewBox={`0 0 ${W} ${H}`}
         className={`w-full ${kind === "bo" ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => {
+          if (bend) { setBend({ ...bend, ...toSvg(e) }); return; }
           if (drawing) setDrawing({ ...drawing, ...(() => { const p = toSvg(e); return { x2: p.x, y2: p.y }; })() });
           else if (drag) setDrag({ id: drag.id, ...toSvg(e) });
         }}
         onPointerUp={() => {
+          if (bend) {
+            onChange({ ...value, arrows: arrows.map((a) => ({ ...a })) });
+            setBend(null);
+            return;
+          }
           if (drawing) {
             if (Math.hypot(drawing.x2 - drawing.x1, drawing.y2 - drawing.y1) > 8) {
               const a: FormationArrow = { id: uid(), ...drawing, dashed: tool === "pass" };
@@ -377,6 +399,11 @@ export default function FormationMap({
           setDrag(null);
         }}
         onPointerLeave={() => {
+          if (bend) {
+            onChange({ ...value, arrows: arrows.map((a) => ({ ...a })) });
+            setBend(null);
+            return;
+          }
           if (drag) update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
           setDrag(null);
         }}
@@ -400,11 +427,9 @@ export default function FormationMap({
           const sel = a.id === selectedArrowId;
           return (
             <g key={a.id}>
-              <line
-                x1={a.x1}
-                y1={a.y1}
-                x2={a.x2}
-                y2={a.y2}
+              <path
+                d={arrowPath(a)}
+                fill="none"
                 stroke={sel ? "#2563eb" : "#111827"}
                 strokeWidth="2"
                 strokeLinecap="round"
@@ -413,11 +438,9 @@ export default function FormationMap({
               />
               {a.id !== "__drawing" && tool === "move" && (
                 // Zone de sélection plus large : toucher la flèche la sélectionne.
-                <line
-                  x1={a.x1}
-                  y1={a.y1}
-                  x2={a.x2}
-                  y2={a.y2}
+                <path
+                  d={arrowPath(a)}
+                  fill="none"
                   stroke="transparent"
                   strokeWidth="12"
                   className="cursor-pointer"
@@ -425,6 +448,23 @@ export default function FormationMap({
                     e.stopPropagation();
                     setSelectedArrowId(a.id);
                     setSelectedId(null);
+                  }}
+                />
+              )}
+              {sel && a.id !== "__drawing" && tool === "move" && (
+                // Poignée : glisser pour courber la flèche ou la passe.
+                <circle
+                  cx={arrowMid(a as FormationArrow).x}
+                  cy={arrowMid(a as FormationArrow).y}
+                  r="5"
+                  fill="#2563eb"
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                  className="cursor-grab"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    svgRef.current?.setPointerCapture(e.pointerId);
+                    setBend({ id: a.id, ...arrowMid(a as FormationArrow) });
                   }}
                 />
               )}
@@ -505,7 +545,7 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
         <ArrowDefs id={staticMarkerId} />
         {kind === "bo" ? <FullRink /> : <Rink flip={kind === "pk"} />}
         {(value.arrows ?? []).map((a) => (
-          <line key={a.id} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeDasharray={a.dashed ? "5 3" : undefined} markerEnd={`url(#${staticMarkerId})`} />
+          <path key={a.id} d={arrowPath(a)} fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeDasharray={a.dashed ? "5 3" : undefined} markerEnd={`url(#${staticMarkerId})`} />
         ))}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
