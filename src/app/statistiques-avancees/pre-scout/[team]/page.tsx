@@ -442,10 +442,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             {(() => {
               const w = ppWave;
               const cfg = [
-                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "🛡️ PK Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
-                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "🛡️ PK Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
-                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "🛡️ PK Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
-                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "🛡️ PK Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "PK Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "PK Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "PK Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
+                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "PK Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
                 <div>
@@ -465,7 +465,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             })()}
             <FormationMap
               kind="pk"
-              title="⚡ PP Pre-Scout"
+              title="PP Pre-Scout"
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.`}
               value={pkMap}
               onChange={(v) => saveMap("pk", v)}
