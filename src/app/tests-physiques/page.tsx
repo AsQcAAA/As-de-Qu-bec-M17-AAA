@@ -180,6 +180,31 @@ export default function TestsPhysiquesPage() {
     };
   }
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function runSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/tests-physiques/sync", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "Synchronisation impossible.");
+      setSyncMessage({
+        ok: true,
+        text:
+          json.inserted > 0
+            ? `${json.inserted} nouveau(x) résultat(s) ajouté(s).${json.unmatched.length ? ` Noms ignorés (hors alignement) : ${json.unmatched.join(", ")}.` : ""}`
+            : `Rien de nouveau — tout est déjà à jour (${json.alreadyThere} résultats déjà présents).`,
+      });
+      load();
+    } catch (e) {
+      setSyncMessage({ ok: false, text: e instanceof Error ? e.message : "Synchronisation impossible." });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function handleFile(file: File) {
     setImporting(true);
     const ExcelJS = (await import("exceljs")).default;
@@ -257,6 +282,22 @@ export default function TestsPhysiquesPage() {
       <div>
         <h1 className="text-2xl font-bold">Tests physiques</h1>
         <p className="text-slate-500 text-sm">Classement de l'équipe pour chaque test.</p>
+      </div>
+
+      <div className="card space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-semibold">Synchronisation avec le fichier Google Drive</h2>
+            <p className="text-xs text-slate-500">
+              Le fichier « Tests Physiques_As LHEQ_26-27 » (onglet M17) est relu automatiquement chaque jour : les nouveaux
+              résultats s&apos;ajoutent tout seuls. Ce qui est déjà dans l&apos;app n&apos;est jamais écrasé.
+            </p>
+          </div>
+          <button className="btn" disabled={syncing} onClick={runSync}>
+            {syncing ? "Synchronisation…" : "🔄 Synchroniser maintenant"}
+          </button>
+        </div>
+        {syncMessage && <p className={`text-sm ${syncMessage.ok ? "text-green-700" : "text-red-600"}`}>{syncMessage.text}</p>}
       </div>
 
       <div className="card space-y-3">
