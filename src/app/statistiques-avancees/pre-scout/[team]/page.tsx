@@ -50,14 +50,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [ppMap, setPpMap] = useState<FormationValue>(() => emptyFormation("pp"));
   const [pkMap, setPkMap] = useState<FormationValue>(() => emptyFormation("pk"));
   const [pp2Map, setPp2Map] = useState<FormationValue>(() => emptyFormation("pp"));
-  const [pk2Map, setPk2Map] = useState<FormationValue>(() => emptyFormation("pk"));
   const [ppWave, setPpWave] = useState(0);
-  const [pkWave, setPkWave] = useState(0);
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
-  function saveMap(kind: "pp" | "pp2" | "pk" | "pk2", value: FormationValue) {
-    ({ pp: setPpMap, pp2: setPp2Map, pk: setPkMap, pk2: setPk2Map })[kind](value);
+  function saveMap(kind: "pp" | "pp2" | "pk", value: FormationValue) {
+    ({ pp: setPpMap, pp2: setPp2Map, pk: setPkMap })[kind](value);
     clearTimeout(mapTimers.current[kind]);
     mapTimers.current[kind] = setTimeout(() => {
       supabase
@@ -94,7 +92,6 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       setPpMap(note?.pp_map ?? emptyFormation("pp"));
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
-      setPk2Map(note?.pk2_map ?? emptyFormation("pk"));
       if (note) {
         setForm({
           wins: note.wins?.toString() ?? "",
@@ -429,13 +426,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             />
             <FormationMap
               kind="pk"
-              title={`🛡️ Désavantage numérique (${pkWave === 0 ? "PK1" : "PK2"})`}
+              title="🛡️ Désavantage numérique (PK)"
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en haut.`}
-              value={pkWave === 0 ? pkMap : pk2Map}
-              onChange={(v) => saveMap(pkWave === 0 ? "pk" : "pk2", v)}
-              waveLabels={["PK1", "PK2"]}
-              wave={pkWave}
-              onWave={setPkWave}
+              value={pkMap}
+              onChange={(v) => saveMap("pk", v)}
             />
           </div>
         </section>
