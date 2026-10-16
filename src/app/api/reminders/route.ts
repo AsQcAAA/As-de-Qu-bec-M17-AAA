@@ -3,6 +3,9 @@ import { format } from "date-fns";
 import { Resend } from "resend";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeMeetingStatuses } from "@/lib/meetings";
+import { EMAIL_SIGNATURE_BASE64, EMAIL_SIGNATURE_CID } from "@/lib/emailSignature";
+import { buildEmailHtml, buildEmailText } from "@/lib/emailTemplate";
+import { computeFiche, ficheHtml, type TestResultLike } from "@/lib/testsFiche";
 import { buildMissingLineupEmail, findMissingOpponentLineups } from "@/lib/opponentLineupReminder";
 import type { Meeting, Player } from "@/lib/types";
 
@@ -27,6 +30,12 @@ export async function GET(req: NextRequest) {
   const test = new URL(req.url).searchParams;
   if (test.get("test") === "1") {
     return NextResponse.json(await sendLineupReminderTest(supabase, new URL(req.url).origin, test.get("date")));
+  }
+
+  // Essai de la fiche des tests physiques : /api/reminders?testfiche=<nom>&session=<date>
+  // — un seul courriel, à COACH_EMAIL.
+  if (test.get("testfiche")) {
+    return NextResponse.json(await sendTestsFicheTest(supabase, test.get("testfiche")!, test.get("session") ?? ""));
   }
 
   // Premier envoi : tous les matchs de saison régulière sans alignement adverse
@@ -154,4 +163,33 @@ function reminderFrom(): string {
   const coach = process.env.COACH_EMAIL;
   if (coach) return `App As de Québec M17 <${coach}>`;
   return process.env.REMINDER_FROM_EMAIL || "rappels@resend.dev";
+}
+
+async function sendTestsFicheTest(supabase: ReturnType<typeof createServiceClient>, nameFragment: string, session: string) {
+  const coachEmail = process.env.COACH_EMAIL;
+  if (!process.env.RESEND_API_KEY || !coachEmail) return { ok: false, error: "RESEND_API_KEY ou COACH_EMAIL manquant" };
+  const [{ data: players }, { data: results }] = await Promise.all([
+    supabase.from("players").select("id, full_name").eq("active", true).eq("is_call_up", false),
+    supabase.from("player_test_results").select("player_id, test_name, value, unit, higher_is_better, test_date").limit(20000),
+  ]);
+  const player = (players ?? []).find((p) => p.full_name.toLowerCase().includes(nameFragment.toLowerCase()));
+  if (!player) return { ok: false, error: "Joueur introuvable" };
+  const all = (results ?? []) as TestResultLike[];
+  const fiche = computeFiche(player.id, session, all, new Set((players ?? []).map((p) => p.id)));
+  if (fiche.rows.length === 0) return { ok: false, error: "Aucun résultat" };
+  const first = player.full_name.split(" ")[0];
+  const message = `Salut ${first},\n\nVoici tes résultats aux tests physiques (${fiche.sessionLabel}) : ton classement dans l'équipe${
+    fiche.previousLabel ? ` et ton évolution depuis ${fiche.previousLabel}` : ""
+  }.\n\nContinue le beau travail !`;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: `Jean Grignon-Francke <${coachEmail}>`,
+    to: [coachEmail],
+    replyTo: coachEmail,
+    subject: `[TEST] Tes résultats aux tests physiques ${fiche.sessionLabel} — As de Québec M17 AAA`,
+    html: buildEmailHtml(message, ficheHtml(player.full_name, fiche)),
+    text: buildEmailText(message),
+    attachments: [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],
+  });
+  return { ok: !error, error: error?.message ?? null, player: player.full_name, rows: fiche.rows.length };
 }
