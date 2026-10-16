@@ -216,18 +216,51 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             ))}
           </div>
           <div className="border-l border-white/20 pl-4">
-            <div className="flex gap-1">
-              {(form.last5 ? form.last5.split("-") : []).map((r, i) => (
-                <span
-                  key={i}
-                  className={`w-6 text-center rounded text-xs font-black py-0.5 ${
-                    r === "V" ? "bg-green-500 text-white" : r === "D" ? "bg-red-500 text-white" : r === "DP" ? "bg-orange-400 text-ink-900" : "bg-slate-500 text-white"
-                  }`}
-                >
-                  {r}
-                </span>
-              ))}
-              {!form.last5 && <span className="text-slate-400 text-sm">–</span>}
+            <div className="flex gap-1.5">
+              {(() => {
+                const played = leagueGames.filter(
+                  (g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0)
+                );
+                const last = played.slice(-5);
+                if (last.length === 0) {
+                  return (form.last5 ? form.last5.split("-") : []).map((r, i) => (
+                    <span key={i} className="w-6 text-center rounded text-xs font-black py-0.5 bg-slate-500 text-white">
+                      {r}
+                    </span>
+                  ));
+                }
+                return last.map((g) => {
+                  const home = g.home === teamSlug;
+                  const own = home ? g.home_score! : g.away_score!;
+                  const other = home ? g.away_score! : g.home_score!;
+                  const oppSlug = home ? g.away : g.home;
+                  const opp = OPPONENT_TEAMS.find((t) => t.slug === oppSlug) ?? (oppSlug === "as-de-quebec" ? { logo: "/logos/as-de-quebec.png", name: "As de Québec" } : null);
+                  const tag = own > other ? "V" : own < other ? "D" : "N";
+                  return (
+                    <div
+                      key={`${g.game_date}-${g.home}-${g.away}`}
+                      className="flex flex-col items-center gap-0.5"
+                      title={`${g.game_date} ${home ? "vs" : "@"} ${opp?.name ?? oppSlug} ${own}-${other}`}
+                    >
+                      <span
+                        className={`w-9 text-center rounded text-xs font-black py-0.5 ${
+                          tag === "V" ? "bg-green-500 text-white" : tag === "D" ? "bg-red-500 text-white" : "bg-slate-500 text-white"
+                        }`}
+                      >
+                        {tag}
+                      </span>
+                      {opp && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={opp.logo} alt={opp.name} className="h-5 w-5 object-contain" />
+                      )}
+                      <span className="text-[11px] font-bold tabular-nums text-slate-200 leading-none">
+                        {own}-{other}
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+              {!form.last5 && leagueGames.length === 0 && <span className="text-slate-400 text-sm">–</span>}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-gold-400 mt-1">5 derniers</div>
           </div>

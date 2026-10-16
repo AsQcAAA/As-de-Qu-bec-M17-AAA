@@ -2,6 +2,6 @@
 export default function Crest({ className = "h-9 w-9" }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/logos/as-de-quebec.png" alt="As de Québec" className={`${className} object-contain`} />
+    <img src="/logos/as-de-quebec.png" alt="As de Québec" className={`${className} w-auto object-contain`} />
   );
 }

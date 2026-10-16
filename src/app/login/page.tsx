@@ -33,7 +33,7 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-ink-900 px-4">
       <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-4">
         <div className="flex items-center gap-3">
-          <Crest className="h-16 w-14" />
+          <Crest className="h-16" />
           <div>
             <h1 className="text-lg font-bold text-ink-900 leading-tight">As de Québec M17 AAA</h1>
             <p className="text-xs text-slate-500">Accès réservé au personnel d'entraîneurs.</p>
