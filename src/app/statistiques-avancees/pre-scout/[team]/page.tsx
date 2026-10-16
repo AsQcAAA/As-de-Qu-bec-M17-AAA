@@ -194,12 +194,43 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         ← Pre-Scout
       </Link>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={team.logo} alt={team.name} className="h-16 w-16 object-contain" />
         <div>
           <h1 className="text-2xl font-bold">{team.name}</h1>
           <p className="text-slate-500 text-sm">M17 AAA — LHEQ</p>
+        </div>
+        {/* Leur fiche, dans le bandeau : victoires, défaites, défaites en prolongation et 5 derniers matchs. */}
+        <div className="sm:ml-auto flex items-center gap-4 rounded-xl border border-white/15 bg-black/40 px-4 py-2 text-white">
+          <div className="flex items-center gap-3">
+            {[
+              ["V", form.wins],
+              ["D", form.losses],
+              ["DP", form.otl_losses],
+            ].map(([label, value]) => (
+              <div key={label} className="text-center leading-none">
+                <div className="text-2xl font-black tabular-nums">{value || "–"}</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gold-400 mt-1">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="border-l border-white/20 pl-4">
+            <div className="flex gap-1">
+              {(form.last5 ? form.last5.split("-") : []).map((r, i) => (
+                <span
+                  key={i}
+                  className={`w-6 text-center rounded text-xs font-black py-0.5 ${
+                    r === "V" ? "bg-green-500 text-white" : r === "D" ? "bg-red-500 text-white" : r === "DP" ? "bg-orange-400 text-ink-900" : "bg-slate-500 text-white"
+                  }`}
+                >
+                  {r}
+                </span>
+              ))}
+              {!form.last5 && <span className="text-slate-400 text-sm">–</span>}
+            </div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gold-400 mt-1">5 derniers</div>
+          </div>
         </div>
       </div>
 
@@ -518,26 +549,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           <section className="card space-y-3">
-            <h2 className="font-semibold">Fiche globale</h2>
-            <p className="text-xs text-slate-500">
-              Mise à jour automatique chaque lundi, à partir du calendrier de la ligue (PDF).
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                ["Victoires", form.wins],
-                ["Défaites", form.losses],
-                ["Déf. (prol.)", form.otl_losses],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
-                  <div className="text-xl font-black">{value || "—"}</div>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">5 derniers matchs</div>
-              <div className="text-lg font-black font-mono">{form.last5 || "—"}</div>
-            </div>
+            <h2 className="font-semibold">5 derniers matchs</h2>
+            <p className="text-xs text-slate-500">Mis à jour automatiquement à partir du calendrier de la ligue (PDF).</p>
             {(() => {
               const played = leagueGames.filter(
                 (g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0)
