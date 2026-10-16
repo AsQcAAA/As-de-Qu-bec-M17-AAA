@@ -20,13 +20,26 @@ export interface FormationArrow {
   /** Point de contrôle d'une flèche courbe (courbe de Bézier) ; absent = trait droit. */
   cx?: number;
   cy?: number;
+  /** Tracé à main levée (points suivis par le doigt/la souris) ; prioritaire sur le point de contrôle. */
+  pts?: [number, number][];
 }
 
-const arrowPath = (a: { x1: number; y1: number; x2: number; y2: number; cx?: number; cy?: number }) =>
-  a.cx != null && a.cy != null ? `M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}` : `M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}`;
+const arrowPath = (a: { x1: number; y1: number; x2: number; y2: number; cx?: number; cy?: number; pts?: [number, number][] }) => {
+  const p = a.pts;
+  if (p && p.length > 2) {
+    let d = `M ${p[0][0]} ${p[0][1]}`;
+    for (let i = 1; i < p.length - 1; i++) {
+      d += ` Q ${p[i][0]} ${p[i][1]} ${(p[i][0] + p[i + 1][0]) / 2} ${(p[i][1] + p[i + 1][1]) / 2}`;
+    }
+    return `${d} L ${p[p.length - 1][0]} ${p[p.length - 1][1]}`;
+  }
+  return a.cx != null && a.cy != null ? `M ${a.x1} ${a.y1} Q ${a.cx} ${a.cy} ${a.x2} ${a.y2}` : `M ${a.x1} ${a.y1} L ${a.x2} ${a.y2}`;
+};
 /** Point du milieu de la courbe (là où se place la poignée). */
 const arrowMid = (a: FormationArrow) =>
-  a.cx != null && a.cy != null
+  a.pts && a.pts.length > 2
+    ? { x: a.pts[Math.floor(a.pts.length / 2)][0], y: a.pts[Math.floor(a.pts.length / 2)][1] }
+    : a.cx != null && a.cy != null
     ? { x: 0.25 * a.x1 + 0.5 * a.cx + 0.25 * a.x2, y: 0.25 * a.y1 + 0.5 * a.cy + 0.25 * a.y2 }
     : { x: (a.x1 + a.x2) / 2, y: (a.y1 + a.y2) / 2 };
 
@@ -188,12 +201,12 @@ export default function FormationMap({
   const selected = value.markers.find((m) => m.id === selectedId) ?? null;
   // Outils : déplacer les joueurs, ou dessiner une flèche (trait plein) / une passe (pointillé).
   const [tool, setTool] = useState<"move" | "arrow" | "pass">("move");
-  const [drawing, setDrawing] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [drawing, setDrawing] = useState<{ x1: number; y1: number; x2: number; y2: number; pts: [number, number][] } | null>(null);
   const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
   const [bend, setBend] = useState<{ id: string; x: number; y: number } | null>(null);
   const arrowsRaw = value.arrows ?? [];
   const arrows = bend
-    ? arrowsRaw.map((a) => (a.id === bend.id ? { ...a, cx: 2 * bend.x - (a.x1 + a.x2) / 2, cy: 2 * bend.y - (a.y1 + a.y2) / 2 } : a))
+    ? arrowsRaw.map((a) => (a.id === bend.id ? { ...a, pts: undefined, cx: 2 * bend.x - (a.x1 + a.x2) / 2, cy: 2 * bend.y - (a.y1 + a.y2) / 2 } : a))
     : arrowsRaw;
   const arrowMarkerId = `ah${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
@@ -337,7 +350,7 @@ export default function FormationMap({
           ))}
         </div>
         {tool === "move" && selectedArrowId && <span className="text-xs text-slate-500">Glisse le point bleu pour courber.</span>}
-        {tool !== "move" && <span className="text-xs text-slate-500">Glisse sur la glace pour tracer.</span>}
+        {tool !== "move" && <span className="text-xs text-slate-500">Glisse sur la glace pour tracer : la flèche suit ton geste (droit ou courbe).</span>}
         {selectedArrowId && (
           <button
             className="text-xs text-red-600 hover:underline"
@@ -370,7 +383,12 @@ export default function FormationMap({
         className={`w-full ${kind === "bo" ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => {
           if (bend) { setBend({ ...bend, ...toSvg(e) }); return; }
-          if (drawing) setDrawing({ ...drawing, ...(() => { const p = toSvg(e); return { x2: p.x, y2: p.y }; })() });
+          if (drawing) {
+            const p = toSvg(e);
+            const last = drawing.pts[drawing.pts.length - 1];
+            const pts = Math.hypot(p.x - last[0], p.y - last[1]) > 3 ? [...drawing.pts, [p.x, p.y] as [number, number]] : drawing.pts;
+            setDrawing({ ...drawing, x2: p.x, y2: p.y, pts });
+          }
           else if (drag) setDrag({ id: drag.id, ...toSvg(e) });
         }}
         onPointerUp={() => {
@@ -381,7 +399,19 @@ export default function FormationMap({
           }
           if (drawing) {
             if (Math.hypot(drawing.x2 - drawing.x1, drawing.y2 - drawing.y1) > 8) {
-              const a: FormationArrow = { id: uid(), ...drawing, dashed: tool === "pass" };
+              const { pts: raw, ...line } = drawing;
+              // Écart maximal du tracé par rapport à la droite : en dessous, c'est une flèche droite.
+              const len = Math.hypot(line.x2 - line.x1, line.y2 - line.y1);
+              const dev = Math.max(
+                ...raw.map(([px, py]) => Math.abs((line.x2 - line.x1) * (line.y1 - py) - (line.x1 - px) * (line.y2 - line.y1)) / len)
+              );
+              let pts: [number, number][] | undefined;
+              if (dev > 6 && raw.length > 2) {
+                const step = Math.max(1, Math.ceil(raw.length / 24));
+                pts = raw.filter((_, i) => i % step === 0 || i === raw.length - 1).map(([px, py]) => [Math.round(px), Math.round(py)]);
+                if (pts.length > 1) pts[pts.length - 1] = [line.x2, line.y2];
+              }
+              const a: FormationArrow = { id: uid(), ...line, dashed: tool === "pass", pts };
               onChange({ ...value, arrows: [...arrows, a] });
             }
             setDrawing(null);
@@ -412,7 +442,7 @@ export default function FormationMap({
             // Outil flèche : le trait commence là où l'on appuie (même sur un joueur).
             const p = toSvg(e);
             e.currentTarget.setPointerCapture(e.pointerId);
-            setDrawing({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+            setDrawing({ x1: p.x, y1: p.y, x2: p.x, y2: p.y, pts: [[p.x, p.y]] });
             return;
           }
           if (e.target === e.currentTarget) {
