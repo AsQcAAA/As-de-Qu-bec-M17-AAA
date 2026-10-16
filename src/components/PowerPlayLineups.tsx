@@ -6,6 +6,9 @@ import FormationMap, { type FormationValue } from "@/components/FormationMap";
 import type { Lineup } from "@/lib/types";
 
 /** Glace vide au départ : les « X » vides des anciennes versions sont retirés, seuls les joueurs posés restent. */
+/** Chandails de pratique : une unité = une couleur, donc les joueurs ensemble ont le même chandail. */
+export const PP_COLORS = { pp1: { label: "Gris", fill: "#94a3b8" }, pp2: { label: "Jaune", fill: "#fdca37" } } as const;
+
 const clean = (v?: FormationValue | null): FormationValue => ({
   ...(v ?? { note: "" }),
   note: v?.note ?? "",
@@ -28,6 +31,7 @@ export default function PowerPlayLineups({
   const supabase = createClient();
   const [pp1, setPp1] = useState<FormationValue>(() => clean(lineup?.pp1_map));
   const [pp2, setPp2] = useState<FormationValue>(() => clean(lineup?.pp2_map));
+  const [showTv, setShowTv] = useState<boolean>(lineup?.show_pp_tv ?? false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function save(key: "pp1_map" | "pp2_map", value: FormationValue) {
@@ -40,12 +44,24 @@ export default function PowerPlayLineups({
     }, 500);
   }
 
+  async function toggleTv(on: boolean) {
+    setShowTv(on);
+    const l = lineup ?? (await ensureLineup());
+    if (l) await supabase.from("lineups").update({ show_pp_tv: on }).eq("id", l.id);
+  }
+
   return (
+    <div className="space-y-4">
+    <label className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">
+      <input type="checkbox" checked={showTv} onChange={(e) => toggleTv(e.target.checked)} />
+      Afficher les power plays sur la TV de cette journée
+    </label>
     <div className="grid lg:grid-cols-2 gap-4">
       <div className="card">
         <FormationMap
           kind="pp"
-          title="Power Play 1"
+          title={`Power Play 1 — chandail ${PP_COLORS.pp1.label.toLowerCase()}`}
+          markerColor={PP_COLORS.pp1.fill}
           subtitle="Première unité — zone offensive, but en haut. Clique un joueur pour le poser, puis glisse-le."
           value={pp1}
           onChange={(v) => save("pp1_map", v)}
@@ -55,13 +71,15 @@ export default function PowerPlayLineups({
       <div className="card">
         <FormationMap
           kind="pp"
-          title="Power Play 2"
+          title={`Power Play 2 — chandail ${PP_COLORS.pp2.label.toLowerCase()}`}
+          markerColor={PP_COLORS.pp2.fill}
           subtitle="Deuxième unité — zone offensive, but en haut."
           value={pp2}
           onChange={(v) => save("pp2_map", v)}
           roster={roster}
         />
       </div>
+    </div>
     </div>
   );
 }

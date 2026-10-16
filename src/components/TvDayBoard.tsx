@@ -6,6 +6,8 @@ import { fr } from "date-fns/locale";
 import { toPng } from "html-to-image";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_TYPE_LABEL, showsLocation } from "@/lib/eventTypes";
+import { FormationStatic, type FormationValue } from "@/components/FormationMap";
+import { PP_COLORS } from "@/components/PowerPlayLineups";
 import JerseyDisplay from "@/components/JerseyDisplay";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { matchupLabel } from "@/lib/gameResults";
@@ -65,6 +67,8 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   /** Joueurs convoqués en meeting individuel ce jour-là. */
   const [individualMeetings, setIndividualMeetings] = useState<Player[]>([]);
   const [exporting, setExporting] = useState(false);
+  /** Power plays à afficher sur la TV (choisis dans l'alignement du jour). */
+  const [ppTv, setPpTv] = useState<{ pp1: FormationValue; pp2: FormationValue } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -97,6 +101,14 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       setEvents(evts ?? []);
       setGame(gm ?? null);
       const l: Lineup | undefined = lineups?.[0];
+      setPpTv(
+        l?.show_pp_tv && ((l.pp1_map?.markers.length ?? 0) > 0 || (l.pp2_map?.markers.length ?? 0) > 0)
+          ? {
+              pp1: l.pp1_map ?? { markers: [], note: "" },
+              pp2: l.pp2_map ?? { markers: [], note: "" },
+            }
+          : null
+      );
       if (l) {
         const { data: u } = await supabase.from("lineup_units").select("*").eq("lineup_id", l.id).order("unit_order");
         setUnits(u ?? []);
@@ -139,6 +151,26 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     );
     return (combo?.color_group as "gris" | "jaune" | undefined) ?? null;
   }
+
+  const ppNames: Record<string, string> = {};
+  for (const p of players) {
+    if (p.jersey_number != null) ppNames[String(p.jersey_number)] = p.full_name.split(" ").pop() ?? "";
+  }
+  const ppBlock = ppTv && (
+    <div className="mb-8">
+      <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
+      <div className="grid grid-cols-2 gap-4">
+        {([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2]] as const).map(([label, v, c]) => (
+          <div key={label}>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-300">{label} — {c.label}</div>
+            <div className="rounded-lg overflow-hidden">
+              <FormationStatic kind="pp" value={{ ...v, note: "" }} names={ppNames} markerColor={c.fill} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     // Photo d'équipe en fond, pour la diffusion seulement : l'export PNG et la
@@ -275,6 +307,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
           </div>
         )}
 
+        {!hasRoster && ppBlock}
         </div>
 
         {hasRoster && (
@@ -326,6 +359,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                 );
               })}
             </div>
+            {ppBlock && <div className="mt-6">{ppBlock}</div>}
           </div>
         )}
         </div>

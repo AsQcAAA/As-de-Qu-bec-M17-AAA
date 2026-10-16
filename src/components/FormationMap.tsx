@@ -192,6 +192,7 @@ export default function FormationMap({
   wave = 0,
   onWave,
   roster,
+  markerColor,
 }: {
   kind: Kind;
   title: string;
@@ -204,6 +205,8 @@ export default function FormationMap({
   onWave?: (i: number) => void;
   /** Nos joueurs : une pastille par joueur, un clic le pose sur la glace avec son numéro. */
   roster?: { number: string; name: string }[];
+  /** Couleur des ronds numérotés (couleur du chandail de l'unité : gris ou jaune). */
+  markerColor?: string;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { W, H } = dimsOf(kind);
@@ -579,7 +582,7 @@ export default function FormationMap({
               }}
             >
               {isSel && <circle r="10.5" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeDasharray="3 2" />}
-              <circle r="7" fill={m.number ? "#fdca37" : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.3" />
+              <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.3" />
               {editingId === m.id ? (
                 // Double-clic : on tape le numéro directement sur le rond.
                 <foreignObject x={-10} y={-6} width={20} height={12}>
@@ -619,7 +622,7 @@ export default function FormationMap({
 }
 
 /** Version imprimable (sans commandes) : la patinoire, les numéros posés et les remarques. */
-export function FormationStatic({ kind, value }: { kind: Kind; value: FormationValue }) {
+export function FormationStatic({ kind, value, names, markerColor }: { kind: Kind; value: FormationValue; names?: Record<string, string>; markerColor?: string }) {
   const { W, H } = dimsOf(kind);
   const staticMarkerId = `ahs${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
@@ -632,10 +635,15 @@ export function FormationStatic({ kind, value }: { kind: Kind; value: FormationV
         ))}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
-            <circle r="7" fill={m.number ? "#fdca37" : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
+            <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
               {m.number || "X"}
             </text>
+            {names?.[m.number] && (
+              <text y="14.5" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="#0d0c0c" stroke="#f8fafc" strokeWidth="1.6" paintOrder="stroke">
+                {names[m.number]}
+              </text>
+            )}
           </g>
         ))}
       </svg>
