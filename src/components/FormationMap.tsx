@@ -20,9 +20,10 @@ const H = 178;
 /** Modèles de départ : positions seulement ; les numéros déjà saisis sont conservés dans l'ordre. */
 const PRESETS: Record<"pp" | "pk", { label: string; positions: [number, number][] }[]> = {
   pp: [
-    { label: "1-3-1", positions: [[85, 140], [34, 100], [136, 100], [85, 78], [85, 46]] },
-    { label: "Parapluie", positions: [[85, 138], [40, 120], [130, 120], [48, 66], [122, 66]] },
-    { label: "Surcharge", positions: [[85, 140], [32, 96], [52, 56], [112, 80], [85, 56]] },
+    { label: "Spread", positions: [[45, 142], [125, 142], [24, 96], [146, 96], [85, 66]] },
+    { label: "Overload", positions: [[85, 142], [30, 98], [46, 58], [88, 70], [138, 84]] },
+    { label: "1-3-1", positions: [[85, 142], [30, 98], [85, 98], [140, 98], [85, 48]] },
+    { label: "Umbrella", positions: [[85, 140], [35, 112], [135, 112], [55, 62], [115, 62]] },
   ],
   pk: [
     { label: "Boîte", positions: [[58, 70], [112, 70], [58, 104], [112, 104]] },
