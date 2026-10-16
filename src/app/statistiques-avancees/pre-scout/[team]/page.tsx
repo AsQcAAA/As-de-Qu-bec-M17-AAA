@@ -426,10 +426,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               <h2 className="text-xl font-bold">Special Units</h2>
               <div className="flex gap-2 flex-wrap">
                 <button className="btn-secondary text-sm" onClick={() => printSheet("pp")}>
-                  🖨️ Exporter Pre-scout PP (PDF)
+                  🖨️ Exporter PP Pre-Scout (PDF)
                 </button>
                 <button className="btn-secondary text-sm" onClick={() => printSheet("pk")}>
-                  🖨️ Exporter Pre-scout PK (PDF)
+                  🖨️ Exporter PK Pre-Scout (PDF)
                 </button>
               </div>
             </div>
@@ -442,10 +442,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             {(() => {
               const w = ppWave;
               const cfg = [
-                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ Pre-scout PP", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
-                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ Pre-scout PP", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
-                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ Pre-scout PP", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
-                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "⚡ Pre-scout PP", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "⚡ PP Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
+                { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "⚡ PP Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
+                { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "⚡ PP Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
+                { kind: "fo" as const, key: "fo" as const, value: foMap, title: "⚡ PP Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
                 <div>
@@ -465,7 +465,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             })()}
             <FormationMap
               kind="pk"
-              title="🛡️ Pre-scout PK"
+              title="🛡️ PK Pre-Scout"
               subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en bas.`}
               value={pkMap}
               onChange={(v) => saveMap("pk", v)}
@@ -658,7 +658,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <div className="space-y-3 text-[10pt]">
             <header className="flex items-center justify-between border-b-4 border-black pb-2">
               <div>
-                <h1 className="text-[20pt] font-black uppercase leading-none">Pre-scout {isPp ? "PP" : "PK"}</h1>
+                <h1 className="text-[20pt] font-black uppercase leading-none">{isPp ? "PP" : "PK"} Pre-Scout</h1>
                 <p className="text-[13pt] font-bold">{team.name}</p>
               </div>
               <div className="text-right text-[9pt]">
