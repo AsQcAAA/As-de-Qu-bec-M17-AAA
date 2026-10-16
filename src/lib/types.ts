@@ -288,6 +288,9 @@ export interface ScoutNote {
   last5: string | null;
   notes: string | null;
   updated_at: string;
+  /** Disposition en avantage / désavantage numérique (migration 042). */
+  pp_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pk_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
 }
 
 export interface Absence {

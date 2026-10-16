@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -8,6 +8,7 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import FormationMap, { emptyFormation, type FormationValue } from "@/components/FormationMap";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
 import { OPPONENT_ROSTERS, jerseyOf } from "@/lib/opponentRosters";
 import { titleCase } from "@/lib/players";
@@ -46,6 +47,22 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [history, setHistory] = useState<Game[]>([]);
   /** Dernier match réellement joué contre cette équipe. */
   const [lastGame, setLastGame] = useState<Game | null>(null);
+  const [ppMap, setPpMap] = useState<FormationValue>(() => emptyFormation("pp"));
+  const [pkMap, setPkMap] = useState<FormationValue>(() => emptyFormation("pk"));
+  const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
+  function saveMap(kind: "pp" | "pk", value: FormationValue) {
+    if (kind === "pp") setPpMap(value);
+    else setPkMap(value);
+    clearTimeout(mapTimers.current[kind]);
+    mapTimers.current[kind] = setTimeout(() => {
+      supabase
+        .from("scout_notes")
+        .upsert({ team_slug: teamSlug, [kind === "pp" ? "pp_map" : "pk_map"]: value }, { onConflict: "team_slug" })
+        .then(() => {});
+    }, 500);
+  }
   /** Matchs de la ligue de cette équipe (calendrier importé chaque lundi). */
   const [leagueGames, setLeagueGames] = useState<
     { game_date: string; home: string; away: string; home_score: number | null; away_score: number | null }[]
@@ -71,6 +88,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         .order("game_date", { ascending: true });
       setLeagueGames(lg ?? []);
       const note = data as ScoutNote | null;
+      setPpMap(note?.pp_map ?? emptyFormation("pp"));
+      setPkMap(note?.pk_map ?? emptyFormation("pk"));
       if (note) {
         setForm({
           wins: note.wins?.toString() ?? "",
@@ -381,6 +400,34 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
             <p className="text-xs text-slate-500">Classement des gardiens de la ligue au {LEADERS_UPDATED}.</p>
           </section>
         </div>
+      )}
+
+      {!loading && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-xl font-bold">Dispositions spéciales</h2>
+            <p className="text-slate-400 text-sm">
+              Glisse les numéros pour reproduire la formation de {team.name}. Touche un joueur pour changer son numéro ;
+              tout s&apos;enregistre automatiquement.
+            </p>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <FormationMap
+              kind="pp"
+              title="⚡ Avantage numérique (PP)"
+              subtitle={`Comment ${team.name} se dispose quand elle a l'avantage — zone offensive, but en haut.`}
+              value={ppMap}
+              onChange={(v) => saveMap("pp", v)}
+            />
+            <FormationMap
+              kind="pk"
+              title="🛡️ Désavantage numérique (PK)"
+              subtitle={`Comment ${team.name} se dispose en infériorité — zone défensive, but en haut.`}
+              value={pkMap}
+              onChange={(v) => saveMap("pk", v)}
+            />
+          </div>
+        </section>
       )}
 
       {!loading && history.length > 0 && (
