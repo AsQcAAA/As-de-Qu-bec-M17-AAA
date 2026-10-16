@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "As de Québec M17 AAA",
   description: "Application d'entraîneur — alignements, résultats, meetings et rapports quotidiens.",
   // Logo des As dans l'onglet du navigateur (et sur l'écran d'accueil d'un téléphone).
-  icons: { icon: "/logos/as-de-quebec.png", apple: "/logos/as-de-quebec.png" },
+  icons: { icon: "/logos/as-favicon.png?v=2", apple: "/logos/as-favicon.png?v=2" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
