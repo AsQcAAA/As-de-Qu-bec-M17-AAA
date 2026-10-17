@@ -7,6 +7,8 @@ export interface FormationMarker {
   number: string;
   x: number;
   y: number;
+  /** PK adverse : attaquant (F) ou défenseur (D) — remplace le « X ». */
+  role?: "F" | "D";
 }
 
 /** Flèche dessinée sur la glace : déplacement (trait plein) ou passe (pointillé). */
@@ -98,6 +100,9 @@ const PRESETS: Record<Kind, { label: string; positions: [number, number][] }[]> 
   ],
 };
 
+/** Rôle d'un joueur du PK adverse : celui choisi, sinon les 2 premiers sont des F et les suivants des D. */
+const roleOf = (markers: FormationMarker[], m: FormationMarker): "F" | "D" => m.role ?? (markers.indexOf(m) < 2 ? "F" : "D");
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 /** Sortie de zone : 5 joueurs adverses de départ dans leur zone (en bas), à déplacer. */
@@ -105,7 +110,7 @@ const BO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 
 const PKBO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296]];
 
 export const emptyFormation = (kind: Kind): FormationValue => ({
-  markers: (kind === "bo" ? BO_DEFAULT : kind === "pkbo" ? PKBO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y]) => ({ id: uid(), number: "", x, y })),
+  markers: (kind === "bo" ? BO_DEFAULT : kind === "pkbo" ? PKBO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y], i) => ({ id: uid(), number: "", x, y, ...(kind === "pk" ? { role: i < 2 ? ("F" as const) : ("D" as const) } : {}) })),
   note: "",
 });
 
@@ -277,7 +282,7 @@ export default function FormationMap({
 
   function addMarker(number: string) {
     const n = value.markers.length;
-    const m: FormationMarker = { id: uid(), number: number.trim().slice(0, 3), x: 30 + ((n * 37) % 110), y: 40 + ((n * 23) % 80) };
+    const m: FormationMarker = { id: uid(), number: number.trim().slice(0, 3), x: 30 + ((n * 37) % 110), y: 40 + ((n * 23) % 80), ...(kind === "pk" ? { role: "F" as const } : {}) };
     update([...value.markers, m]);
     setSelectedId(m.id);
     setNewNumber("");
@@ -290,6 +295,7 @@ export default function FormationMap({
       number: value.markers[idx]?.number ?? "",
       x,
       y,
+      ...(kind === "pk" ? { role: value.markers[idx]?.role ?? (idx < 2 ? ("F" as const) : ("D" as const)) } : {}),
     }));
     // Les joueurs en trop (au-delà du modèle) restent là où ils sont.
     onChange({ ...value, markers: [...markers, ...value.markers.slice(positions.length)] });
@@ -577,8 +583,9 @@ export default function FormationMap({
                 e.stopPropagation();
                 setDrag(null);
                 setSelectedId(m.id);
-                // Le PK adverse n'a jamais de numéros : des X seulement.
+                // Le PK adverse n'a jamais de numéros : F ou D, qu'un double-clic alterne.
                 if (kind !== "pk") setEditingId(m.id);
+                else update(value.markers.map((x) => (x.id === m.id ? { ...x, role: roleOf(value.markers, x) === "D" ? "F" : "D" } : x)));
               }}
             >
               {isSel && <circle r="10.5" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeDasharray="3 2" />}
@@ -602,7 +609,7 @@ export default function FormationMap({
                 </foreignObject>
               ) : (
                 <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
-                  {m.number || "X"}
+                  {m.number || (kind === "pk" ? roleOf(value.markers, m) : "X")}
                 </text>
               )}
             </g>
@@ -637,7 +644,7 @@ export function FormationStatic({ kind, value, names, markerColor }: { kind: Kin
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
             <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
-              {m.number || "X"}
+              {m.number || (kind === "pk" ? roleOf(value.markers, m) : "X")}
             </text>
             {names?.[m.number] && (
               <text y="14.5" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="#0d0c0c" stroke="#f8fafc" strokeWidth="1.6" paintOrder="stroke">
