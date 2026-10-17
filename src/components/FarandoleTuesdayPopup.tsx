@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { addDays, format, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toPng } from "html-to-image";
@@ -36,10 +37,9 @@ export default function FarandoleTuesdayPopup() {
     (async () => {
       const { data: a } = await supabase.from("farandole_assignments").select("player_ids").eq("assignment_date", dateKey).maybeSingle();
       const ids: string[] = a?.player_ids ?? [];
-      if (ids.length === 0) return;
-      const { data: pls } = await supabase.from("players").select("*").in("id", ids);
+      const { data: pls } = ids.length ? await supabase.from("players").select("*").in("id", ids) : { data: [] as Player[] };
       const players = ids.map((id) => (pls ?? []).find((p) => p.id === id)).filter((p): p is Player => !!p);
-      if (players.length > 0) setData({ friday: new Date(`${dateKey}T12:00:00`), dateKey, players });
+      setData({ friday: new Date(`${dateKey}T12:00:00`), dateKey, players });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -74,16 +74,29 @@ export default function FarandoleTuesdayPopup() {
         <div>
           <h1 className="text-xl font-bold text-slate-100">Farandole de vendredi</h1>
           <p className="text-slate-400 text-sm capitalize">
-            {format(data.friday, "EEEE d MMMM yyyy", { locale: fr })} — {data.players.length} joueur{data.players.length > 1 ? "s" : ""}
+            {format(data.friday, "EEEE d MMMM yyyy", { locale: fr })}
+            {data.players.length > 0 && ` — ${data.players.length} joueur${data.players.length > 1 ? "s" : ""}`}
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <FarandoleExportPanel day={data.friday} players={data.players} panelRef={(el) => (panelRef.current = el)} />
-        </div>
+        {data.players.length > 0 ? (
+          <div className="overflow-x-auto">
+            <FarandoleExportPanel day={data.friday} players={data.players} panelRef={(el) => (panelRef.current = el)} />
+          </div>
+        ) : (
+          <p className="rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100">
+            Aucun joueur n&apos;est encore assigné à la Farandole de vendredi.
+          </p>
+        )}
         <div className="flex gap-2">
-          <button className="btn" onClick={download} disabled={busy}>
-            {busy ? "Génération..." : "⬇ Télécharger l'image"}
-          </button>
+          {data.players.length > 0 ? (
+            <button className="btn" onClick={download} disabled={busy}>
+              {busy ? "Génération..." : "⬇ Télécharger l'image"}
+            </button>
+          ) : (
+            <Link href="/farandole" className="btn" onClick={dismiss}>
+              Assigner les joueurs
+            </Link>
+          )}
           <button className="btn-secondary" onClick={dismiss}>
             Plus tard
           </button>
