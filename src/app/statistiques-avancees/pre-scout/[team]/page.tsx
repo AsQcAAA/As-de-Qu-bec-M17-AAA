@@ -780,22 +780,21 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 </div>
               </>
             ) : (
-              <>
-              <section className="max-w-[120mm] mx-auto" style={{ breakInside: "avoid" }}>
-                <h2 className={h}>Leur PK</h2>
-                <FormationStatic kind="pk" value={pkMap} />
-              </section>
-              <div className="grid grid-cols-2 gap-4" style={{ breakBefore: "page" }}>
+              // PP Pre-Scout : leur PK, PK FC et FO côte à côte, sur une seule page.
+              <div className="grid grid-cols-3 gap-3 items-start" style={{ breakInside: "avoid" }}>
                 <section>
-                  <h2 className={h}>PK FC — sortie de zone</h2>
+                  <h2 className={h}>Leur PK</h2>
+                  <FormationStatic kind="pk" value={pkMap} />
+                </section>
+                <section>
+                  <h2 className={h}>PK FC</h2>
                   <FormationStatic kind="pkbo" value={pkBoMap} />
                 </section>
                 <section>
-                  <h2 className={h}>FO — mise au jeu (infériorité)</h2>
+                  <h2 className={h}>FO</h2>
                   <FormationStatic kind="pkfo" value={pkFoMap} />
                 </section>
               </div>
-              </>
             )}
           </div>
         );
