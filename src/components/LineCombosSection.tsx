@@ -169,7 +169,7 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                   title="Plus/moins du joueur dans les matchs où cette combinaison a joué"
                   className={`text-xs font-bold tabular-nums ${known === 0 ? "text-slate-400" : total > 0 ? "text-green-700" : total < 0 ? "text-red-600" : "text-slate-500"}`}
                 >
-                  {known === 0 ? "+/- –" : `+/- ${total > 0 ? "+" : ""}${total}`}
+                  {known === 0 ? "–" : `${total > 0 ? "+" : ""}${total}`}
                 </span>
               </span>
             </span>
