@@ -59,6 +59,8 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
   const router = useRouter();
   const [rows, setRows] = useState<{ gameId: string; forwards: string[]; defense: string[] }[]>([]);
   const [loading, setLoading] = useState(true);
+  /** +/- par match et par joueur (rapport TPE ou saisie manuelle). */
+  const [pmByGame, setPmByGame] = useState<Map<string, Map<string, number>>>(new Map());
   const gameKey = games.map((g) => g.id).join(",");
 
   useEffect(() => {
@@ -73,6 +75,18 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
         }
         return;
       }
+      const { data: adv } = await supabase
+        .from("player_game_advanced_stats")
+        .select("game_id, player_id, plus_minus")
+        .in("game_id", games.map((g) => g.id));
+      const pm = new Map<string, Map<string, number>>();
+      for (const a of adv ?? []) {
+        if (a.plus_minus == null) continue;
+        const m = pm.get(a.game_id as string) ?? new Map<string, number>();
+        m.set(a.player_id as string, a.plus_minus as number);
+        pm.set(a.game_id as string, m);
+      }
+      if (!cancelled) setPmByGame(pm);
       const { data: lineups } = await supabase.from("lineups").select("id, lineup_date").in("lineup_date", dates);
       const lineupByDate = new Map((lineups ?? []).map((l) => [l.lineup_date as string, l.id as string]));
       const lineupIds = [...lineupByDate.values()];
@@ -129,19 +143,39 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
     return { trios: [...t.values()].sort(order), pairs: [...d.values()].sort(order), gamesWithLineup: withLineup };
   }, [rows, gameById]);
 
-  function Names({ ids }: { ids: string[] }) {
+  /** Noms d'une combinaison, avec en dessous le +/- de chaque joueur dans les matchs où elle a joué. */
+  function Names({ ids, uses }: { ids: string[]; uses: Use[] }) {
     return (
-      <>
-        {ids.map((id, i) => (
-          <span key={id}>
-            {i > 0 && <span className="text-slate-400"> – </span>}
-            <button onClick={() => router.push(`/joueurs/${id}`)} className="font-medium text-ink-800 hover:text-gold-700 hover:underline">
-              {nameById.get(id)?.jersey_number != null ? `#${nameById.get(id)!.jersey_number} ` : ""}
-              {lastName(nameById.get(id)?.full_name ?? "?")}
-            </button>
-          </span>
-        ))}
-      </>
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+        {ids.map((id, i) => {
+          let total = 0;
+          let known = 0;
+          for (const { game } of uses) {
+            const v = pmByGame.get(game.id)?.get(id);
+            if (v != null) {
+              total += v;
+              known++;
+            }
+          }
+          return (
+            <span key={id} className="flex items-start gap-2">
+              {i > 0 && <span className="text-slate-400">–</span>}
+              <span className="flex flex-col items-start leading-tight">
+                <button onClick={() => router.push(`/joueurs/${id}`)} className="font-medium text-ink-800 hover:text-gold-700 hover:underline">
+                  {nameById.get(id)?.jersey_number != null ? `#${nameById.get(id)!.jersey_number} ` : ""}
+                  {lastName(nameById.get(id)?.full_name ?? "?")}
+                </button>
+                <span
+                  title="Plus/moins du joueur dans les matchs où cette combinaison a joué"
+                  className={`text-xs font-bold tabular-nums ${known === 0 ? "text-slate-400" : total > 0 ? "text-green-700" : total < 0 ? "text-red-600" : "text-slate-500"}`}
+                >
+                  {known === 0 ? "+/- –" : `+/- ${total > 0 ? "+" : ""}${total}`}
+                </span>
+              </span>
+            </span>
+          );
+        })}
+      </div>
     );
   }
 
@@ -171,7 +205,7 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                     <tr key={c.key} className="border-b last:border-0 align-top">
                       <td className="py-2 pr-3 text-slate-400 font-medium">{i + 1}</td>
                       <td className="py-2 pr-4">
-                        <Names ids={c.ids} />
+                        <Names ids={c.ids} uses={c.uses} />
                       </td>
                       <td className="py-2 pr-4 font-bold">{c.uses.length}</td>
                       <td className="py-2 pr-4 font-bold">{rec.label}</td>
