@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -160,7 +161,7 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                   <th className="py-2 pr-4 w-20">Matchs</th>
                   <th className="py-2 pr-4 w-24" title="Victoires – défaites – défaites en prolongation (ou en fusillade)">Fiche</th>
                   <th className="py-2 pr-4 w-24" title="Buts pour – buts contre de l'équipe dans ces matchs">BP – BC</th>
-                  <th className="py-2 pr-4">Résultats</th>
+                  <th className="py-2 pr-4">Matchs joués (clique pour le détail)</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,17 +183,31 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                           {c.uses
                             .slice()
                             .sort((a, b) => a.game.game_date.localeCompare(b.game.game_date))
-                            .map(({ game }) => (
-                              <span
-                                key={game.id}
-                                title={`${format(parseISO(game.game_date), "d MMM", { locale: fr })} — ${findTeamByOpponent(game.opponent)?.name ?? game.opponent} (${game.goals_for ?? "-"}–${game.goals_against ?? "-"})`}
-                                className={`rounded px-1.5 text-[11px] font-black ${
-                                  isWin(game.result) ? "bg-green-100 text-green-800" : isTie(game.result) ? "bg-slate-200 text-slate-700" : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {isWin(game.result) ? "V" : isTie(game.result) ? "N" : game.result === "L" ? "D" : "DP"}
-                              </span>
-                            ))}
+                            .map(({ game }) => {
+                              const opp = findTeamByOpponent(game.opponent);
+                              const tag = isWin(game.result) ? "V" : isTie(game.result) ? "N" : game.result === "L" ? "D" : "DP";
+                              return (
+                                <Link
+                                  key={game.id}
+                                  href={`/resultats/${game.id}`}
+                                  title="Ouvrir le détail du match"
+                                  className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold hover:brightness-95 ${
+                                    isWin(game.result) ? "bg-green-100 text-green-900" : isTie(game.result) ? "bg-slate-200 text-slate-800" : "bg-red-100 text-red-900"
+                                  }`}
+                                >
+                                  <span className="font-black">{tag}</span>
+                                  <span className="capitalize">{format(parseISO(game.game_date), "d MMM", { locale: fr })}</span>
+                                  {opp?.logo && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={opp.logo} alt="" className="h-4 w-4 object-contain" />
+                                  )}
+                                  <span>{opp?.name ?? game.opponent}</span>
+                                  <span className="tabular-nums font-black">
+                                    {game.goals_for ?? "-"}–{game.goals_against ?? "-"}
+                                  </span>
+                                </Link>
+                              );
+                            })}
                         </div>
                       </td>
                     </tr>
