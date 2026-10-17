@@ -110,6 +110,8 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   const [statFilter, setStatFilter] = useState<GameCategory | "all">("all");
   const [penalties, setPenalties] = useState<GameEvent[]>([]);
   const [rosterByDate, setRosterByDate] = useState<Map<string, Set<string>>>(new Map());
+  /** date → attaquants de l'alignement, dans l'ordre des cases (rangées de 3 : AG, C, AD). */
+  const [forwardsByDate, setForwardsByDate] = useState<Map<string, string[]>>(new Map());
   const [teamGoals, setTeamGoals] = useState<GameEvent[]>([]);
   /** date → activités de la journée, pour nommer ce qui a été manqué. */
   const [activityByDate, setActivityByDate] = useState<Map<string, string>>(new Map());
@@ -192,6 +194,16 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     setTestResults(tests ?? []);
     setPenalties(pens ?? []);
     setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? []));
+    {
+      const dateByLineup = new Map((lus ?? []).map((l) => [l.id as string, l.lineup_date as string]));
+      const fw = new Map<string, string[]>();
+      for (const u of lunits ?? []) {
+        if (u.unit_label !== "Attaquants (effectif)") continue;
+        const d = dateByLineup.get(u.lineup_id as string);
+        if (d) fw.set(d, u.player_ids as string[]);
+      }
+      setForwardsByDate(fw);
+    }
     setAdvancedStats((adv ?? []) as PlayerGameAdvancedStat[]);
     setInjuryNotes(
       (inotes ?? [])
@@ -262,6 +274,18 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   }, [teamGoals, gamesById, statFilter, id, allPlayers]);
 
   const isGoalie = player?.position === "G";
+
+  /** Matchs joués comme ailier gauche / centre / ailier droit, d'après la case occupée dans l'alignement. */
+  const roleUsage = useMemo(() => {
+    const counts = { AG: 0, C: 0, AD: 0 };
+    for (const g of gamesPlayedFor(id, games, rosterByDate, activeCategories)) {
+      const idx = (forwardsByDate.get(g.game_date) ?? []).indexOf(id);
+      if (idx < 0) continue;
+      const role = (["AG", "C", "AD"] as const)[idx % 3];
+      counts[role]++;
+    }
+    return { counts, total: counts.AG + counts.C + counts.AD };
+  }, [id, games, rosterByDate, forwardsByDate, statFilter]);
 
   /** Statistiques restreintes au type de match choisi. */
   const filteredStats = useMemo(
@@ -1447,6 +1471,33 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
             Voir le classement de l'équipe →
           </Link>
         </section>
+
+        {player?.position === "F" && (
+          <section className="card space-y-3 md:col-span-2">
+            <h2 className="font-semibold">Utilisation en match</h2>
+            <p className="text-xs text-slate-500">
+              Matchs joués selon la case occupée dans l&apos;alignement : ailier gauche (AG), centre (C) ou ailier droit (AD).
+            </p>
+            {roleUsage.total === 0 ? (
+              <p className="text-sm text-slate-500">Aucun match avec alignement pour ce joueur.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {([["AG", "Ailier gauche"], ["C", "Centre"], ["AD", "Ailier droit"]] as const).map(([k, label]) => {
+                  const n = roleUsage.counts[k];
+                  return (
+                    <div key={k} className="rounded-xl border border-slate-200 p-3 text-center">
+                      <div className="text-xs font-black uppercase tracking-widest text-slate-500">{k}</div>
+                      <div className="text-3xl font-black text-ink-900 tabular-nums">{n}</div>
+                      <div className="text-xs text-slate-500">
+                        {label} · {Math.round((n / roleUsage.total) * 100)} %
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="card space-y-2 md:col-span-2">
           <h2 className="font-semibold">Top 3 des meilleures affinités</h2>
