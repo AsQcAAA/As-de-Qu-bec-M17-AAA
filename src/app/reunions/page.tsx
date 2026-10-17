@@ -173,8 +173,15 @@ export default function ReunionsPage() {
     return (
       <div key={m.id} className="card flex items-center justify-between gap-3 py-3">
         <div>
-          <span className="font-medium">{m.meeting_type === "individual" ? nameById.get(m.player_id ?? "") ?? "?" : "Équipe"}</span>
-          {m.topic ? <span className="text-slate-500"> — {m.topic}</span> : null}
+          {m.meeting_type === "individual" ? (
+            <>
+              <span className="font-medium">{nameById.get(m.player_id ?? "") ?? "?"}</span>
+              {m.topic ? <span className="text-slate-500"> — {m.topic}</span> : null}
+            </>
+          ) : (
+            // Rencontre collective : le thème seul, sans « Équipe » devant.
+            <span className="font-medium">{m.topic || "Équipe"}</span>
+          )}
           {isHeadCoach && m.updated_by !== myId && authorLabel(m.updated_by) && (
             <span className="text-xs text-slate-400"> · par {authorLabel(m.updated_by)}</span>
           )}
