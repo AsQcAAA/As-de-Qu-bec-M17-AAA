@@ -760,11 +760,11 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               <>
                 <div className="grid grid-cols-2 gap-4" style={{ breakInside: "avoid" }}>
                   <section>
-                    <h2 className={h}>Leur PP1</h2>
+                    <h2 className={h}>PP1</h2>
                     <FormationStatic kind="pp" value={ppMap} />
                   </section>
                   <section>
-                    <h2 className={h}>Leur PP2</h2>
+                    <h2 className={h}>PP2</h2>
                     <FormationStatic kind="pp" value={pp2Map} />
                   </section>
                 </div>
@@ -783,7 +783,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               // PP Pre-Scout : leur PK, PK FC et FO côte à côte, sur une seule page.
               <div className="grid grid-cols-3 gap-3 items-start" style={{ breakInside: "avoid" }}>
                 <section>
-                  <h2 className={h}>Leur PK</h2>
+                  <h2 className={h}>PK</h2>
                   <FormationStatic kind="pk" value={pkMap} />
                 </section>
                 <section>
