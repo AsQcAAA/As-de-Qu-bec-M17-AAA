@@ -7,35 +7,11 @@ import { toPng } from "html-to-image";
 import { createClient } from "@/lib/supabase/client";
 import JerseySlot from "@/components/JerseySlot";
 import { lastName } from "@/lib/players";
+import { FARANDOLE_DATES } from "@/lib/farandole";
+import FarandoleExportPanel from "@/components/FarandoleExportPanel";
 import type { FarandoleAssignment, Player } from "@/lib/types";
 
 const SLOT_COUNT = 6;
-
-/**
- * Dates exactes du projet Farandole, fournies par le coach.
- *
- * On ne les déduit plus des vendredis de la saison : la liste comporte des
- * sauts (semaines de congé, tournois) qu'aucune règle calculée ne reproduirait.
- * Toutes ces dates sont des vendredis.
- */
-const FARANDOLE_DATES = [
-  "2026-09-11",
-  "2026-09-25",
-  "2026-10-02",
-  "2026-10-09",
-  "2026-10-16",
-  "2026-10-23",
-  "2026-10-30",
-  "2026-11-13",
-  "2026-11-27",
-  "2027-01-08",
-  "2027-01-15",
-  "2027-01-22",
-  "2027-02-12",
-  "2027-02-26",
-  "2027-03-12",
-  "2027-03-19",
-];
 
 function farandoleDays(): Date[] {
   return FARANDOLE_DATES.map((d) => new Date(`${d}T12:00:00`));
@@ -207,42 +183,14 @@ export default function FarandolePage() {
             .map((id) => players.find((p) => p.id === id))
             .filter((p): p is Player => !!p);
           return (
-            <div
+            <FarandoleExportPanel
               key={dateKey}
-              ref={(el) => {
+              day={day}
+              players={assignedPlayers}
+              panelRef={(el) => {
                 exportRefs.current[dateKey] = el;
               }}
-              className="w-[600px] bg-ink-900 p-8 space-y-5"
-            >
-              <div className="text-center space-y-1">
-                <div className="text-xs font-black uppercase tracking-widest text-gold-400">Farandole</div>
-                <h2 className="text-2xl font-black capitalize text-white">
-                  {format(day, "EEEE d MMMM yyyy", { locale: fr })}
-                </h2>
-              </div>
-              <div className="grid grid-cols-3 gap-4 justify-items-center pt-2">
-                {assignedPlayers.map((p) => (
-                  <div key={p.id} className="flex flex-col items-center gap-1.5 w-28">
-                    <div className="relative h-16 w-16 shrink-0">
-                      <div className="h-16 w-16 rounded-full bg-gold-500 text-ink-900 text-2xl font-black flex items-center justify-center border-2 border-gold-300 overflow-hidden">
-                        {p.photo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.photo_url} alt={p.full_name} className="h-full w-full object-cover" />
-                        ) : (
-                          p.jersey_number ?? "?"
-                        )}
-                      </div>
-                      <span className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-ink-900 text-gold-400 text-xs font-black flex items-center justify-center border-2 border-gold-300">
-                        {p.jersey_number ?? "?"}
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold text-white text-center leading-tight">
-                      {lastName(p.full_name)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            />
           );
         })}
       </div>

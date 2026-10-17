@@ -14,6 +14,7 @@ import Modal from "@/components/Modal";
 import JourContent from "@/components/JourContent";
 import AbsencePopupContent from "@/components/AbsencePopupContent";
 import IndividualMeetingsPopupContent from "@/components/IndividualMeetingsPopupContent";
+import FarandoleTuesdayPopup from "@/components/FarandoleTuesdayPopup";
 import LeagueUpdateReminder from "@/components/LeagueUpdateReminder";
 import DailyReportPopupContent from "@/components/DailyReportPopupContent";
 import WeeklyThemePopupContent from "@/components/WeeklyThemePopupContent";
@@ -276,6 +277,7 @@ export default function DashboardPage() {
           sans jamais couvrir la navigation. */}
       <PostGameUploadsReminder today={todayKey} />
       <LeagueUpdateReminder />
+      <FarandoleTuesdayPopup />
 
       {/* Nouvelles consultations relevées dans la feuille de la clinique. */}
       <PhysioAlert />
