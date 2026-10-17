@@ -65,6 +65,8 @@ function ArrowDefs({ id }: { id: string }) {
 type Kind = "pp" | "pk" | "bo" | "fo" | "pkbo" | "pkfo";
 /** Glace complète à la verticale (sortie de zone) / demi-glace retournée (leur zone défensive, but en bas). */
 const isFull = (k: Kind) => k === "bo" || k === "pkbo";
+/** Infériorité adverse (PK, PK FC, FO) : pas de numéros, des F et des D. */
+const isRoleKind = (k: Kind) => k === "pk" || k === "pkbo" || k === "pkfo";
 const isFlip = (k: Kind) => k === "pk" || k === "pkfo";
 const HALF = { W: 170, H: 178 };
 /** Glace complète, à la verticale (même largeur que la demi-glace) : 2 unités = 1 pied (85 pi × 200 pi). */
@@ -110,7 +112,7 @@ const BO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 
 const PKBO_DEFAULT: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296]];
 
 export const emptyFormation = (kind: Kind): FormationValue => ({
-  markers: (kind === "bo" ? BO_DEFAULT : kind === "pkbo" ? PKBO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y], i) => ({ id: uid(), number: "", x, y, ...(kind === "pk" ? { role: i < 2 ? ("F" as const) : ("D" as const) } : {}) })),
+  markers: (kind === "bo" ? BO_DEFAULT : kind === "pkbo" ? PKBO_DEFAULT : PRESETS[kind][0]?.positions ?? []).map(([x, y], i) => ({ id: uid(), number: "", x, y, ...(isRoleKind(kind) ? { role: i < 2 ? ("F" as const) : ("D" as const) } : {}) })),
   note: "",
 });
 
@@ -282,7 +284,7 @@ export default function FormationMap({
 
   function addMarker(number: string) {
     const n = value.markers.length;
-    const m: FormationMarker = { id: uid(), number: number.trim().slice(0, 3), x: 30 + ((n * 37) % 110), y: 40 + ((n * 23) % 80), ...(kind === "pk" ? { role: "F" as const } : {}) };
+    const m: FormationMarker = { id: uid(), number: number.trim().slice(0, 3), x: 30 + ((n * 37) % 110), y: 40 + ((n * 23) % 80), ...(isRoleKind(kind) ? { role: "F" as const } : {}) };
     update([...value.markers, m]);
     setSelectedId(m.id);
     setNewNumber("");
@@ -295,7 +297,7 @@ export default function FormationMap({
       number: value.markers[idx]?.number ?? "",
       x,
       y,
-      ...(kind === "pk" ? { role: value.markers[idx]?.role ?? (idx < 2 ? ("F" as const) : ("D" as const)) } : {}),
+      ...(isRoleKind(kind) ? { role: value.markers[idx]?.role ?? (idx < 2 ? ("F" as const) : ("D" as const)) } : {}),
     }));
     // Les joueurs en trop (au-delà du modèle) restent là où ils sont.
     onChange({ ...value, markers: [...markers, ...value.markers.slice(positions.length)] });
@@ -359,7 +361,7 @@ export default function FormationMap({
             ))}
           </select>
         )}
-        {kind !== "pk" && (
+        {!isRoleKind(kind) && (
         <input
             className="input w-24 text-xs"
             inputMode="numeric"
@@ -370,7 +372,7 @@ export default function FormationMap({
           />
         )}
         <button className="btn-secondary text-xs" onClick={() => addMarker(newNumber)}>
-          {kind === "pk" ? "+ Ajouter un joueur" : "+ Ajouter"}
+          {isRoleKind(kind) ? "+ Ajouter un joueur" : "+ Ajouter"}
         </button>
         {selected && (
           <button
@@ -483,7 +485,7 @@ export default function FormationMap({
             const moved = m0 ? Math.hypot(drag.x - m0.x, drag.y - m0.y) : 0;
             // Un simple clic (sans glisser) ouvre la saisie du numéro directement sur le rond.
             if (moved < 2) {
-              if (kind !== "pk") setEditingId(drag.id);
+              if (!isRoleKind(kind)) setEditingId(drag.id);
             }
             else update(value.markers.map((m) => (m.id === drag.id ? { ...m, x: drag.x, y: drag.y } : m)));
           }
@@ -584,7 +586,7 @@ export default function FormationMap({
                 setDrag(null);
                 setSelectedId(m.id);
                 // Le PK adverse n'a jamais de numéros : F ou D, qu'un double-clic alterne.
-                if (kind !== "pk") setEditingId(m.id);
+                if (!isRoleKind(kind)) setEditingId(m.id);
                 else update(value.markers.map((x) => (x.id === m.id ? { ...x, role: roleOf(value.markers, x) === "D" ? "F" : "D" } : x)));
               }}
             >
@@ -609,7 +611,7 @@ export default function FormationMap({
                 </foreignObject>
               ) : (
                 <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
-                  {m.number || (kind === "pk" ? roleOf(value.markers, m) : "X")}
+                  {m.number || (isRoleKind(kind) ? roleOf(value.markers, m) : "X")}
                 </text>
               )}
             </g>
@@ -644,7 +646,7 @@ export function FormationStatic({ kind, value, names, markerColor }: { kind: Kin
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
             <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
-              {m.number || (kind === "pk" ? roleOf(value.markers, m) : "X")}
+              {m.number || (isRoleKind(kind) ? roleOf(value.markers, m) : "X")}
             </text>
             {names?.[m.number] && (
               <text y="14.5" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="#0d0c0c" stroke="#f8fafc" strokeWidth="1.6" paintOrder="stroke">
