@@ -179,7 +179,7 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                         {rec.gf} – {rec.ga}
                       </td>
                       <td className="py-2 pr-4">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {c.uses
                             .slice()
                             .sort((a, b) => a.game.game_date.localeCompare(b.game.game_date))
@@ -190,20 +190,27 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                                 <Link
                                   key={game.id}
                                   href={`/resultats/${game.id}`}
-                                  title="Ouvrir le détail du match"
-                                  className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold hover:brightness-95 ${
-                                    isWin(game.result) ? "bg-green-100 text-green-900" : isTie(game.result) ? "bg-slate-200 text-slate-800" : "bg-red-100 text-red-900"
-                                  }`}
+                                  title={`${format(parseISO(game.game_date), "d MMM yyyy", { locale: fr })} — ${opp?.name ?? game.opponent} — cliquer pour le détail du match`}
+                                  className="flex flex-col items-center gap-0.5 rounded-lg p-1 hover:bg-slate-100"
                                 >
-                                  <span className="font-black">{tag}</span>
-                                  <span className="capitalize">{format(parseISO(game.game_date), "d MMM", { locale: fr })}</span>
-                                  {opp?.logo && (
+                                  <span
+                                    className={`w-9 text-center rounded text-xs font-black py-0.5 text-white ${
+                                      isWin(game.result) ? "bg-green-500" : isTie(game.result) ? "bg-slate-500" : "bg-red-500"
+                                    }`}
+                                  >
+                                    {tag}
+                                  </span>
+                                  {opp?.logo ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={opp.logo} alt="" className="h-4 w-4 object-contain" />
+                                    <img src={opp.logo} alt={opp.name} className="h-6 w-6 object-contain" />
+                                  ) : (
+                                    <span className="h-6 text-[10px] leading-6 text-slate-500">{game.opponent.slice(0, 6)}</span>
                                   )}
-                                  <span>{opp?.name ?? game.opponent}</span>
-                                  <span className="tabular-nums font-black">
-                                    {game.goals_for ?? "-"}–{game.goals_against ?? "-"}
+                                  <span className="text-[11px] font-bold tabular-nums leading-none">
+                                    {game.goals_for ?? "-"}-{game.goals_against ?? "-"}
+                                  </span>
+                                  <span className="text-[9px] uppercase text-slate-400 leading-none">
+                                    {format(parseISO(game.game_date), "d MMM", { locale: fr })}
                                   </span>
                                 </Link>
                               );
