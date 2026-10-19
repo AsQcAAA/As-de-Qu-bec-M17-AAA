@@ -220,12 +220,12 @@ export default function TestsPhysiquesPage() {
             )}
           </div>
 
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm border-separate border-spacing-0">
+          <div className="card overflow-x-auto px-3">
+            <table className="w-full text-sm border-separate border-spacing-0 table-auto">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th
-                    className="sticky left-0 bg-white py-2 pr-4 cursor-pointer select-none border-b"
+                    className="sticky left-0 bg-white py-2 pr-2 align-bottom text-xs cursor-pointer select-none border-b"
                     onClick={() => toggleSort("__name")}
                   >
                     Joueur {sort.key === "__name" ? (sort.desc ? "▼" : "▲") : ""}
@@ -233,12 +233,12 @@ export default function TestsPhysiquesPage() {
                   {testColumnsOfSession.map((name) => (
                     <th
                       key={name}
-                      className="py-2 px-3 cursor-pointer select-none whitespace-nowrap border-b text-center hover:text-ink-900"
+                      className="py-2 px-1.5 align-bottom text-xs leading-tight cursor-pointer select-none border-b text-center hover:text-ink-900"
                       onClick={() => toggleSort(name)}
                       title={matrix.scale.get(name)?.higher === false ? "Moins = mieux" : "Plus = mieux"}
                     >
                       {name}
-                      {matrix.scale.get(name)?.unit ? <span className="font-normal text-slate-400"> ({matrix.scale.get(name)!.unit})</span> : null}{" "}
+                      {matrix.scale.get(name)?.unit ? <span className="block font-normal text-slate-400">({matrix.scale.get(name)!.unit})</span> : null}{" "}
                       {sort.key === name ? (sort.desc ? "▼" : "▲") : ""}
                     </th>
                   ))}
@@ -247,7 +247,7 @@ export default function TestsPhysiquesPage() {
               <tbody>
                 {matrix.rows.map((row) => (
                   <tr key={row.playerId}>
-                    <td className="sticky left-0 bg-white py-1.5 pr-4 border-b whitespace-nowrap">
+                    <td className="sticky left-0 bg-white py-1.5 pr-2 border-b whitespace-nowrap">
                       <Link href={`/joueurs/${row.playerId}`} className="hover:text-gold-700 hover:underline">
                         {row.player?.jersey_number ? `#${row.player.jersey_number} ` : ""}
                         {row.player?.full_name}
@@ -257,7 +257,7 @@ export default function TestsPhysiquesPage() {
                       const r = row.tests.get(name);
                       if (!r) {
                         return (
-                          <td key={name} className="py-1.5 px-3 text-center text-slate-300 border-b">
+                          <td key={name} className="py-1.5 px-1.5 text-center text-slate-300 border-b">
                             –
                           </td>
                         );
@@ -269,7 +269,7 @@ export default function TestsPhysiquesPage() {
                       return (
                         <td
                           key={name}
-                          className={`py-1.5 px-3 text-center border-b tabular-nums ${extreme ? "font-black text-ink-900" : "font-medium"}`}
+                          className={`py-1.5 px-1.5 text-center border-b tabular-nums ${extreme ? "font-black text-ink-900" : "font-medium"}`}
                           style={{ background: bg }}
                           title={
                             showEvolution && prev
