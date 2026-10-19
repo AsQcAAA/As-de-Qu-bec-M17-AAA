@@ -137,79 +137,79 @@ export const LEAGUE_SCORERS: Record<string, ScorerLine[]> = {
 
 export const LEAGUE_GOALIES: Record<string, GoalieLine[]> = {
   "canam-ba": [
-    k("Thomas Giguère", 9, 7, 1, 0),
-    k("Matthew McCrea", 5, 1, 1, 1),
+    k("Thomas Giguère", 9, 7, 1, 0, 2.36),
+    k("Matthew McCrea", 5, 1, 1, 1, 3.28),
   ],
   "rousseau-royal-lav-mtl": [
-    k("Noah Laporte", 7, 6, 1, 0),
-    k("Gianni Ricci", 3, 1, 1, 1),
+    k("Noah Laporte", 7, 6, 1, 0, 2.14),
+    k("Gianni Ricci", 3, 1, 1, 1, 3.52),
   ],
   "dynamiques-ccl": [
-    k("Benjamin Carreau", 4, 4, 0, 0),
-    k("Charles Mathieu", 4, 3, 0, 1),
+    k("Benjamin Carreau", 4, 4, 0, 0, 0.75),
+    k("Charles Mathieu", 4, 3, 0, 1, 2.01),
   ],
   "corsaires-pointe-levy": [
-    k("Antoine Charest", 5, 4, 1, 0),
-    k("Alexandre Talbot", 5, 2, 2, 1),
+    k("Antoine Charest", 5, 4, 1, 0, 2.0),
+    k("Alexandre Talbot", 5, 2, 2, 1, 3.97),
   ],
   "gaulois-ric": [
-    k("Anthony Perron", 5, 4, 1, 0),
-    k("Laurent Martel-Latanasuk", 3, 1, 1, 1),
+    k("Anthony Perron", 5, 4, 1, 0, 2.21),
+    k("Laurent Martel-Latanasuk", 3, 1, 1, 1, 2.02),
   ],
   "piche": [
-    k("Andrew Mallette", 4, 4, 0, 0),
-    k("Alexis Poulin", 4, 3, 0, 1),
+    k("Andrew Mallette", 4, 4, 0, 0, 2.23),
+    k("Alexis Poulin", 4, 3, 0, 1, 1.25),
   ],
   "conquerants-bl": [
-    k("David Dumas", 3, 3, 0, 0),
-    k("Alexandre Leblanc", 3, 1, 2, 0),
+    k("David Dumas", 3, 3, 0, 0, 1.67),
+    k("Alexandre Leblanc", 3, 1, 2, 0, 3.8),
   ],
   "select-du-nord": [
-    k("Zachary Bourque", 5, 3, 2, 0),
-    k("Loic Cabana", 6, 3, 3, 0),
+    k("Zachary Bourque", 5, 3, 2, 0, 2.41),
+    k("Loic Cabana", 6, 3, 3, 0, 3.28),
   ],
   "lions-lsl": [
-    k("Simon D'Andrea", 5, 2, 2, 0),
-    k("Lucas Elias", 4, 1, 3, 0),
+    k("Simon D'Andrea", 5, 2, 2, 0, 2.17),
+    k("Lucas Elias", 4, 1, 3, 0, 3.02),
   ],
   "seigneurs-mi": [
-    k("Loic Belzile", 3, 2, 1, 0),
-    k("Owyn Lapointe", 3, 0, 3, 0),
+    k("Loic Belzile", 3, 2, 1, 0, 2.19),
+    k("Owyn Lapointe", 3, 0, 3, 0, 2.69),
   ],
   "pionniers-lan": [
-    k("Jacob Lavallee", 4, 2, 1, 1),
-    k("Mattis Theriault", 5, 1, 2, 1),
+    k("Jacob Lavallee", 4, 2, 1, 0, 2.82),
+    k("Mattis Theriault", 5, 1, 2, 1, 1.82),
   ],
   "senateurs-out": [
-    k("Marc-Etienne Perreault", 4, 2, 1, 0),
-    k("Théo Dupuis", 4, 1, 3, 0),
+    k("Marc-Etienne Perreault", 4, 2, 1, 0, 4.43),
+    k("Théo Dupuis", 4, 1, 3, 0, 4.38),
   ],
   "citadelles-rn": [
-    k("Gabriel Morin", 4, 2, 1, 1),
-    k("Étienne Jarret", 4, 1, 2, 1),
+    k("Gabriel Morin", 4, 2, 1, 1, 2.4),
+    k("Étienne Jarret", 4, 1, 2, 1, 3.5),
   ],
   "espoirs-sag-lsj": [
-    k("Nathan Cleary", 5, 1, 4, 0),
-    k("Olivier Huet", 3, 1, 2, 0),
+    k("Nathan Cleary", 5, 1, 4, 0, 1.99),
+    k("Olivier Huet", 3, 1, 2, 0, 4.34),
   ],
   "blizzard-ssf": [
-    k("Lincoln IV Anderson", 3, 1, 2, 0),
-    k("Charles-Olivier Guénette", 4, 0, 3, 1),
+    k("Lincoln IV Anderson", 3, 1, 2, 0, 3.03),
+    k("Charles-Olivier Guénette", 4, 0, 2, 1, 5.66),
   ],
   "estacades-mauricie": [
-    k("Ethan Beaudry", 4, 1, 3, 0),
-    k("Maxence Chouinard", 3, 1, 2, 0),
+    k("Ethan Beaudry", 4, 1, 3, 0, 3.25),
+    k("Maxence Chouinard", 3, 1, 2, 0, 3.34),
   ],
   "harfangs-sherbrooke": [
-    k("Caleb Dumas", 4, 1, 2, 0),
-    k("Megan Savard", 2, 1, 1, 0),
+    k("Caleb Dumas", 4, 1, 2, 0, 4.05),
+    k("Megan Savard", 2, 1, 1, 0, 4.66),
   ],
   "albatros": [
-    k("Justin Raymond", 6, 0, 6, 0),
-    k("Felix Berube", 3, 0, 3, 0),
+    k("Justin Raymond", 6, 0, 6, 0, 3.39),
+    k("Felix Berube", 3, 0, 3, 0, 6.27),
   ],
   "grenadiers-lsl": [
-    k("Kayson-Francesco Bertrand-Saldana", 4, 0, 3, 0),
-    k("Sheldon Hills-Lefebvre", 4, 0, 2, 1),
+    k("Kayson-Francesco Bertrand-Saldana", 4, 0, 3, 0, 5.02),
+    k("Sheldon Hills-Lefebvre", 4, 0, 2, 0, 5.63),
   ],
 };
