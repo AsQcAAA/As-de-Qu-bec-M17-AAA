@@ -478,7 +478,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                       <td className="py-1.5 pr-3">{g.w ?? "-"}</td>
                       <td className="py-1.5 pr-3">{g.l ?? "-"}</td>
                       <td className="py-1.5 pr-3">{g.otl ?? "-"}</td>
-                      <td className="py-1.5 font-bold">{g.gaa.toFixed(2)}</td>
+                      <td className="py-1.5 font-bold">{g.gaa != null ? g.gaa.toFixed(2) : "–"}</td>
                     </tr>
                   ))}
                 </tbody>
