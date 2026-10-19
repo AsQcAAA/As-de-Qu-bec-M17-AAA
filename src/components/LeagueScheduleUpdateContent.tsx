@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { computeRecords } from "@/lib/leagueRecords";
 import type { ScoutNote } from "@/lib/types";
 
 interface TeamRecord {
@@ -45,7 +46,27 @@ export default function LeagueScheduleUpdateContent({ onClose, onApplied }: { on
       const res = await fetch("/api/league-schedule/extract", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Lecture impossible.");
-      setData(json as Extracted);
+      // Le PDF peut ne couvrir que les derniers jours : on le fusionne avec les matchs déjà
+      // enregistrés pour que les fiches (5 derniers) reflètent toute la saison.
+      const ex = json as Extracted;
+      const { data: stored } = await supabase.from("league_games").select("game_date, home, away, home_score, away_score");
+      const merged = new Map<string, Extracted["allGames"][number]>();
+      for (const g of stored ?? []) {
+        merged.set(`${g.game_date}|${g.home}|${g.away}`, {
+          date: g.game_date,
+          home: g.home,
+          away: g.away,
+          homeScore: g.home_score,
+          awayScore: g.away_score,
+        });
+      }
+      // Un match du PDF sans pointage ne remplace jamais un résultat déjà enregistré.
+      const incoming = ex.allGames.filter((g) => {
+        const prev = merged.get(`${g.date}|${g.home}|${g.away}`);
+        return !(prev && prev.homeScore != null && g.homeScore == null);
+      });
+      for (const g of incoming) merged.set(`${g.date}|${g.home}|${g.away}`, g);
+      setData({ ...ex, allGames: incoming, records: computeRecords([...merged.values()]) });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lecture impossible.");
     } finally {
