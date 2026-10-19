@@ -120,7 +120,11 @@ export default function Nav() {
         </Link>
         <nav className="flex flex-col gap-1 text-sm p-3 flex-1">
           {tabs.map((tab) => {
-            const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
+            // Un seul onglet actif : le plus précis. « /statistiques-avancees/pre-scout » ne doit pas
+            // allumer aussi « Statistiques avancées ».
+            const matches = (h: string) => (h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(h + "/"));
+            const best = tabs.filter((t) => matches(t.href)).sort((a, b) => b.href.length - a.href.length)[0];
+            const active = best?.href === tab.href;
             return (
               <Link
                 key={tab.href}
