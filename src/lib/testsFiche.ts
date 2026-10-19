@@ -42,8 +42,7 @@ const ORDER = [
   "Bench press @ 75% BW",
   "Agilité 5-10-5 R",
   "Agilité 5-10-5 L",
-  "Sprint 30 m (1)",
-  "Sprint 30 m (2)",
+  "Sprint 30 m",
 ];
 
 /** A26 = automne 2026, H27 = hiver 2027, P26 = printemps 2026. */

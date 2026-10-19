@@ -25,8 +25,8 @@ const TEST_DEFS: Record<string, { unit: string | null; higherIsBetter: boolean; 
   "Grandeur assise": { unit: "po", higherIsBetter: true, min: 25, max: 45 },
   "Agilité 5-10-5 R": { unit: "s", higherIsBetter: false, min: 4, max: 8 },
   "Agilité 5-10-5 L": { unit: "s", higherIsBetter: false, min: 4, max: 8 },
-  "Sprint 30 m (1)": { unit: "s", higherIsBetter: false, min: 3.5, max: 7 },
-  "Sprint 30 m (2)": { unit: "s", higherIsBetter: false, min: 3.5, max: 7 },
+  // Un seul résultat : la meilleure des deux moyennes (moyenne des deux chronos, par essai).
+  "Sprint 30 m": { unit: "s", higherIsBetter: false, min: 3.5, max: 7 },
   "Pallier 30-15": { unit: null, higherIsBetter: true, min: 8, max: 26 },
 };
 
@@ -63,8 +63,6 @@ type Column = { test: string; index: number };
 /** Associe chaque colonne d'un en-tête à un test (les colonnes sans titre reconnu sont ignorées). */
 function mapColumns(header: string[]): { columns: Column[]; sautIndex: number } {
   const cols: Column[] = [];
-  let sprintGroup = 0;
-  const hasNumberedSprints = header.some((h) => /^sprint [12]$/.test(norm(h)));
   header.forEach((h, index) => {
     const n = norm(h);
     if (!n || n === "nom") return;
@@ -76,13 +74,12 @@ function mapColumns(header: string[]): { columns: Column[]; sautIndex: number } 
     else if (n.startsWith("agilite 5 10 5 r")) cols.push({ test: "Agilité 5-10-5 R", index });
     else if (n.startsWith("agilite 5 10 5 l")) cols.push({ test: "Agilité 5-10-5 L", index });
     else if (n === "30 15") cols.push({ test: "Pallier 30-15", index });
-    else if (n === "sprint 1") cols.push({ test: "Sprint 30 m (1)", index });
-    else if (n === "sprint 2") cols.push({ test: "Sprint 30 m (2)", index });
-    else if (n.startsWith("sprint 30m") && !hasNumberedSprints) {
-      // Sans « Sprint 1/2 » : les colonnes « Sprint (30m) » sont les moyennes des deux séries.
-      sprintGroup += 1;
-      if (sprintGroup <= 2) cols.push({ test: sprintGroup === 1 ? "Sprint 30 m (1)" : "Sprint 30 m (2)", index });
-    }
+    else if (n === "sprint 1") cols.push({ test: "__sprint1", index });
+    else if (n === "sprint 2") cols.push({ test: "__sprint2", index });
+    else if (/^30m jay 1$/.test(n)) cols.push({ test: "__s1jay", index });
+    else if (/^30m chappy 1$/.test(n)) cols.push({ test: "__s1chappy", index });
+    else if (/^30m jay 2$/.test(n)) cols.push({ test: "__s2jay", index });
+    else if (/^30m chappy 2$/.test(n)) cols.push({ test: "__s2chappy", index });
   });
   return { columns: cols, sautIndex: header.findIndex((h) => norm(h).startsWith("saut horizontal")) };
 }
@@ -120,8 +117,7 @@ function parseSecondYearRow(name: string, cells: unknown[], date: string): Parse
     ["Chin up", n(7)],
     ["Agilité 5-10-5 R", best("Agilité 5-10-5 R", [n(8), n(9)], "min")],
     ["Agilité 5-10-5 L", best("Agilité 5-10-5 L", [n(10), n(11)], "min")],
-    ["Sprint 30 m (1)", n(12)],
-    ["Sprint 30 m (2)", n(13)],
+    ["Sprint 30 m", best("Sprint 30 m", [n(12), n(13)], "min")],
     ["Pallier 30-15", n(14)],
   ];
   return found.filter(([test, v]) => ok(test, v)).map(([test, value]) => ({ name, test, date, value: value as number, note: null }));
@@ -167,7 +163,13 @@ export async function parseTestsWorkbook(buffer: ArrayBuffer): Promise<ParsedRes
 
     // Agilités : deux essais par côté, on retient le meilleur (le plus petit temps).
     const agility = new Map<string, number[]>();
+    const sp: Record<string, number> = {};
     for (const c of columns) {
+      if (c.test.startsWith("__")) {
+        const v = toNumber(cells[c.index]);
+        if (v !== null && v >= TEST_DEFS["Sprint 30 m"].min && v <= TEST_DEFS["Sprint 30 m"].max) sp[c.test] = v;
+        continue;
+      }
       const def = TEST_DEFS[c.test];
       const raw = cellValue(cells[c.index]);
       const value = toNumber(raw);
@@ -180,6 +182,15 @@ export async function parseTestsWorkbook(buffer: ArrayBuffer): Promise<ParsedRes
       out.push({ name: first, test: c.test, date, value, note: starred ? "Astérisque (*) dans le fichier d'origine" : null });
     }
     for (const [test, values] of agility) out.push({ name: first, test, date, value: Math.min(...values), note: null });
+    // Sprint : moyenne des deux chronos (Jay, Chappy) pour chaque essai, puis la meilleure des deux moyennes.
+    const mean = (...vs: (number | undefined)[]) => {
+      const ok = vs.filter((v): v is number => v !== undefined);
+      return ok.length ? Math.round((ok.reduce((a, b) => a + b, 0) / ok.length) * 100) / 100 : null;
+    };
+    const tries = [sp.__sprint1 ?? mean(sp.__s1jay, sp.__s1chappy) ?? undefined, sp.__sprint2 ?? mean(sp.__s2jay, sp.__s2chappy) ?? undefined].filter(
+      (v): v is number => v !== undefined
+    );
+    if (tries.length) out.push({ name: first, test: "Sprint 30 m", date, value: Math.min(...tries), note: null });
   });
   return out;
 }

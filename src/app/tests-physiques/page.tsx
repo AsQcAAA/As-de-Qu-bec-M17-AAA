@@ -77,7 +77,7 @@ export default function TestsPhysiquesPage() {
 
   /** Tests de la séance, dans un ordre stable (les tests habituels d'abord). */
   const testColumnsOfSession = useMemo(() => {
-    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m (1)", "Sprint 30 m (2)", "Grandeur assise"];
+    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m", "Grandeur assise"];
     const names = [...new Set(results.filter((r) => r.test_date === session).map((r) => r.test_name))];
     return names.sort((a, b) => {
       const ia = order.indexOf(a);

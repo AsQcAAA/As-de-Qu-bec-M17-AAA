@@ -530,7 +530,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     const counts = new Map<string, number>();
     for (const d of sessions) counts.set(seasonOf(d), (counts.get(seasonOf(d)) ?? 0) + 1);
     const labels = new Map(sessions.map((d) => [d, (counts.get(seasonOf(d)) ?? 0) > 1 ? d : seasonOf(d)]));
-    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m (1)", "Sprint 30 m (2)", "Grandeur assise"];
+    const order = ["Pallier 30-15", "Saut horizontal", "Lancer de ballon", "Chin up", "Bench press @ 75% BW", "Agilité 5-10-5 R", "Agilité 5-10-5 L", "Sprint 30 m", "Grandeur assise"];
     const names = [...new Set(testResults.map((t) => t.test_name))].sort((a, b) => {
       const ia = order.indexOf(a);
       const ib = order.indexOf(b);
