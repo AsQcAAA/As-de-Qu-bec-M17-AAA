@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { EVENT_TYPE_LABEL, EVENT_TYPE_ORDER, EVENT_TYPE_SOLID_COLOR } from "@/lib/eventTypes";
 import { scoreInDisplayOrder } from "@/lib/gameResults";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
+import { TOURNAMENT_DATES, TOURNAMENT_SLUG, TOURNAMENT_TITLE } from "@/lib/tournoiStAugustin";
 import Modal from "@/components/Modal";
 import JourContent from "@/components/JourContent";
 import type { EventType, Game, ScheduleEvent, WeeklyTheme } from "@/lib/types";
@@ -355,6 +356,22 @@ export default function CalendrierPage() {
       <div className="grid grid-cols-7 gap-2">
         {week.map((day) => {
           const key = format(day, "yyyy-MM-dd");
+          // Tournoi de St-Augustin : un seul bloc pour jeudi à dimanche, qui mène au tableau du tournoi.
+          if (TOURNAMENT_DATES.includes(key)) {
+            if (key !== TOURNAMENT_DATES[0]) return null;
+            return (
+              <button
+                key={key}
+                onClick={() => router.push(`/tournoi/${TOURNAMENT_SLUG}`)}
+                style={{ gridColumn: "span 4" }}
+                className="flex h-[150px] sm:h-[165px] flex-col items-center justify-center gap-1 rounded-lg border border-transparent bg-red-600 p-2 text-white transition-colors hover:brightness-110"
+              >
+                <span className="text-xs font-bold uppercase tracking-widest opacity-90">5 au 8 novembre</span>
+                <span className="text-2xl font-black leading-tight">{TOURNAMENT_TITLE}</span>
+                <span className="text-sm font-semibold opacity-90">Tableau du tournoi →</span>
+              </button>
+            );
+          }
           const redLabel = redWeekLabelByDate.get(key);
           // Pendant une semaine de tournoi (rouge), le Multisport du vendredi
           // ne doit jamais s'afficher — seul le tournoi compte cette semaine-là.
