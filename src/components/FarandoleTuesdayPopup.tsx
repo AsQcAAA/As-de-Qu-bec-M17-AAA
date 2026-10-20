@@ -23,6 +23,27 @@ export default function FarandoleTuesdayPopup() {
   const [data, setData] = useState<{ friday: Date; dateKey: string; players: Player[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  /** Raccourci : changer les joueurs directement depuis le pop-up. */
+  const [editing, setEditing] = useState(false);
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+
+  async function startEditing() {
+    setEditing(true);
+    if (allPlayers.length === 0) {
+      const { data: pls } = await supabase.from("players").select("*").eq("active", true).eq("is_call_up", false).order("jersey_number");
+      setAllPlayers(pls ?? []);
+    }
+  }
+
+  async function setSlot(index: number, playerId: string) {
+    if (!data) return;
+    const slots = Array.from({ length: 6 }, (_, i) => data.players[i]?.id ?? "");
+    slots[index] = playerId;
+    const ids = slots.filter(Boolean);
+    const players = ids.map((id) => allPlayers.find((p) => p.id === id)).filter((p): p is Player => !!p);
+    setData({ ...data, players });
+    await supabase.from("farandole_assignments").upsert({ assignment_date: data.dateKey, player_ids: ids }, { onConflict: "assignment_date" });
+  }
 
   useEffect(() => {
     const now = new Date();
@@ -87,7 +108,30 @@ export default function FarandoleTuesdayPopup() {
             Aucun joueur n&apos;est encore assigné à la Farandole de vendredi.
           </p>
         )}
-        <div className="flex gap-2">
+        {editing && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Array.from({ length: 6 }, (_, i) => {
+              const value = data.players[i]?.id ?? "";
+              const taken = new Set(data.players.map((p) => p.id));
+              return (
+                <select key={i} className="input text-sm" value={value} onChange={(e) => setSlot(i, e.target.value)}>
+                  <option value="">— Vide —</option>
+                  {allPlayers
+                    .filter((p) => p.id === value || !taken.has(p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        #{p.jersey_number ?? "?"} {p.full_name}
+                      </option>
+                    ))}
+                </select>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap">
+          <button className="btn-secondary" onClick={() => (editing ? setEditing(false) : startEditing())}>
+            {editing ? "Terminer les modifications" : "Modifier les joueurs"}
+          </button>
           {data.players.length > 0 ? (
             <button className="btn" onClick={download} disabled={busy}>
               {busy ? "Génération..." : "⬇ Télécharger l'image"}
