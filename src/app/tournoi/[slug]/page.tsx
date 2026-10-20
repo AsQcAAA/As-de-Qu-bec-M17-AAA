@@ -13,6 +13,8 @@ import {
   TOURNAMENT_VENUE,
 } from "@/lib/tournoiStAugustin";
 import { isOurs, nextOurGame, ourGames, resolveTournament, teamDisplay, type ResolvedGame, type ResolvedSlot, type TournamentResult } from "@/lib/tournoi";
+import Modal from "@/components/Modal";
+import TournamentBracket from "@/components/TournamentBracket";
 import type { Game } from "@/lib/types";
 
 const hm = (t: string) => `${t.slice(0, 2)}h${t.slice(3, 5)}`;
@@ -98,6 +100,12 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
     setCreating(false);
   }
 
+  function openEdit(no: number) {
+    const g = resolved.find((x) => x.no === no);
+    setDraft({ a: g?.scoreA?.toString() ?? "", b: g?.scoreB?.toString() ?? "" });
+    setEditNo(no);
+  }
+
   async function saveScore(no: number) {
     const a = draft.a.trim();
     const b = draft.b.trim();
@@ -133,10 +141,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
     );
   }
 
-  const byDay = TOURNAMENT_DATES.map((d) => ({
-    date: d,
-    games: resolved.filter((g) => g.date === d).sort((a, b) => a.time.localeCompare(b.time)),
-  }));
+  const firstRound = resolved.filter((g) => g.no <= 11).sort((x, y) => x.time.localeCompare(y.time));
 
   const nextExisting = next ? existingFor(next.game, next.opponent) : null;
 
@@ -194,55 +199,81 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
 
       {error && <p className="rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100">{error}</p>}
 
-      {byDay.map(({ date, games: dayGames }) => (
-        <section key={date} className="space-y-2">
-          <h2 className="text-lg font-bold capitalize text-white">{format(parseISO(date), "EEEE d MMMM", { locale: fr })}</h2>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {dayGames.map((g) => {
-              const ours = isOurs(g.ra) || isOurs(g.rb);
-              const aWon = g.played && g.scoreA! > g.scoreB!;
-              const bWon = g.played && g.scoreB! > g.scoreA!;
-              const gameRow = ours ? existingFor(g, isOurs(g.ra) ? g.rb.team : g.ra.team) : null;
-              return (
-                <div key={g.no} className={`card py-2 ${ours ? "ring-2 ring-gold-400" : ""}`}>
-                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    <span>
-                      #{g.no} · {hm(g.time)} · {g.rink}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      {gameRow && (
-                        <Link href={`/resultats/${gameRow.id}`} className="text-gold-700 hover:underline normal-case">
-                          Détail du match
-                        </Link>
-                      )}
-                      <button
-                        className="text-slate-400 hover:text-slate-700 normal-case"
-                        onClick={() => {
-                          setEditNo(editNo === g.no ? null : g.no);
-                          setDraft({ a: g.scoreA?.toString() ?? "", b: g.scoreB?.toString() ?? "" });
-                        }}
-                      >
-                        {editNo === g.no ? "Annuler" : "Pointage"}
-                      </button>
-                    </span>
-                  </div>
-                  <Slot r={g.ra} score={g.scoreA} won={aWon} mine={isOurs(g.ra)} />
-                  <Slot r={g.rb} score={g.scoreB} won={bWon} mine={isOurs(g.rb)} />
-                  {editNo === g.no && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <input className="input w-16 text-sm" inputMode="numeric" placeholder="Haut" value={draft.a} onChange={(e) => setDraft({ ...draft, a: e.target.value.replace(/\D/g, "") })} />
-                      <input className="input w-16 text-sm" inputMode="numeric" placeholder="Bas" value={draft.b} onChange={(e) => setDraft({ ...draft, b: e.target.value.replace(/\D/g, "") })} />
-                      <button className="btn text-xs" onClick={() => saveScore(g.no)}>
-                        Enregistrer
-                      </button>
-                    </div>
-                  )}
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold text-white">Première ronde — jeudi 5 novembre</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {firstRound.map((g) => {
+            const ours = isOurs(g.ra) || isOurs(g.rb);
+            const aWon = g.played && g.scoreA! > g.scoreB!;
+            const bWon = g.played && g.scoreB! > g.scoreA!;
+            const gameRow = ours ? existingFor(g, isOurs(g.ra) ? g.rb.team : g.ra.team) : null;
+            return (
+              <div key={g.no} className={`card py-2 ${ours ? "ring-2 ring-gold-400" : ""}`}>
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  <span>
+                    #{g.no} · {hm(g.time)} · {g.rink}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {gameRow && (
+                      <Link href={`/resultats/${gameRow.id}`} className="text-gold-700 hover:underline normal-case">
+                        Détail du match
+                      </Link>
+                    )}
+                    <button className="text-slate-400 hover:text-slate-700 normal-case" onClick={() => openEdit(g.no)}>
+                      Pointage
+                    </button>
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                <Slot r={g.ra} score={g.scoreA} won={aWon} mine={isOurs(g.ra)} />
+                <Slot r={g.rb} score={g.scoreB} won={bWon} mine={isOurs(g.rb)} />
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold text-white">Tableau du tournoi</h2>
+        <p className="text-xs text-slate-400">Trait doré = gagnant, pointillé gris = perdant. Clique un match pour saisir ou corriger son pointage.</p>
+        <div className="rounded-2xl bg-black/40 p-3">
+          <TournamentBracket games={resolved} onEdit={openEdit} />
+        </div>
+      </section>
+
+      {editNo !== null && (() => {
+        const g = resolved.find((x) => x.no === editNo)!;
+        const nm = (r: ResolvedSlot) => (r.team ? teamDisplay(r.team).name : r.pending);
+        return (
+          <Modal onClose={() => setEditNo(null)}>
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-white">
+                Match #{g.no} — {format(parseISO(g.date), "EEEE d MMMM", { locale: fr })}, {hm(g.time)} · {g.rink}
+              </h2>
+              <div className="card space-y-3">
+                <label className="flex items-center gap-3">
+                  <span className="flex-1">{nm(g.ra)}</span>
+                  <input className="input w-20" inputMode="numeric" value={draft.a} onChange={(e) => setDraft({ ...draft, a: e.target.value.replace(/\D/g, "") })} />
+                </label>
+                <label className="flex items-center gap-3">
+                  <span className="flex-1">{nm(g.rb)}</span>
+                  <input className="input w-20" inputMode="numeric" value={draft.b} onChange={(e) => setDraft({ ...draft, b: e.target.value.replace(/\D/g, "") })} />
+                </label>
+                <p className="text-xs text-slate-500">Laisse les deux cases vides pour effacer le pointage.</p>
+                {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
+                <div className="flex gap-2">
+                  <button className="btn" onClick={() => saveScore(g.no)}>
+                    Enregistrer
+                  </button>
+                  <button className="btn-secondary" onClick={() => setEditNo(null)}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
       <p className="text-xs text-slate-500">
         {OUR_TEAM.toLowerCase().replace(/^./, (c) => c.toUpperCase())} est en doré. Les cases « Gagnant / Perdant #n » se remplissent toutes seules à mesure que les pointages sont saisis.
       </p>
