@@ -28,6 +28,10 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [zoom, setZoom] = useState(false);
+  /** Import du PDF du tournoi : pointages lus, en attente de confirmation. */
+  const [importing, setImporting] = useState(false);
+  const [parsed, setParsed] = useState<{ no: number; teamA: string | null; teamB: string | null; scoreA: number | null; scoreB: number | null }[] | null>(null);
+  const [applying, setApplying] = useState(false);
   const [editNo, setEditNo] = useState<number | null>(null);
   const [draft, setDraft] = useState({ a: "", b: "" });
 
@@ -108,6 +112,38 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
     setCreating(false);
   }
 
+  async function onPdf(file: File) {
+    setImporting(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/tournoi/extract", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Lecture impossible.");
+      setParsed(json.games);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lecture impossible.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function applyParsed() {
+    if (!parsed) return;
+    setApplying(true);
+    const rows = parsed
+      .filter((g) => g.scoreA !== null && g.scoreB !== null && g.scoreA !== g.scoreB)
+      .map((g) => ({ tournament: TOURNAMENT_SLUG, game_no: g.no, score_a: g.scoreA!, score_b: g.scoreB!, updated_at: new Date().toISOString() }));
+    if (rows.length > 0) {
+      const { error: e } = await supabase.from("tournament_results").upsert(rows, { onConflict: "tournament,game_no" });
+      if (e) setError(e.message);
+    }
+    setParsed(null);
+    setApplying(false);
+    await load();
+  }
+
   function openEdit(no: number) {
     const g = resolved.find((x) => x.no === no);
     setDraft({ a: g?.scoreA?.toString() ?? "", b: g?.scoreB?.toString() ?? "" });
@@ -165,9 +201,24 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
             Notre fiche dans le tournoi : {w} V – {l} D
           </p>
         </div>
-        <Link href="/calendrier" className="btn-dark">
-          ← Calendrier
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <label className={`btn cursor-pointer ${importing ? "opacity-60 pointer-events-none" : ""}`}>
+            {importing ? "Lecture du PDF…" : "Importer un PDF"}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPdf(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <Link href="/calendrier" className="btn-dark">
+            ← Calendrier
+          </Link>
+        </div>
       </div>
 
       {/* Prochain match : selon notre adversaire, d'après le tableau. */}
@@ -270,6 +321,65 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
           </div>
         )}
       </section>
+
+      {parsed && (() => {
+        const withScores = parsed.filter((g) => g.scoreA !== null && g.scoreB !== null);
+        const letters = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+        const rows = withScores.map((g) => {
+          const known = resolved.find((x) => x.no === g.no);
+          const nm = (r: ResolvedSlot | undefined, fromPdf: string | null) => (r?.team ? teamDisplay(r.team).name : fromPdf ?? r?.pending ?? "?");
+          // Équipe lue dans le PDF différente de celle que le tableau attendait : à vérifier.
+          const mismatch =
+            !!known &&
+            ((g.teamA && known.ra.team && !letters(g.teamA).includes(letters(known.ra.team).slice(0, 5))) ||
+              (g.teamB && known.rb.team && !letters(g.teamB).includes(letters(known.rb.team).slice(0, 5))));
+          const changed = known && (known.scoreA !== g.scoreA || known.scoreB !== g.scoreB);
+          return { g, a: nm(known?.ra, g.teamA), b: nm(known?.rb, g.teamB), mismatch: !!mismatch, changed: !!changed };
+        });
+        const toApply = rows.filter((r) => r.g.scoreA !== r.g.scoreB);
+        return (
+          <Modal onClose={() => setParsed(null)}>
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-white">Pointages lus dans le PDF</h2>
+              <div className="card space-y-2">
+                {rows.length === 0 ? (
+                  <p className="text-sm text-slate-600">
+                    Aucun pointage trouvé dans ce PDF ({parsed.length} matchs lus). S&apos;il contient bien des résultats, envoie-le-moi pour que j&apos;adapte la lecture.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-600">
+                      {toApply.length} pointage{toApply.length > 1 ? "s" : ""} à enregistrer ({rows.filter((r) => r.changed).length} nouveau{rows.filter((r) => r.changed).length > 1 ? "x ou modifiés" : " ou modifié"}).
+                    </p>
+                    <div className="max-h-[50vh] overflow-y-auto divide-y">
+                      {rows.map((r) => (
+                        <div key={r.g.no} className="flex items-center gap-2 py-1 text-sm">
+                          <span className="w-10 text-slate-400">#{r.g.no}</span>
+                          <span className="flex-1 truncate">
+                            {r.a} <b>{r.g.scoreA}</b> – <b>{r.g.scoreB}</b> {r.b}
+                          </span>
+                          {r.mismatch && <span className="text-xs font-bold text-amber-600">équipes à vérifier</span>}
+                          {!r.changed && <span className="text-xs text-slate-400">déjà saisi</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="flex gap-2 pt-1">
+                  {rows.length > 0 && (
+                    <button className="btn" onClick={applyParsed} disabled={applying}>
+                      {applying ? "Enregistrement…" : "Mettre à jour le tableau"}
+                    </button>
+                  )}
+                  <button className="btn-secondary" onClick={() => setParsed(null)}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {editNo !== null && (() => {
         const g = resolved.find((x) => x.no === editNo)!;

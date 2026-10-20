@@ -13,6 +13,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/advanced-stats/extract": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
     "/api/league-schedule/extract": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/api/tournoi/extract": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
   },
 };
 
