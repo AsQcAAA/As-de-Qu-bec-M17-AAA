@@ -969,9 +969,14 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                         value={a.reason ?? "blesse"}
                         onChange={(e) => updateAbsentReason(a.id, e.target.value as AbsenceReason)}
                       >
-                        {(isGameDay ? GAME_DAY_REASONS : PRACTICE_STATUS_REASONS).map((r) => (
+                        {/* Une absence d'un autre motif (école, maladie…) garde son libellé : sans cette
+                            option, le menu retombait sur « Blessé » alors que le joueur est absent pour l'école. */}
+                        {[
+                          ...(isGameDay ? GAME_DAY_REASONS : PRACTICE_STATUS_REASONS),
+                          ...(a.reason && !(isGameDay ? GAME_DAY_REASONS : PRACTICE_STATUS_REASONS).includes(a.reason as never) ? [a.reason] : []),
+                        ].map((r) => (
                           <option key={r} value={r}>
-                            {isGameDay ? GAME_MISSED_LABEL[r as "blesse" | "suspendu"] : ABSENCE_REASON_LABEL[r]}
+                            {isGameDay ? GAME_MISSED_LABEL[r as "blesse" | "suspendu"] ?? ABSENCE_REASON_LABEL[r as AbsenceReason] : ABSENCE_REASON_LABEL[r as AbsenceReason]}
                           </option>
                         ))}
                       </select>
