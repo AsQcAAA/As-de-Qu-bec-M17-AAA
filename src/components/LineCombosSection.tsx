@@ -216,7 +216,7 @@ export default function LineCombosSection({ games, players }: { games: Game[]; p
                         <div className="flex flex-wrap gap-1.5">
                           {c.uses
                             .slice()
-                            .sort((a, b) => a.game.game_date.localeCompare(b.game.game_date))
+                            .sort((a, b) => b.game.game_date.localeCompare(a.game.game_date))
                             .map(({ game }) => {
                               const opp = findTeamByOpponent(game.opponent);
                               const tag = isWin(game.result) ? "V" : isTie(game.result) ? "N" : game.result === "L" ? "D" : "DP";

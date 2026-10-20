@@ -227,9 +227,10 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 const played = leagueGames.filter(
                   (g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0)
                 );
-                const last = played.slice(-5);
+                // Le plus récent à gauche, le plus ancien à droite.
+                const last = played.slice(-5).reverse();
                 if (last.length === 0) {
-                  return (form.last5 ? form.last5.split("-") : []).map((r, i) => (
+                  return (form.last5 ? form.last5.split("-").reverse() : []).map((r, i) => (
                     <span key={i} className="w-6 text-center rounded text-xs font-black py-0.5 bg-slate-500 text-white">
                       {r}
                     </span>

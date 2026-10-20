@@ -179,7 +179,7 @@ export default function LeagueScheduleUpdateContent({ onClose, onApplied }: { on
                     <td className="py-1.5 pr-3">{r.wins}</td>
                     <td className="py-1.5 pr-3">{r.losses}</td>
                     <td className="py-1.5 pr-3">{r.ties}</td>
-                    <td className="py-1.5 font-mono">{last5(r) || "—"}</td>
+                    <td className="py-1.5 font-mono">{last5(r).split("-").reverse().join("-") || "—"}</td>
                   </tr>
                 ))}
               </tbody>
