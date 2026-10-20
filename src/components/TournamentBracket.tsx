@@ -54,18 +54,30 @@ function Row({ r, score, won }: { r: ResolvedSlot; score: number | null; won: bo
   );
 }
 
-export default function TournamentBracket({ games, onEdit }: { games: ResolvedGame[]; onEdit: (no: number) => void }) {
+export default function TournamentBracket({
+  games,
+  onEdit,
+  contain = false,
+}: {
+  games: ResolvedGame[];
+  onEdit: (no: number) => void;
+  /** Plein écran : le tableau entier est agrandi pour remplir l'espace (largeur ET hauteur), sans défilement. */
+  contain?: boolean;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / BRACKET_W));
+    const update = () => {
+      const byWidth = el.clientWidth / BRACKET_W;
+      setScale(contain ? Math.min(byWidth, el.clientHeight / BRACKET_H) : Math.min(1, byWidth));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [contain]);
 
   const bracket = games.filter((g) => g.no >= 12);
   const byNo = new Map(bracket.map((g) => [g.no, g]));
@@ -103,7 +115,12 @@ export default function TournamentBracket({ games, onEdit }: { games: ResolvedGa
   }
 
   return (
-    <div ref={wrapRef} className="w-full" style={{ height: BRACKET_H * scale }}>
+    <div
+      ref={wrapRef}
+      className={contain ? "flex h-full w-full items-center justify-center" : "w-full"}
+      style={contain ? undefined : { height: BRACKET_H * scale }}
+    >
+      <div style={contain ? { width: BRACKET_W * scale, height: BRACKET_H * scale, flexShrink: 0 } : undefined}>
       <div className="relative" style={{ width: BRACKET_W, height: BRACKET_H, transform: `scale(${scale})`, transformOrigin: "top left" }}>
         <svg className="absolute inset-0" width={BRACKET_W} height={BRACKET_H}>
           {edges.map((e) => (
@@ -135,6 +152,7 @@ export default function TournamentBracket({ games, onEdit }: { games: ResolvedGa
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );

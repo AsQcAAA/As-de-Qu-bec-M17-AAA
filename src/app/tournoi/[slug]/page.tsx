@@ -27,6 +27,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const [editNo, setEditNo] = useState<number | null>(null);
   const [draft, setDraft] = useState({ a: "", b: "" });
 
@@ -44,6 +45,13 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
   const resolved = useMemo(() => resolveTournament(results), [results]);
   const next = useMemo(() => nextOurGame(resolved), [resolved]);
@@ -235,9 +243,32 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
       <section className="space-y-2">
         <h2 className="text-lg font-bold text-white">Tableau du tournoi</h2>
         <p className="text-xs text-slate-400">Trait doré = gagnant, pointillé gris = perdant. Clique un match pour saisir ou corriger son pointage.</p>
-        <div className="rounded-2xl bg-black/40 p-3">
+        <div className="relative rounded-2xl bg-black/40 p-3">
+          <button
+            onClick={() => setZoom(true)}
+            title="Voir le tableau en plein écran"
+            aria-label="Agrandir le tableau"
+            className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-ink-900 shadow hover:bg-white"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="M15.5 15.5 21 21M10.5 8v5M8 10.5h5" />
+            </svg>
+          </button>
           <TournamentBracket games={resolved} onEdit={openEdit} />
         </div>
+        {zoom && (
+          <div className="fixed inset-0 z-50 bg-ink-900 p-3">
+            <button
+              onClick={() => setZoom(false)}
+              aria-label="Fermer"
+              className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-ink-900 shadow hover:bg-white"
+            >
+              ✕ Fermer
+            </button>
+            <TournamentBracket games={resolved} onEdit={openEdit} contain />
+          </div>
+        )}
       </section>
 
       {editNo !== null && (() => {
