@@ -62,6 +62,13 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   const searchParams = useSearchParams();
   const [view, setView] = useState<"tv" | "phone">(searchParams.get("vue") === "telephone" ? "phone" : "tv");
   const phone = view === "phone";
+  // Blocs à montrer : tout par défaut ; la page diffusée prend ?blocs=horaire,alignement,pp.
+  const blocsParam = searchParams.get("blocs");
+  const [blocks, setBlocks] = useState<{ horaire: boolean; alignement: boolean; pp: boolean }>(() => {
+    const on = blocsParam ? blocsParam.split(",") : null;
+    return { horaire: !on || on.includes("horaire"), alignement: !on || on.includes("alignement"), pp: !on || on.includes("pp") };
+  });
+  const blocsQuery = (["horaire", "alignement", "pp"] as const).filter((b) => blocks[b]);
   /** Version réduite (TV en paysage) : jamais en vue téléphone. */
   const compact = cast && !phone;
 
@@ -150,7 +157,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
   const byColor = (color: string) => units.filter((u) => u.color_group === color);
   const rosterUnit = (label: string) => units.find((u) => u.unit_label === label);
-  const hasRoster = POSITION_GROUPS.some((g) => (rosterUnit(g.unitLabel)?.player_ids.length ?? 0) > 0);
+  const hasRoster = blocks.alignement && POSITION_GROUPS.some((g) => (rosterUnit(g.unitLabel)?.player_ids.length ?? 0) > 0);
 
   function playerGroupColor(playerId: string, category: "F" | "D" | "G"): "gris" | "jaune" | null {
     if (category === "G") return null;
@@ -165,7 +172,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   for (const p of players) {
     if (p.jersey_number != null) ppNames[String(p.jersey_number)] = p.full_name.split(" ").pop() ?? "";
   }
-  const ppBlock = ppTv && (
+  const ppBlock = blocks.pp && ppTv && (
     <div className="mb-8">
       <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
       <div className={`grid gap-4 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
@@ -213,7 +220,17 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
               Vue téléphone (vertical)
             </button>
           </div>
-          <a href={`/diffusion/${date}${phone ? "?vue=telephone" : ""}`} target="_blank" rel="noreferrer" className="btn-secondary">
+          <div className="inline-flex items-center gap-3 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm font-bold text-slate-200">
+            <span className="text-xs uppercase tracking-widest text-slate-400">Blocs</span>
+            {([["horaire", "Horaire"], ["alignement", "Alignement"], ["pp", "PP"]] as const).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-1.5">
+                <input type="checkbox" checked={blocks[k]} onChange={(e) => setBlocks({ ...blocks, [k]: e.target.checked })} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <a
+            href={`/diffusion/${date}?${[phone ? "vue=telephone" : "", blocsQuery.length < 3 ? `blocs=${blocsQuery.join(",")}` : ""].filter(Boolean).join("&")}`} target="_blank" rel="noreferrer" className="btn-secondary">
             Ouvrir la page à diffuser
           </a>
         </div>
@@ -264,7 +281,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
         {/* Le rappel n'a pas d'heure : il sort de la liste chronologique pour
             son propre bloc, sous l'horaire. */}
-        {!game && (events.length > 0 || individualMeetings.length > 0) && (
+        {blocks.horaire && !game && (events.length > 0 || individualMeetings.length > 0) && (
           <div className="mb-8 space-y-1.5">
             {events.filter((e) => e.event_type !== "reminder").map((e) => (
               <div key={e.id}>
@@ -315,7 +332,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
         {/* Rappels de la journée : texte saisi tel quel, mis en évidence sous
             l'horaire — c'est la place que la télé a en réserve. */}
-        {!game && events.some((e) => e.event_type === "reminder") && (
+        {blocks.horaire && !game && events.some((e) => e.event_type === "reminder") && (
           <div className="mb-8 space-y-2">
             <div className="text-sm font-black uppercase tracking-widest text-red-400">📌 Rappels</div>
             {events
@@ -386,7 +403,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         </div>
 
         <div className={`grid gap-8 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
-          {COLORS.map((color) => {
+          {blocks.alignement && COLORS.map((color) => {
             const colorUnits = byColor(color);
             if (colorUnits.length === 0) return null;
             return (
@@ -428,7 +445,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
         {/* Sur la télé du vestiaire, annoncer une absence d'alignement n'apprend
             rien aux joueurs — on garde l'écran pour ce qui les concerne. */}
-        {!cast && !hasRoster && COLORS.every((c) => byColor(c).length === 0) && (
+        {!cast && blocks.alignement && !hasRoster && COLORS.every((c) => byColor(c).length === 0) && (
           <p className="text-slate-400">Aucun alignement pour cette journée.</p>
         )}
       </div>
