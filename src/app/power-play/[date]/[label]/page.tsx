@@ -187,30 +187,22 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
                 const extra = m.id !== "main" ? unit.extra.find((x) => x.id === m.id) : null;
                 return (
                   <div key={m.id} className="space-y-1">
-                    {extra && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          className="input text-sm"
-                          value={extra.title}
-                          onChange={(e) => saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, title: e.target.value } : x)))}
-                          aria-label="Nom du jeu"
-                        />
-                        <button
-                          className="shrink-0 text-xs text-red-400 hover:underline"
-                          onClick={() => window.confirm(`Supprimer « ${extra.title} » ?`) && saveExtras(unit.extra.filter((x) => x.id !== extra.id), true)}
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    )}
                     <FormationMap
                       kind={KIND[ph]}
-                      title={m.title}
+                      title={extra ? "" : m.title}
                       subtitle={HINT[ph]}
                       value={m.value}
                       onChange={(v) => (extra ? saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, map: v } : x))) : change(ph, v))}
                       markerColor={fill}
                     />
+                    {extra && (
+                      <button
+                        className="text-xs text-red-400 hover:underline"
+                        onClick={() => window.confirm("Supprimer ce jeu ?") && saveExtras(unit.extra.filter((x) => x.id !== extra.id), true)}
+                      >
+                        Supprimer ce jeu
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -243,7 +235,11 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
             <div key={ph} className="grid grid-cols-3 items-start gap-4" style={{ breakInside: "avoid" }}>
               {mapsOf(ph).map((m) => (
                 <section key={m.id} style={{ breakInside: "avoid" }}>
-                  <h2 className="mb-1 border-b-2 border-black pb-0.5 text-[10pt] font-black uppercase tracking-widest">{m.title}</h2>
+                  {m.id === "main" ? (
+                    <h2 className="mb-1 border-b-2 border-black pb-0.5 text-[10pt] font-black uppercase tracking-widest">{m.title}</h2>
+                  ) : (
+                    <div className="mb-1 border-b-2 border-black pb-0.5 text-[10pt]">&nbsp;</div>
+                  )}
                   <FormationStatic kind={KIND[ph]} value={m.value} names={names} markerColor={fill} />
                 </section>
               ))}
