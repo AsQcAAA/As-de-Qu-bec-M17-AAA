@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toPng } from "html-to-image";
@@ -56,6 +57,13 @@ function tvEventLabel(e: { event_type: ScheduleEvent["event_type"]; title: strin
 export default function TvDayBoard({ date, cast = false }: { date: string; cast?: boolean }) {
   const supabase = createClient();
   const captureRef = useRef<HTMLDivElement>(null);
+  // Deux présentations : « tv » (paysage, alignement à côté de l'horaire) et « phone »
+  // (une seule colonne verticale, lisible sur téléphone). La page diffusée prend ?vue=telephone.
+  const searchParams = useSearchParams();
+  const [view, setView] = useState<"tv" | "phone">(searchParams.get("vue") === "telephone" ? "phone" : "tv");
+  const phone = view === "phone";
+  /** Version réduite (TV en paysage) : jamais en vue téléphone. */
+  const compact = cast && !phone;
 
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -160,7 +168,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   const ppBlock = ppTv && (
     <div className="mb-8">
       <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
         {([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2], ["PP3", ppTv.pp3, PP_COLORS.pp3]] as const)
           .filter(([label, v]) => label !== "PP3" || v.markers.length > 0)
           .map(([label, v, c]) => (
@@ -197,8 +205,16 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
           <button onClick={exportImage} className="btn" disabled={exporting}>
             {exporting ? "Génération..." : "⬇ Exporter l'image du jour"}
           </button>
-          <a href={`/diffusion/${date}`} target="_blank" rel="noreferrer" className="btn-secondary">
-            📺 Ouvrir la page à diffuser
+          <div className="inline-flex overflow-hidden rounded-lg border border-white/20 text-sm font-bold">
+            <button onClick={() => setView("tv")} className={`px-3 py-2 ${!phone ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"}`}>
+              Vue TV
+            </button>
+            <button onClick={() => setView("phone")} className={`px-3 py-2 ${phone ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"}`}>
+              Vue téléphone (vertical)
+            </button>
+          </div>
+          <a href={`/diffusion/${date}${phone ? "?vue=telephone" : ""}`} target="_blank" rel="noreferrer" className="btn-secondary">
+            Ouvrir la page à diffuser
           </a>
         </div>
       )}
@@ -208,22 +224,24 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       <div
         ref={captureRef}
         className={
-          cast
-            ? "text-white px-8 py-6 w-full"
-            : "bg-ink-900 text-white p-10 max-w-5xl mx-auto"
+          phone
+            ? "bg-ink-900 text-white p-6 w-full max-w-md mx-auto"
+            : cast
+              ? "text-white px-8 py-6 w-full"
+              : "bg-ink-900 text-white p-10 max-w-5xl mx-auto"
         }
         // Le zoom réduit d'autant la largeur utile : à 2,8, un écran 1920 offre
         // ~685 px de mise en page. C'est parfait pour l'horaire seul, mais trop
         // serré dès qu'un alignement s'affiche à côté — on redescend alors à
         // 2,3 pour que les deux moitiés tiennent côte à côte ; les chandails
         // passent alors en version réduite.
-        style={cast ? { zoom: hasRoster ? 2.3 : 2.8 } : undefined}
+        style={compact ? { zoom: hasRoster ? 2.3 : 2.8 } : undefined}
       >
         {/* En diffusion avec alignement, l'écran se coupe en deux DÈS le haut :
             la date ouvre la colonne de gauche, l'alignement démarre à la même
             hauteur à droite plutôt que sous le trait de séparation. */}
-        <div className={cast && hasRoster ? "flex items-start gap-6" : ""}>
-        <div className={cast && hasRoster ? "w-1/2 min-w-0" : ""}>
+        <div className={compact && hasRoster ? "flex items-start gap-6" : ""}>
+        <div className={compact && hasRoster ? "w-1/2 min-w-0" : ""}>
         {/* Le nom de l'équipe passe SOUS la date : placé à droite, il sortait du
             cadre de l'image exportée sur les journées au titre long. */}
         <div className="border-b border-gold-500/40 pb-6 mb-6">
@@ -314,15 +332,15 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         </div>
 
         {hasRoster && (
-          <div className={cast && hasRoster ? "w-1/2 min-w-0" : "mb-8"}>
+          <div className={compact && hasRoster ? "w-1/2 min-w-0" : "mb-8"}>
             <div className="text-xl font-bold mb-3 text-gold-400">Alignement</div>
             {/* Attaquants à gauche (3 de front, comme à la construction),
                 défenseurs et gardiens à droite : sur une télé en paysage, tout
                 empiler donnait une colonne haute et étroite qui débordait.
                 À l'entraînement, les gardiens sautent : les deux y sont
                 toujours, l'information n'apprend rien aux joueurs. */}
-            <div className={cast ? "flex items-start gap-4" : "flex flex-wrap gap-8"}>
-              {[["F"], cast ? ["D", "G"] : ["D"], cast ? [] : ["G"]].map((categories, columnIndex) => {
+            <div className={phone ? "flex flex-col gap-5" : compact ? "flex items-start gap-4" : "flex flex-wrap gap-8"}>
+              {[["F"], compact ? ["D", "G"] : ["D"], compact ? [] : ["G"]].map((categories, columnIndex) => {
                 const groups = POSITION_GROUPS.filter(
                   (g) => categories.includes(g.category) && !(cast && !game && g.category === "G")
                 );
@@ -338,19 +356,19 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                         <div key={g.label}>
                           <div
                             className={`font-bold uppercase tracking-wide text-slate-300 mb-1.5 ${
-                              cast ? "text-[11px]" : "text-sm"
+                              compact ? "text-[11px]" : "text-sm"
                             }`}
                           >
                             {g.label}
                           </div>
-                          <div className={`grid ${cols} ${cast ? "gap-x-1.5 gap-y-2" : "gap-x-3 gap-y-4"} justify-items-center`}>
+                          <div className={`grid ${cols} ${compact ? "gap-x-1.5 gap-y-2" : "gap-x-3 gap-y-4"} justify-items-center`}>
                             {ids.map((id) => (
                               <JerseyDisplay
                                 key={id}
                                 player={players.find((pl) => pl.id === id) ?? null}
                                 ring={playerGroupColor(id, g.category) ?? undefined}
                                 expectedPosition={g.category}
-                                size={cast ? "sm" : "normal"}
+                                size={compact ? "sm" : "normal"}
                                 statusLabel={statusById.get(id)}
                               />
                             ))}
@@ -367,7 +385,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         )}
         </div>
 
-        <div className="grid grid-cols-2 gap-8">
+        <div className={`grid gap-8 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
           {COLORS.map((color) => {
             const colorUnits = byColor(color);
             if (colorUnits.length === 0) return null;
