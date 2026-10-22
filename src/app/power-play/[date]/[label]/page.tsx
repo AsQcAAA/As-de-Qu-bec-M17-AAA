@@ -138,7 +138,6 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           subtitle="Zone offensive, but en haut."
           value={unit.inzone}
           onChange={(v) => change(0, v)}
-          roster={roster}
           markerColor={fill}
         />
         <FormationMap
@@ -147,7 +146,6 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           subtitle="Sortie de zone, glace complète (notre zone en bas)."
           value={unit.breakout ?? { markers: [], note: "" }}
           onChange={(v) => change(1, v)}
-          roster={roster}
           markerColor={fill}
         />
         <FormationMap
@@ -156,7 +154,6 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           subtitle="Mise au jeu en zone offensive."
           value={unit.faceoff ?? { markers: [], note: "" }}
           onChange={(v) => change(2, v)}
-          roster={roster}
           markerColor={fill}
         />
       </div>
