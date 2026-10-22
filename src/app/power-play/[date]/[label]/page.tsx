@@ -41,6 +41,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   const supabase = createClient();
   const router = useRouter();
   const [unit, setUnit] = useState<PpUnit | null>(null);
+  /** Toutes les unités, pour copier un jeu d'une autre. */
+  const [allUnits, setAllUnits] = useState<PpUnit[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -53,6 +55,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
         loadUnits(supabase),
         supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
       ]);
+      setAllUnits(units);
       const found = units.find((u) => u.date === date && u.label === label) ?? null;
       if (found) {
         // Les 5 joueurs de l'in-zone sont posés d'office dans le breakout et le faceoff, la première fois.
@@ -104,6 +107,35 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     const count = unit.extra.filter((x) => x.phase === phase).length + 2;
     const map: FormationValue = phase === 0 ? { markers: unit.inzone.markers.map((m) => ({ ...m, id: newExtraId() })), note: "" } : seedPhase(unit.inzone, STARTS[phase]!);
     saveExtras([...unit.extra, { id: newExtraId(), phase, title: `${PHASE_SHORT[phase]} ${count}`, map }], true);
+  }
+
+  /** Jeux d'une phase dans les autres unités (du plus récent au plus ancien) : source possible d'une copie. */
+  function copySources(phase: PpPhase) {
+    const out: { id: string; text: string; map: FormationValue }[] = [];
+    const sorted = allUnits.filter((u) => !(unit && u.key === unit.key)).sort((a, b) => b.date.localeCompare(a.date) || a.label.localeCompare(b.label));
+    for (const u of sorted) {
+      const main = phase === 0 ? u.inzone : phase === 1 ? u.breakout : u.faceoff;
+      const head = `${u.label} — ${format(parseISO(u.date), "d MMM yyyy", { locale: fr })}`;
+      const has = (m: FormationValue | null) => !!m && (m.markers.length > 0 || (m.arrows?.length ?? 0) > 0);
+      if (main && has(main)) out.push({ id: `${u.key}-main`, text: head, map: main });
+      u.extra
+        .filter((x) => x.phase === phase && has(x.map))
+        .forEach((x, i) => out.push({ id: `${u.key}-${x.id}`, text: `${head} (jeu ${i + 2})`, map: x.map }));
+    }
+    return out;
+  }
+
+  /** Copie un jeu d'une autre unité comme nouvelle glace de cette phase (copie indépendante). */
+  function copyFrom(phase: PpPhase, sourceId: string) {
+    if (!unit) return;
+    const src = copySources(phase).find((x) => x.id === sourceId);
+    if (!src) return;
+    const map: FormationValue = {
+      ...src.map,
+      markers: src.map.markers.map((m) => ({ ...m, id: newExtraId() })),
+      arrows: src.map.arrows?.map((a) => ({ ...a, id: newExtraId() })),
+    };
+    saveExtras([...unit.extra, { id: newExtraId(), phase, title: "", map }], true);
   }
 
   async function remove() {
@@ -178,9 +210,26 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           <section key={ph} className="space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-lg font-bold text-white">{PHASE_NAME[ph]}</h2>
-              <button className="btn-secondary text-sm" onClick={() => addExtra(ph)}>
-                + Ajouter un {PHASE_NAME[ph]}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {copySources(ph).length > 0 && (
+                  <select
+                    className="input w-auto text-sm"
+                    value=""
+                    onChange={(e) => e.target.value && copyFrom(ph, e.target.value)}
+                    aria-label={`Copier un ${PHASE_NAME[ph]} d'une autre unité`}
+                  >
+                    <option value="">Copier d&apos;une autre unité…</option>
+                    {copySources(ph).map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.text}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button className="btn-secondary text-sm" onClick={() => addExtra(ph)}>
+                  + Ajouter un {PHASE_NAME[ph]}
+                </button>
+              </div>
             </div>
             <div className="grid gap-4 lg:grid-cols-3 items-start">
               {mapsOf(ph).map((m) => {
