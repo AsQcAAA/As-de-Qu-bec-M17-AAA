@@ -143,7 +143,13 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     if (!captureRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await toPng(captureRef.current, { pixelRatio: 2, backgroundColor: "#0d0c0c" });
+      const dataUrl = await toPng(captureRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#0d0c0c",
+        // « mx-auto » décalait le contenu dans l'image exportée (marges automatiques recalculées
+        // hors page) : on les annule sur la copie capturée.
+        style: { margin: "0" },
+      });
       const link = document.createElement("a");
       link.download = `as-quebec-m17-${date}.png`;
       link.href = dataUrl;
