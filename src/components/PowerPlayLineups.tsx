@@ -7,7 +7,7 @@ import type { Lineup } from "@/lib/types";
 
 /** Glace vide au départ : les « X » vides des anciennes versions sont retirés, seuls les joueurs posés restent. */
 /** Chandails de pratique : une unité = une couleur, donc les joueurs ensemble ont le même chandail. */
-export const PP_COLORS = { pp1: { label: "Gris", fill: "#94a3b8" }, pp2: { label: "Jaune", fill: "#fdca37" } } as const;
+export const PP_COLORS = { pp1: { label: "Gris", fill: "#94a3b8" }, pp2: { label: "Jaune", fill: "#fdca37" }, pp3: { label: "Bleu", fill: "#3b82f6" } } as const;
 
 const clean = (v?: FormationValue | null): FormationValue => ({
   ...(v ?? { note: "" }),
@@ -31,11 +31,14 @@ export default function PowerPlayLineups({
   const supabase = createClient();
   const [pp1, setPp1] = useState<FormationValue>(() => clean(lineup?.pp1_map));
   const [pp2, setPp2] = useState<FormationValue>(() => clean(lineup?.pp2_map));
+  const [pp3, setPp3] = useState<FormationValue>(() => clean(lineup?.pp3_map));
+  /** 3e unité (bleu) : optionnelle, affichée sur demande ou dès qu'elle contient des joueurs. */
+  const [showPp3, setShowPp3] = useState<boolean>(() => clean(lineup?.pp3_map).markers.length > 0);
   const [showTv, setShowTv] = useState<boolean>(lineup?.show_pp_tv ?? false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  function save(key: "pp1_map" | "pp2_map", value: FormationValue) {
-    (key === "pp1_map" ? setPp1 : setPp2)(value);
+  function save(key: "pp1_map" | "pp2_map" | "pp3_map", value: FormationValue) {
+    ({ pp1_map: setPp1, pp2_map: setPp2, pp3_map: setPp3 })[key](value);
     clearTimeout(timers.current[key]);
     timers.current[key] = setTimeout(async () => {
       const l = lineup ?? (await ensureLineup());
@@ -79,7 +82,34 @@ export default function PowerPlayLineups({
           roster={roster}
         />
       </div>
+      {showPp3 && (
+        <div className="card">
+          <FormationMap
+            kind="pp"
+            title={`Power Play 3 — chandail ${PP_COLORS.pp3.label.toLowerCase()}`}
+            markerColor={PP_COLORS.pp3.fill}
+            subtitle="Troisième unité — zone offensive, but en haut."
+            value={pp3}
+            onChange={(v) => save("pp3_map", v)}
+            roster={roster}
+          />
+          <button
+            className="mt-2 text-xs text-red-600 hover:underline"
+            onClick={() => {
+              save("pp3_map", { markers: [], note: "" });
+              setShowPp3(false);
+            }}
+          >
+            Retirer le PP3
+          </button>
+        </div>
+      )}
     </div>
+    {!showPp3 && (
+      <button className="btn-secondary" onClick={() => setShowPp3(true)}>
+        + Ajouter un 3e PP (bleu)
+      </button>
+    )}
     </div>
   );
 }

@@ -105,6 +105,7 @@ export interface Lineup {
   show_pp_tv?: boolean;
   pp1_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   pp2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  pp3_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
 }
 
 export interface LineupUnit {

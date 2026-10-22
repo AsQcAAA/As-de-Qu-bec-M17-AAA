@@ -68,7 +68,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   const [individualMeetings, setIndividualMeetings] = useState<Player[]>([]);
   const [exporting, setExporting] = useState(false);
   /** Power plays à afficher sur la TV (choisis dans l'alignement du jour). */
-  const [ppTv, setPpTv] = useState<{ pp1: FormationValue; pp2: FormationValue } | null>(null);
+  const [ppTv, setPpTv] = useState<{ pp1: FormationValue; pp2: FormationValue; pp3: FormationValue } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -102,10 +102,11 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       setGame(gm ?? null);
       const l: Lineup | undefined = lineups?.[0];
       setPpTv(
-        l?.show_pp_tv && ((l.pp1_map?.markers.length ?? 0) > 0 || (l.pp2_map?.markers.length ?? 0) > 0)
+        l?.show_pp_tv && ((l.pp1_map?.markers.length ?? 0) > 0 || (l.pp2_map?.markers.length ?? 0) > 0 || (l.pp3_map?.markers.length ?? 0) > 0)
           ? {
               pp1: l.pp1_map ?? { markers: [], note: "" },
               pp2: l.pp2_map ?? { markers: [], note: "" },
+              pp3: l.pp3_map ?? { markers: [], note: "" },
             }
           : null
       );
@@ -160,7 +161,9 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     <div className="mb-8">
       <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
       <div className="grid grid-cols-2 gap-4">
-        {([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2]] as const).map(([label, v, c]) => (
+        {([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2], ["PP3", ppTv.pp3, PP_COLORS.pp3]] as const)
+          .filter(([label, v]) => label !== "PP3" || v.markers.length > 0)
+          .map(([label, v, c]) => (
           <div key={label}>
             <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-300">{label} — {c.label}</div>
             <div className="rounded-lg overflow-hidden">
