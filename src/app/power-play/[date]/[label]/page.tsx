@@ -5,16 +5,35 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import { createClient } from "@/lib/supabase/client";
 import { toPng } from "html-to-image";
+import { createClient } from "@/lib/supabase/client";
 import FormationMap, { FormationStatic, type FormationValue } from "@/components/FormationMap";
-import { printWithOrientation } from "@/lib/print";
 import { PP_COLORS } from "@/components/PowerPlayLineups";
+import { printWithOrientation } from "@/lib/print";
 import { lastName } from "@/lib/players";
-import { BO_START, FO_START, PP_COLOR_LABEL, loadUnits, persistPhase, seedPhase, type PpColor, type PpPhase, type PpUnit } from "@/lib/ppUnits";
+import {
+  BO_START,
+  FO_START,
+  PHASE_NAME,
+  PHASE_SHORT,
+  PP_COLOR_LABEL,
+  loadUnits,
+  newExtraId,
+  persistExtra,
+  persistPhase,
+  seedPhase,
+  type PpColor,
+  type PpExtra,
+  type PpPhase,
+  type PpUnit,
+} from "@/lib/ppUnits";
 import type { Player } from "@/lib/types";
 
 const COLOR_FILL: Record<PpColor, string> = { gris: PP_COLORS.pp1.fill, jaune: PP_COLORS.pp2.fill, bleu: PP_COLORS.pp3.fill };
+const KIND = ["pp", "bo", "fo"] as const;
+const HINT = ["Zone offensive, but en haut.", "Sortie de zone, glace complète (notre zone en bas).", "Mise au jeu en zone offensive."];
+const STARTS: ([number, number][] | null)[] = [null, BO_START, FO_START];
+const PHASES: PpPhase[] = [0, 1, 2];
 
 export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: string; label: string }> }) {
   const { date, label: rawLabel } = use(params);
@@ -24,7 +43,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   const [unit, setUnit] = useState<PpUnit | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
-  const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const sheetRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -56,8 +75,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, label]);
 
-  const roster = useMemo(
-    () => players.filter((p) => p.jersey_number != null).map((p) => ({ number: String(p.jersey_number), name: lastName(p.full_name) })),
+  const names = useMemo(
+    () => Object.fromEntries(players.filter((p) => p.jersey_number != null).map((p) => [String(p.jersey_number), lastName(p.full_name)])),
     [players]
   );
 
@@ -65,8 +84,32 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     if (!unit) return;
     const next = { ...unit, ...(phase === 0 ? { inzone: value } : phase === 1 ? { breakout: value } : { faceoff: value }) };
     setUnit(next);
-    clearTimeout(timers.current[phase]);
-    timers.current[phase] = setTimeout(() => persistPhase(supabase, next, phase, value), 400);
+    const k = `main-${phase}`;
+    clearTimeout(timers.current[k]);
+    timers.current[k] = setTimeout(() => persistPhase(supabase, next, phase, value), 400);
+  }
+
+  function saveExtras(extra: PpExtra[], immediate = false) {
+    if (!unit) return;
+    const next = { ...unit, extra };
+    setUnit(next);
+    clearTimeout(timers.current.extra);
+    if (immediate) persistExtra(supabase, next, extra);
+    else timers.current.extra = setTimeout(() => persistExtra(supabase, next, extra), 400);
+  }
+
+  /** Nouvelle glace de la même phase : mêmes 5 joueurs aux positions de départ, jeu à redessiner. */
+  function addExtra(phase: PpPhase) {
+    if (!unit) return;
+    const count = unit.extra.filter((x) => x.phase === phase).length + 2;
+    const map: FormationValue = phase === 0 ? { markers: unit.inzone.markers.map((m) => ({ ...m, id: newExtraId() })), note: "" } : seedPhase(unit.inzone, STARTS[phase]!);
+    saveExtras([...unit.extra, { id: newExtraId(), phase, title: `${PHASE_SHORT[phase]} ${count}`, map }], true);
+  }
+
+  async function remove() {
+    if (!unit?.unitId || !window.confirm(`Supprimer l'unité « ${unit.label} » du ${unit.date} ? Tous ses jeux seront perdus.`)) return;
+    await supabase.from("pp_units").delete().eq("id", unit.unitId);
+    router.push("/power-play");
   }
 
   async function exportPng() {
@@ -83,12 +126,6 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     }
   }
 
-  async function remove() {
-    if (!unit?.unitId || !window.confirm(`Supprimer l'unité « ${unit.label} » du ${unit.date} ? Ses trois phases seront perdues.`)) return;
-    await supabase.from("pp_units").delete().eq("id", unit.unitId);
-    router.push("/power-play");
-  }
-
   if (loading) return <p className="text-slate-300">Chargement...</p>;
   if (!unit)
     return (
@@ -101,92 +138,119 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     );
 
   const fill = unit.color ? COLOR_FILL[unit.color] : undefined;
-  const names = Object.fromEntries(roster.map((r) => [r.number, r.name]));
+  const mainOf = (ph: PpPhase) => (ph === 0 ? unit.inzone : ph === 1 ? (unit.breakout ?? { markers: [], note: "" }) : (unit.faceoff ?? { markers: [], note: "" }));
+  /** Toutes les glaces d'une phase : le jeu principal, puis les supplémentaires. */
+  const mapsOf = (ph: PpPhase) => [
+    { id: "main", title: PHASE_NAME[ph] as string, value: mainOf(ph) },
+    ...unit.extra.filter((x) => x.phase === ph).map((x) => ({ id: x.id, title: x.title, value: x.map })),
+  ];
+
   return (
     <>
-    <div className="space-y-5 print:hidden">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {unit.label}
-            {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
-          </h1>
-          <p className="text-slate-400 text-sm capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {unit.fromLineup && (
-            <Link href={`/jour/${unit.date}/alignement`} className="btn-secondary">
-              Alignement du jour
+      <div className="space-y-6 print:hidden">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {unit.label}
+              {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
+            </h1>
+            <p className="text-slate-400 text-sm capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {unit.fromLineup && (
+              <Link href={`/jour/${unit.date}/alignement`} className="btn-secondary">
+                Alignement du jour
+              </Link>
+            )}
+            <button className="btn" onClick={() => printWithOrientation("portrait", "8mm")}>
+              Imprimer / PDF
+            </button>
+            <button className="btn-secondary" onClick={exportPng} disabled={exporting}>
+              {exporting ? "Génération..." : "Exporter en image"}
+            </button>
+            <Link href="/power-play" className="btn-dark">
+              ← Power Play
             </Link>
-          )}
-          <button className="btn" onClick={() => printWithOrientation("portrait", "8mm")}>
-            Imprimer / PDF
-          </button>
-          <button className="btn-secondary" onClick={exportPng} disabled={exporting}>
-            {exporting ? "Génération..." : "Exporter en image"}
-          </button>
-          <Link href="/power-play" className="btn-dark">
-            ← Power Play
-          </Link>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr] items-start">
-        <FormationMap
-          kind="pp"
-          title="In-zone"
-          subtitle="Zone offensive, but en haut."
-          value={unit.inzone}
-          onChange={(v) => change(0, v)}
-          markerColor={fill}
-        />
-        <FormationMap
-          kind="bo"
-          title="Breakout"
-          subtitle="Sortie de zone, glace complète (notre zone en bas)."
-          value={unit.breakout ?? { markers: [], note: "" }}
-          onChange={(v) => change(1, v)}
-          markerColor={fill}
-        />
-        <FormationMap
-          kind="fo"
-          title="Faceoff"
-          subtitle="Mise au jeu en zone offensive."
-          value={unit.faceoff ?? { markers: [], note: "" }}
-          onChange={(v) => change(2, v)}
-          markerColor={fill}
-        />
-      </div>
-
-      {!unit.fromLineup && unit.unitId && (
-        <button className="text-xs text-red-400 hover:underline" onClick={remove}>
-          Supprimer cette unité
-        </button>
-      )}
-    </div>
-
-    {/* Feuille exportable / imprimable : les trois phases côte à côte, noms des joueurs sous les ronds.
-        Hors écran à l'écran (sert à l'export image), visible seulement à l'impression. */}
-    <div ref={sheetRef} className="fixed -left-[9999px] top-0 w-[1100px] bg-white p-6 text-black print:static print:left-0 print:w-auto print:p-0">
-      <header className="mb-3 flex items-end justify-between border-b-4 border-black pb-2">
-        <div>
-          <h1 className="text-[20pt] font-black uppercase leading-none">
-            {unit.label}
-            {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
-          </h1>
-          <p className="text-[12pt] font-bold capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
-        </div>
-        <div className="text-right text-[9pt] font-bold">As de Québec M17 AAA — Power Play</div>
-      </header>
-      <div className="grid grid-cols-3 items-start gap-4">
-        {([["In-zone", "pp", unit.inzone], ["Breakout", "bo", unit.breakout], ["Faceoff", "fo", unit.faceoff]] as const).map(([title, kind, v]) => (
-          <section key={title} style={{ breakInside: "avoid" }}>
-            <h2 className="mb-1 border-b-2 border-black pb-0.5 text-[10pt] font-black uppercase tracking-widest">{title}</h2>
-            <FormationStatic kind={kind} value={v ?? { markers: [], note: "" }} names={names} markerColor={fill} />
+        {PHASES.map((ph) => (
+          <section key={ph} className="space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-lg font-bold text-white">{PHASE_NAME[ph]}</h2>
+              <button className="btn-secondary text-sm" onClick={() => addExtra(ph)}>
+                + Ajouter un {PHASE_NAME[ph]}
+              </button>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3 items-start">
+              {mapsOf(ph).map((m) => {
+                const extra = m.id !== "main" ? unit.extra.find((x) => x.id === m.id) : null;
+                return (
+                  <div key={m.id} className="space-y-1">
+                    {extra && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="input text-sm"
+                          value={extra.title}
+                          onChange={(e) => saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, title: e.target.value } : x)))}
+                          aria-label="Nom du jeu"
+                        />
+                        <button
+                          className="shrink-0 text-xs text-red-400 hover:underline"
+                          onClick={() => window.confirm(`Supprimer « ${extra.title} » ?`) && saveExtras(unit.extra.filter((x) => x.id !== extra.id), true)}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                    <FormationMap
+                      kind={KIND[ph]}
+                      title={m.title}
+                      subtitle={HINT[ph]}
+                      value={m.value}
+                      onChange={(v) => (extra ? saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, map: v } : x))) : change(ph, v))}
+                      markerColor={fill}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </section>
         ))}
+
+        {!unit.fromLineup && unit.unitId && (
+          <button className="text-xs text-red-400 hover:underline" onClick={remove}>
+            Supprimer cette unité
+          </button>
+        )}
       </div>
-    </div>
+
+      {/* Feuille exportable / imprimable : toutes les glaces, par phase, noms des joueurs sous les ronds.
+          Hors écran à l'écran (sert à l'export image), visible seulement à l'impression. */}
+      <div ref={sheetRef} className="fixed -left-[9999px] top-0 w-[1100px] bg-white p-6 text-black print:static print:left-0 print:w-auto print:p-0">
+        <header className="mb-3 flex items-end justify-between border-b-4 border-black pb-2">
+          <div>
+            <h1 className="text-[20pt] font-black uppercase leading-none">
+              {unit.label}
+              {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
+            </h1>
+            <p className="text-[12pt] font-bold capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
+          </div>
+          <div className="text-right text-[9pt] font-bold">As de Québec M17 AAA — Power Play</div>
+        </header>
+        <div className="space-y-4">
+          {PHASES.map((ph) => (
+            <div key={ph} className="grid grid-cols-3 items-start gap-4" style={{ breakInside: "avoid" }}>
+              {mapsOf(ph).map((m) => (
+                <section key={m.id} style={{ breakInside: "avoid" }}>
+                  <h2 className="mb-1 border-b-2 border-black pb-0.5 text-[10pt] font-black uppercase tracking-widest">{m.title}</h2>
+                  <FormationStatic kind={KIND[ph]} value={m.value} names={names} markerColor={fill} />
+                </section>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }

@@ -17,6 +17,14 @@ export const FO_START: [number, number][] = [[41, 70], [12, 58], [72, 66], [30, 
 const rid = () => Math.random().toString(36).slice(2, 9);
 export const emptyMap = (): FormationValue => ({ markers: [], note: "" });
 
+/** Glace supplémentaire d'une phase : même phase, jeu différent. */
+export interface PpExtra {
+  id: string;
+  phase: PpPhase;
+  title: string;
+  map: FormationValue;
+}
+
 export interface PpUnit {
   key: string;
   date: string;
@@ -25,6 +33,7 @@ export interface PpUnit {
   inzone: FormationValue;
   breakout: FormationValue | null;
   faceoff: FormationValue | null;
+  extra: PpExtra[];
   /** « true » : l'in-zone vient de l'alignement du jour (modifié là-bas aussi). */
   fromLineup: boolean;
   unitId?: string;
@@ -49,7 +58,7 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
       const markers = (m?.markers ?? []).filter((x) => x.number !== "");
       if (m && markers.length > 0) {
         const key = `${l.lineup_date}|${label}`;
-        map.set(key, { key, date: l.lineup_date as string, label, color: def.color, inzone: { ...m, markers }, breakout: null, faceoff: null, fromLineup: true });
+        map.set(key, { key, date: l.lineup_date as string, label, color: def.color, inzone: { ...m, markers }, breakout: null, faceoff: null, extra: [], fromLineup: true });
       }
     }
   }
@@ -64,6 +73,7 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
       inzone: prev ? prev.inzone : ((u.map as FormationValue) ?? emptyMap()),
       breakout: (u.bo_map as FormationValue | null) ?? null,
       faceoff: (u.fo_map as FormationValue | null) ?? null,
+      extra: ((u.extra as PpExtra[] | null) ?? []).filter((x) => x && x.id),
       fromLineup: !!prev,
       unitId: u.id as string,
     });
@@ -82,3 +92,12 @@ export async function persistPhase(supabase: SupabaseClient, u: PpUnit, phase: P
 }
 
 export const unitHref = (u: { date: string; label: string }) => `/power-play/${u.date}/${encodeURIComponent(u.label)}`;
+
+/** Enregistre la liste des glaces supplémentaires d'une unité. */
+export async function persistExtra(supabase: SupabaseClient, u: PpUnit, extra: PpExtra[]) {
+  await supabase.from("pp_units").upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", extra }, { onConflict: "unit_date,label" });
+}
+
+export const newExtraId = rid;
+export const PHASE_NAME = ["In-zone", "Breakout", "Faceoff"] as const;
+export const PHASE_SHORT = ["IZ", "BO", "FO"] as const;
