@@ -7,77 +7,98 @@ import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import FormationMap, { FormationStatic, type FormationValue } from "@/components/FormationMap";
 import { PP_COLORS } from "@/components/PowerPlayLineups";
+import Modal from "@/components/Modal";
 import { lastName } from "@/lib/players";
 import type { Player } from "@/lib/types";
 
-type Kind = "inzone" | "breakout" | "faceoff";
 type Color = "gris" | "jaune" | "bleu";
+type Phase = 0 | 1 | 2; // 0 = en zone, 1 = breakout, 2 = faceoff
 
-const KIND_LABEL: Record<Kind, string> = { inzone: "In-zone", breakout: "Breakout", faceoff: "Faceoff" };
 const COLOR_FILL: Record<Color, string> = { gris: PP_COLORS.pp1.fill, jaune: PP_COLORS.pp2.fill, bleu: PP_COLORS.pp3.fill };
 const COLOR_LABEL: Record<Color, string> = { gris: "Gris", jaune: "Jaune", bleu: "Bleu" };
-const FORMATION_KIND: Record<Kind, "pp" | "bo" | "fo"> = { inzone: "pp", breakout: "bo", faceoff: "fo" };
-const empty = (): FormationValue => ({ markers: [], note: "" });
+const LINEUP_KEY: Record<string, { col: "pp1_map" | "pp2_map" | "pp3_map"; color: Color }> = {
+  PP1: { col: "pp1_map", color: "gris" },
+  PP2: { col: "pp2_map", color: "jaune" },
+  PP3: { col: "pp3_map", color: "bleu" },
+};
+const PHASE_LABELS = ["In-zone", "Breakout", "Faceoff"];
+const PHASE_KIND = ["pp", "bo", "fo"] as const;
+const PHASE_HINT = [
+  "Zone offensive, but en haut.",
+  "Sortie de zone, glace complète (notre zone en bas). Les 5 joueurs de l'in-zone sont déjà posés : déplace-les.",
+  "Mise au jeu en zone offensive. Les 5 joueurs de l'in-zone sont déjà posés : déplace-les.",
+];
+// Positions de départ des 5 joueurs pour les autres phases (à déplacer ensuite).
+const BO_START: [number, number][] = [[58, 350], [112, 350], [24, 296], [146, 296], [85, 262]];
+const FO_START: [number, number][] = [[41, 70], [12, 58], [72, 66], [30, 104], [60, 104]];
+const rid = () => Math.random().toString(36).slice(2, 9);
+const emptyMap = (): FormationValue => ({ markers: [], note: "" });
 
-interface Entry {
+interface Unit {
   key: string;
   date: string;
   label: string;
-  kind: Kind;
   color: Color | null;
-  map: FormationValue;
-  /** « unit » = créée ici (modifiable) ; « lineup » = saisie dans l'alignement du jour (lecture, lien vers le jour). */
-  source: "unit" | "lineup";
-  id?: string;
+  inzone: FormationValue;
+  breakout: FormationValue | null;
+  faceoff: FormationValue | null;
+  /** « lineup » : l'in-zone vient de l'alignement du jour (modifié là-bas aussi) ; « unit » : créée ici. */
+  fromLineup: boolean;
+  unitId?: string;
+}
+
+/** Les mêmes joueurs que l'in-zone, posés aux positions de départ de la phase. */
+function seedPhase(inzone: FormationValue, starts: [number, number][]): FormationValue {
+  const numbers = inzone.markers.filter((m) => m.number !== "").map((m) => m.number);
+  return { note: "", markers: numbers.slice(0, 5).map((number, i) => ({ id: rid(), number, x: starts[i][0], y: starts[i][1] })) };
 }
 
 export default function PowerPlayPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [units, setUnits] = useState<Entry[]>([]);
-  const [fromLineups, setFromLineups] = useState<Entry[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [filter, setFilter] = useState<"all" | Kind>("all");
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<{ date: string; label: string; kind: Kind; color: Color | "" }>({
-    date: format(new Date(), "yyyy-MM-dd"),
-    label: "",
-    kind: "inzone",
-    color: "",
-  });
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>(0);
+  const [form, setForm] = useState<{ date: string; label: string; color: Color | "" }>({ date: format(new Date(), "yyyy-MM-dd"), label: "", color: "" });
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   async function load() {
     const [{ data: us, error: e1 }, { data: lus }, { data: pls }] = await Promise.all([
-      supabase.from("pp_units").select("*").order("unit_date", { ascending: false }).order("created_at", { ascending: true }),
-      supabase.from("lineups").select("lineup_date, pp1_map, pp2_map, pp3_map").order("lineup_date", { ascending: false }),
+      supabase.from("pp_units").select("*"),
+      supabase.from("lineups").select("lineup_date, pp1_map, pp2_map, pp3_map"),
       supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
     ]);
-    if (e1) setError("L'onglet n'est pas encore prêt (migration 051 à exécuter).");
-    setUnits(
-      (us ?? []).map((u) => ({
-        key: `u-${u.id}`,
-        id: u.id as string,
-        date: u.unit_date as string,
-        label: u.label as string,
-        kind: u.kind as Kind,
-        color: (u.color as Color | null) ?? null,
-        map: (u.map as FormationValue) ?? empty(),
-        source: "unit" as const,
-      }))
-    );
-    const fl: Entry[] = [];
+    if (e1) setError("L'onglet n'est pas prêt (migration 051 puis 052 à exécuter).");
+    const map = new Map<string, Unit>();
     for (const l of lus ?? []) {
-      ([["pp1_map", "PP1", "gris"], ["pp2_map", "PP2", "jaune"], ["pp3_map", "PP3", "bleu"]] as const).forEach(([k, label, color]) => {
-        const m = (l as Record<string, FormationValue | null>)[k];
+      for (const [label, def] of Object.entries(LINEUP_KEY)) {
+        const m = (l as Record<string, FormationValue | null>)[def.col];
         const markers = (m?.markers ?? []).filter((x) => x.number !== "");
         if (m && markers.length > 0) {
-          fl.push({ key: `l-${l.lineup_date}-${k}`, date: l.lineup_date as string, label, kind: "inzone", color, map: { ...m, markers }, source: "lineup" });
+          const key = `${l.lineup_date}|${label}`;
+          map.set(key, { key, date: l.lineup_date as string, label, color: def.color, inzone: { ...m, markers }, breakout: null, faceoff: null, fromLineup: true });
         }
+      }
+    }
+    for (const u of us ?? []) {
+      const key = `${u.unit_date}|${u.label}`;
+      const prev = map.get(key);
+      map.set(key, {
+        key,
+        date: u.unit_date as string,
+        label: u.label as string,
+        color: (u.color as Color | null) ?? prev?.color ?? null,
+        inzone: prev ? prev.inzone : ((u.map as FormationValue) ?? emptyMap()),
+        breakout: (u.bo_map as FormationValue | null) ?? null,
+        faceoff: (u.fo_map as FormationValue | null) ?? null,
+        fromLineup: !!prev,
+        unitId: u.id as string,
       });
     }
-    setFromLineups(fl);
+    setUnits([...map.values()]);
     setPlayers((pls ?? []) as Player[]);
     setLoading(false);
   }
@@ -92,16 +113,23 @@ export default function PowerPlayPage() {
   );
   const names = useMemo(() => Object.fromEntries(roster.map((r) => [r.number, r.name])), [roster]);
 
+  const byDate = useMemo(() => {
+    const m = new Map<string, Unit[]>();
+    for (const u of units) m.set(u.date, [...(m.get(u.date) ?? []), u]);
+    for (const list of m.values()) list.sort((a, b) => a.label.localeCompare(b.label));
+    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [units]);
+
+  const open = units.find((u) => u.key === openKey) ?? null;
+
   async function addUnit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const { error: err } = await supabase.from("pp_units").insert({
-      unit_date: form.date,
-      label: form.label.trim() || KIND_LABEL[form.kind],
-      kind: form.kind,
-      color: form.color || null,
-      map: empty(),
-    });
+    const label = form.label.trim() || "Unité";
+    const { error: err } = await supabase.from("pp_units").upsert(
+      { unit_date: form.date, label, color: form.color || null, kind: "inzone", map: emptyMap() },
+      { onConflict: "unit_date,label", ignoreDuplicates: true }
+    );
     if (err) {
       setError(err.message);
       return;
@@ -111,26 +139,44 @@ export default function PowerPlayPage() {
     await load();
   }
 
-  function saveMap(entry: Entry, map: FormationValue) {
-    setUnits((prev) => prev.map((u) => (u.key === entry.key ? { ...u, map } : u)));
-    clearTimeout(timers.current[entry.key]);
-    timers.current[entry.key] = setTimeout(() => {
-      supabase.from("pp_units").update({ map }).eq("id", entry.id!).then(() => {});
-    }, 500);
+  /** Écrit une phase : l'in-zone d'une unité d'alignement retourne dans l'alignement, le reste dans pp_units. */
+  function persist(u: Unit, ph: Phase, value: FormationValue) {
+    const k = `${u.key}-${ph}`;
+    clearTimeout(timers.current[k]);
+    timers.current[k] = setTimeout(async () => {
+      if (ph === 0 && u.fromLineup) {
+        await supabase.from("lineups").update({ [LINEUP_KEY[u.label].col]: value }).eq("lineup_date", u.date);
+        return;
+      }
+      const col = ph === 0 ? "map" : ph === 1 ? "bo_map" : "fo_map";
+      await supabase
+        .from("pp_units")
+        .upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", [col]: value }, { onConflict: "unit_date,label" });
+    }, 400);
   }
 
-  async function removeUnit(entry: Entry) {
-    if (!window.confirm(`Supprimer l'unité « ${entry.label} » du ${entry.date} ?`)) return;
-    await supabase.from("pp_units").delete().eq("id", entry.id!);
+  function setPhaseValue(u: Unit, ph: Phase, value: FormationValue) {
+    setUnits((prev) =>
+      prev.map((x) => (x.key === u.key ? { ...x, ...(ph === 0 ? { inzone: value } : ph === 1 ? { breakout: value } : { faceoff: value }) } : x))
+    );
+    persist(u, ph, value);
+  }
+
+  /** Ouvre une phase ; la première fois, les 5 joueurs de l'in-zone y sont posés d'office. */
+  function goPhase(u: Unit, ph: Phase) {
+    setPhase(ph);
+    if (ph === 1 && !u.breakout) setPhaseValue(u, 1, seedPhase(u.inzone, BO_START));
+    if (ph === 2 && !u.faceoff) setPhaseValue(u, 2, seedPhase(u.inzone, FO_START));
+  }
+
+  async function removeUnit(u: Unit) {
+    if (!u.unitId || !window.confirm(`Supprimer l'unité « ${u.label} » du ${u.date} ? Ses phases breakout et faceoff seront perdues.`)) return;
+    await supabase.from("pp_units").delete().eq("id", u.unitId);
+    setOpenKey(null);
     await load();
   }
 
-  const entries = useMemo(() => {
-    const all = [...units, ...fromLineups].filter((e) => filter === "all" || e.kind === filter);
-    const byDate = new Map<string, Entry[]>();
-    for (const e of all) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
-    return [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [units, fromLineups, filter]);
+  const valueOf = (u: Unit): FormationValue => (phase === 0 ? u.inzone : phase === 1 ? (u.breakout ?? emptyMap()) : (u.faceoff ?? emptyMap()));
 
   return (
     <div className="space-y-6">
@@ -138,8 +184,8 @@ export default function PowerPlayPage() {
         <div>
           <h1 className="text-2xl font-bold">Power Play</h1>
           <p className="text-slate-400 text-sm">
-            Tes unités d&apos;avantage numérique par date : en zone, sortie de zone (breakout) et mise au jeu (faceoff). Les unités
-            saisies dans l&apos;alignement du jour s&apos;ajoutent ici toutes seules, avec leur date.
+            Tes unités par date. Clique une unité pour dessiner son in-zone, son breakout et son faceoff. Les unités saisies dans
+            l&apos;alignement du jour s&apos;ajoutent ici toutes seules.
           </p>
         </div>
         <button className="btn" onClick={() => setShowForm((s) => !s)}>
@@ -148,24 +194,14 @@ export default function PowerPlayPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={addUnit} className="card grid gap-3 sm:grid-cols-4 items-end">
+        <form onSubmit={addUnit} className="card grid gap-3 sm:grid-cols-3 items-end">
           <div>
             <label className="label">Date</label>
             <input type="date" required className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </div>
           <div>
-            <label className="label">Type</label>
-            <select className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as Kind })}>
-              {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
-                <option key={k} value={k}>
-                  {KIND_LABEL[k]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
             <label className="label">Nom (ex. PP1)</label>
-            <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={KIND_LABEL[form.kind]} />
+            <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Unité" />
           </div>
           <div>
             <label className="label">Chandail</label>
@@ -178,7 +214,7 @@ export default function PowerPlayPage() {
               ))}
             </select>
           </div>
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-3">
             <button type="submit" className="btn">
               Créer l&apos;unité
             </button>
@@ -188,61 +224,84 @@ export default function PowerPlayPage() {
 
       {error && <p className="rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100">{error}</p>}
 
-      <div className="inline-flex overflow-hidden rounded-lg border border-white/20 text-sm font-bold">
-        {(["all", "inzone", "breakout", "faceoff"] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setFilter(k)}
-            className={`px-3 py-2 ${filter === k ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"}`}
-          >
-            {k === "all" ? "Tous" : KIND_LABEL[k]}
-          </button>
-        ))}
-      </div>
-
       {loading ? (
         <p className="text-slate-300">Chargement...</p>
-      ) : entries.length === 0 ? (
+      ) : byDate.length === 0 ? (
         <p className="text-sm text-slate-400">Aucune unité pour l&apos;instant. Crée-en une, ou saisis un power play dans l&apos;alignement du jour.</p>
       ) : (
-        entries.map(([date, list]) => (
+        byDate.map(([date, list]) => (
           <section key={date} className="space-y-2">
             <h2 className="text-lg font-bold capitalize text-white">{format(parseISO(date), "EEEE d MMMM yyyy", { locale: fr })}</h2>
-            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {list.map((e) =>
-                e.source === "unit" ? (
-                  <div key={e.key} className="space-y-1">
-                    <FormationMap
-                      kind={FORMATION_KIND[e.kind]}
-                      title={`${e.label} — ${KIND_LABEL[e.kind]}${e.color ? ` · ${COLOR_LABEL[e.color].toLowerCase()}` : ""}`}
-                      subtitle={e.kind === "breakout" ? "Sortie de zone, glace complète (notre zone en bas)." : e.kind === "faceoff" ? "Mise au jeu en zone offensive." : "Zone offensive, but en haut."}
-                      value={e.map}
-                      onChange={(v) => saveMap(e, v)}
-                      roster={roster}
-                      markerColor={e.color ? COLOR_FILL[e.color] : undefined}
-                    />
-                    <button className="text-xs text-red-400 hover:underline" onClick={() => removeUnit(e)}>
-                      Supprimer cette unité
-                    </button>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {list.map((u) => (
+                <button
+                  key={u.key}
+                  onClick={() => {
+                    setOpenKey(u.key);
+                    setPhase(0);
+                  }}
+                  className="card space-y-2 text-left transition hover:ring-2 hover:ring-gold-400"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold">
+                      {u.label}
+                      {u.color ? ` · ${COLOR_LABEL[u.color].toLowerCase()}` : ""}
+                    </h3>
+                    <span className="flex gap-1 text-[10px] font-black uppercase">
+                      <span className="rounded bg-gold-100 px-1.5 py-0.5 text-gold-800">In-zone</span>
+                      <span className={`rounded px-1.5 py-0.5 ${u.breakout ? "bg-gold-100 text-gold-800" : "bg-slate-100 text-slate-400"}`}>BO</span>
+                      <span className={`rounded px-1.5 py-0.5 ${u.faceoff ? "bg-gold-100 text-gold-800" : "bg-slate-100 text-slate-400"}`}>FO</span>
+                    </span>
                   </div>
-                ) : (
-                  <div key={e.key} className="card space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold">
-                        {e.label} — {KIND_LABEL[e.kind]}
-                        {e.color ? ` · ${COLOR_LABEL[e.color].toLowerCase()}` : ""}
-                      </h3>
-                      <Link href={`/jour/${e.date}/alignement`} className="text-xs text-gold-700 hover:underline">
-                        Modifier dans l&apos;alignement du jour
-                      </Link>
-                    </div>
-                    <FormationStatic kind="pp" value={e.map} names={names} markerColor={e.color ? COLOR_FILL[e.color] : undefined} />
-                  </div>
-                )
-              )}
+                  <FormationStatic kind="pp" value={{ ...u.inzone, note: "" }} names={names} markerColor={u.color ? COLOR_FILL[u.color] : undefined} />
+                </button>
+              ))}
             </div>
           </section>
         ))
+      )}
+
+      {open && (
+        <Modal onClose={() => setOpenKey(null)}>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <h2 className="text-lg font-bold capitalize text-white">
+                {open.label} — {format(parseISO(open.date), "EEEE d MMMM yyyy", { locale: fr })}
+                {open.color ? ` · ${COLOR_LABEL[open.color].toLowerCase()}` : ""}
+              </h2>
+              <div className="flex gap-2">
+                {open.fromLineup && (
+                  <Link href={`/jour/${open.date}/alignement`} className="btn-secondary text-sm">
+                    Alignement du jour
+                  </Link>
+                )}
+                <button className="btn-dark" onClick={() => setOpenKey(null)}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+            <div className="max-w-xl">
+              <FormationMap
+                key={`${open.key}-${phase}`}
+                kind={PHASE_KIND[phase]}
+                title={`${open.label} — ${PHASE_LABELS[phase]}`}
+                subtitle={PHASE_HINT[phase]}
+                value={valueOf(open)}
+                onChange={(v) => setPhaseValue(open, phase, v)}
+                roster={roster}
+                markerColor={open.color ? COLOR_FILL[open.color] : undefined}
+                waveLabels={PHASE_LABELS}
+                wave={phase}
+                onWave={(i) => goPhase(open, i as Phase)}
+              />
+            </div>
+            {!open.fromLineup && open.unitId && (
+              <button className="text-xs text-red-400 hover:underline" onClick={() => removeUnit(open)}>
+                Supprimer cette unité
+              </button>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   );
