@@ -13,6 +13,7 @@ const TABS = [
   { href: "/planification-hebdo", label: "Planification hebdo" },
   { href: "/rapport-quotidien", label: "Rapports" },
   { href: "/alignements", label: "Alignements" },
+  { href: "/power-play", label: "Power Play" },
   { href: "/joueurs", label: "Joueurs" },
   { href: "/pointeurs", label: "Statistiques individuelles" },
   { href: "/statistiques-equipe", label: "Statistiques d'équipe" },
