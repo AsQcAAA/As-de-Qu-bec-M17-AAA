@@ -138,6 +138,20 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     saveExtras([...unit.extra, { id: newExtraId(), phase, title: "", map }], true);
   }
 
+  /** Supprime le jeu 1 d'une phase : le jeu 2 devient le jeu 1, la phase n'est jamais laissée vide. */
+  function removeMain(phase: PpPhase) {
+    if (!unit) return;
+    const first = unit.extra.find((x) => x.phase === phase);
+    if (!first) return;
+    const warn = phase === 0 && unit.fromLineup ? " L'in-zone de l'alignement du jour sera aussi remplacé." : "";
+    if (!window.confirm(`Supprimer le jeu 1 ? Le jeu 2 prendra sa place.${warn}`)) return;
+    const rest = unit.extra.filter((x) => x.id !== first.id);
+    const next = { ...unit, extra: rest, ...(phase === 0 ? { inzone: first.map } : phase === 1 ? { breakout: first.map } : { faceoff: first.map }) };
+    setUnit(next);
+    persistPhase(supabase, next, phase, first.map);
+    persistExtra(supabase, next, rest);
+  }
+
   async function remove() {
     if (!unit?.unitId || !window.confirm(`Supprimer l'unité « ${unit.label} » du ${unit.date} ? Tous ses jeux seront perdus.`)) return;
     await supabase.from("pp_units").delete().eq("id", unit.unitId);
@@ -244,6 +258,11 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
                       onChange={(v) => (extra ? saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, map: v } : x))) : change(ph, v))}
                       markerColor={fill}
                     />
+                    {!extra && unit.extra.some((x) => x.phase === ph) && (
+                      <button className="text-xs text-red-400 hover:underline" onClick={() => removeMain(ph)}>
+                        Supprimer ce jeu
+                      </button>
+                    )}
                     {extra && (
                       <button
                         className="text-xs text-red-400 hover:underline"
