@@ -85,6 +85,9 @@ export default function DirectionGeneralePage() {
           <Link href="/direction-generale/budget-fichier" className="btn-secondary">
             📊 Budget 2026-27
           </Link>
+          <Link href="/direction-generale/suivi-coach" className="btn-secondary">
+            Suivi de coach
+          </Link>
           <Link href="/direction-generale/distribution" className="btn-secondary">
             👥 Distribution monétaire
           </Link>
