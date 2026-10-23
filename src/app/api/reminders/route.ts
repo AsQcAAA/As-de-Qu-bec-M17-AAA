@@ -7,6 +7,7 @@ import { EMAIL_SIGNATURE_BASE64, EMAIL_SIGNATURE_CID } from "@/lib/emailSignatur
 import { buildEmailHtml, buildEmailText } from "@/lib/emailTemplate";
 import { computeFiche, ficheHtml, type TestResultLike } from "@/lib/testsFiche";
 import { buildMissingLineupEmail, findMissingOpponentLineups } from "@/lib/opponentLineupReminder";
+import { buildIcs } from "@/lib/ics";
 import type { Meeting, Player } from "@/lib/types";
 
 // Called weekly by Vercel Cron (see vercel.json). Checks which active
@@ -30,6 +31,11 @@ export async function GET(req: NextRequest) {
   const test = new URL(req.url).searchParams;
   if (test.get("test") === "1") {
     return NextResponse.json(await sendLineupReminderTest(supabase, new URL(req.url).origin, test.get("date")));
+  }
+
+  // Essai de l'invitation du Suivi de coach : /api/reminders?testinvite=1 — un seul courriel, à COACH_EMAIL.
+  if (test.get("testinvite")) {
+    return NextResponse.json(await sendCoachInviteTest());
   }
 
   // Essai de la fiche des tests physiques : /api/reminders?testfiche=<nom>&session=<date>
@@ -192,4 +198,40 @@ async function sendTestsFicheTest(supabase: ReturnType<typeof createServiceClien
     attachments: [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],
   });
   return { ok: !error, error: error?.message ?? null, player: player.full_name, rows: fiche.rows.length };
+}
+
+/** Invitation d'essai (rencontre fictive avec Jean lui-même) pour vérifier le courriel et le fichier d'agenda. */
+async function sendCoachInviteTest() {
+  const coachEmail = process.env.COACH_EMAIL;
+  if (!process.env.RESEND_API_KEY || !coachEmail) return { ok: false, error: "RESEND_API_KEY ou COACH_EMAIL manquant" };
+  const when = "mardi 27 octobre 2026, 13h00 à 13h30";
+  const message = `Salut Olivier,\n\nJe t'invite à une rencontre individuelle :\n\n${when}\nLieu : Bureau\nSujet : Suivi de saison\n\nL'invitation est jointe : accepte-la pour l'ajouter à ton agenda.`;
+  const ics = buildIcs({
+    uid: "test-suivi-coach-1@asdequebec",
+    sequence: 0,
+    date: "2026-10-27",
+    start: "13:00",
+    end: "13:30",
+    summary: "Rencontre individuelle — Olivier Simoneau Paquet (TEST)",
+    description: "Suivi de saison",
+    location: "Bureau",
+    organizerEmail: coachEmail,
+    organizerName: "Jean Grignon-Francke",
+    attendeeEmail: coachEmail,
+    attendeeName: "Jean Grignon-Francke",
+  });
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: `Jean Grignon-Francke <${coachEmail}>`,
+    to: [coachEmail],
+    replyTo: coachEmail,
+    subject: `[TEST] Rencontre individuelle — ${when}`,
+    html: buildEmailHtml(message),
+    text: buildEmailText(message),
+    attachments: [
+      { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+      { filename: "invitation.ics", content: Buffer.from(ics).toString("base64"), contentType: "text/calendar; charset=utf-8; method=REQUEST" },
+    ],
+  });
+  return { ok: !error, error: error?.message ?? null };
 }
