@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { buildRosterByDate, gamesPlayedFor } from "@/lib/playerStats";
 import type { Game, LineupUnit, Player } from "@/lib/types";
 
 const emptyForm = { full_name: "", jersey_number: "", position: "F" as "F" | "D" | "G" };
@@ -20,20 +21,23 @@ export default function RemplacantsPage() {
   const supabase = createClient();
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
-  const [units, setUnits] = useState<LineupUnit[]>([]);
+  const [rosterByDate, setRosterByDate] = useState<Map<string, Set<string>>>(new Map());
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
 
   async function load() {
-    const [{ data: pls }, { data: gms }, { data: allUnits }] = await Promise.all([
+    // Les alignements sont reliés aux matchs par la DATE (le champ lineup_id des matchs n'est pas rempli
+    // pour la plupart) : un remplaçant a joué un match joué s'il est dans l'alignement de ce jour-là.
+    const [{ data: pls }, { data: gms }, { data: lus }, { data: lunits }] = await Promise.all([
       supabase.from("players").select("*").order("jersey_number"),
-      supabase.from("games").select("*").not("lineup_id", "is", null).order("game_date"),
-      supabase.from("lineup_units").select("*"),
+      supabase.from("games").select("*").order("game_date"),
+      supabase.from("lineups").select("id, lineup_date"),
+      supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
     ]);
     setPlayers(pls ?? []);
     setGames(gms ?? []);
-    setUnits(allUnits ?? []);
+    setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? []));
     setLoading(false);
   }
 
@@ -62,16 +66,6 @@ export default function RemplacantsPage() {
 
   const callUps = players.filter((p) => p.is_call_up);
 
-  const playersByLineup = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const u of units) {
-      const set = map.get(u.lineup_id) ?? new Set<string>();
-      u.player_ids.forEach((id) => set.add(id));
-      map.set(u.lineup_id, set);
-    }
-    return map;
-  }, [units]);
-
   /**
    * Un remplaçant est limité à 10 matchs de SAISON RÉGULIÈRE. Les hors
    * concours, séries, tournois et provinciaux ne comptent pas dans ce total :
@@ -79,14 +73,14 @@ export default function RemplacantsPage() {
    */
   const tally = useMemo(() => {
     return callUps.map((p) => {
-      const dressed = games.filter((g) => g.lineup_id && playersByLineup.get(g.lineup_id)?.has(p.id));
+      const dressed = gamesPlayedFor(p.id, games, rosterByDate);
       return {
         player: p,
         games: dressed.filter((g) => g.category === "saison_reguliere"),
         otherGames: dressed.filter((g) => g.category !== "saison_reguliere"),
       };
     });
-  }, [callUps, games, playersByLineup]);
+  }, [callUps, games, rosterByDate]);
 
   return (
     <div className="space-y-6">
