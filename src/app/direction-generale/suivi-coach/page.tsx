@@ -5,6 +5,7 @@ import Link from "next/link";
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
+import Modal from "@/components/Modal";
 
 interface Contact {
   id: string;
@@ -55,6 +56,7 @@ export default function SuiviCoachPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [ccEmail, setCcEmail] = useState("");
+  const [bookOpen, setBookOpen] = useState(false);
   const [noteCoach, setNoteCoach] = useState("");
   const [noteText, setNoteText] = useState("");
 
@@ -72,6 +74,12 @@ export default function SuiviCoachPage() {
   }
   useEffect(() => {
     load();
+    // Lien « Booker une rencontre » depuis la fiche d'un entraîneur : ?book=<id> ouvre le formulaire.
+    const book = new URLSearchParams(window.location.search).get("book");
+    if (book) {
+      setForm({ ...emptyForm(format(new Date(), "yyyy-MM-dd")), coach_id: book });
+      setBookOpen(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -149,6 +157,7 @@ export default function SuiviCoachPage() {
       setMessage({ kind: "ok", text });
       setEditingId(null);
       setForm(emptyForm(form.date));
+      setBookOpen(false);
       await load();
     } catch (err) {
       setMessage({ kind: "error", text: err instanceof Error ? err.message : "Erreur." });
@@ -161,7 +170,7 @@ export default function SuiviCoachPage() {
   function startEdit(m: CoachMeeting) {
     setEditingId(m.id);
     setForm({ coach_id: m.coach_id, date: m.meeting_date, start: m.start_time.slice(0, 5), end: m.end_time?.slice(0, 5) ?? "", location: m.location ?? ARENAS[0], topic: m.topic ?? "", send: !!m.invite_sent_at, cc: !!m.cc_contact_id });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setBookOpen(true);
   }
 
   async function cancelMeeting(m: CoachMeeting) {
@@ -215,7 +224,10 @@ export default function SuiviCoachPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-semibold">
-            {nameOf(m.coach_id)} — <span className="capitalize">{format(parseISO(m.meeting_date), "EEEE d MMMM", { locale: fr })}</span>, {hm(m.start_time)}
+            <Link href={`/direction-generale/suivi-coach/${m.coach_id}`} className="hover:text-gold-700 hover:underline">
+              {nameOf(m.coach_id)}
+            </Link>{" "}
+            — <span className="capitalize">{format(parseISO(m.meeting_date), "EEEE d MMMM", { locale: fr })}</span>, {hm(m.start_time)}
             {m.end_time ? ` à ${hm(m.end_time)}` : ""}
             {m.cancelled_at && <span className="ml-2 text-xs font-bold text-red-600">Annulée</span>}
           </div>
@@ -259,13 +271,18 @@ export default function SuiviCoachPage() {
         <div>
           <h1 className="text-2xl font-bold">Suivi de coach</h1>
           <p className="text-slate-400 text-sm">
-            Rencontres individuelles avec les entraîneurs, calendrier et notes. Visible seulement par toi. Les invitations partent par courriel avec un fichier
+            Clique un jour du calendrier pour booker une rencontre, ou un entraîneur pour ouvrir sa fiche. Rencontres individuelles avec les entraîneurs, calendrier et notes. Visible seulement par toi. Les invitations partent par courriel avec un fichier
             d&apos;agenda que l&apos;entraîneur accepte d&apos;un clic.
           </p>
         </div>
-        <Link href="/direction-generale" className="btn-dark">
-          ← Direction générale
-        </Link>
+        <div className="flex gap-2">
+          <button className="btn" onClick={() => { setEditingId(null); setForm(emptyForm(format(new Date(), "yyyy-MM-dd"))); setBookOpen(true); }}>
+            + Booker une rencontre
+          </button>
+          <Link href="/direction-generale" className="btn-dark">
+            ← Direction générale
+          </Link>
+        </div>
       </div>
 
       {message && (
@@ -274,8 +291,12 @@ export default function SuiviCoachPage() {
         </p>
       )}
 
+      {bookOpen && (
+        <Modal onClose={() => { setBookOpen(false); setEditingId(null); setForm(emptyForm(form.date)); }}>
       <form onSubmit={submit} className="card grid gap-3 sm:grid-cols-6 items-end">
-        <div className="sm:col-span-6 font-semibold">{editingId ? "Modifier la rencontre" : "Booker une rencontre"}</div>
+        <div className="sm:col-span-6 font-semibold">
+          {editingId ? "Modifier la rencontre" : "Booker une rencontre"} — <span className="capitalize">{format(parseISO(form.date), "EEEE d MMMM yyyy", { locale: fr })}</span>
+        </div>
         <div className="sm:col-span-2">
           <label className="label">Entraîneur</label>
           <select className="input" value={form.coach_id} onChange={(e) => setForm({ ...form, coach_id: e.target.value })} required>
@@ -328,8 +349,8 @@ export default function SuiviCoachPage() {
           Envoyer l&apos;invitation par courriel à l&apos;entraîneur
         </label>
         <div className="sm:col-span-2 flex gap-2 justify-end">
-          {editingId && (
-            <button type="button" className="btn-secondary" onClick={() => { setEditingId(null); setForm(emptyForm(form.date)); }}>
+          {(
+            <button type="button" className="btn-secondary" onClick={() => { setEditingId(null); setForm(emptyForm(form.date)); setBookOpen(false); }}>
               Annuler
             </button>
           )}
@@ -338,6 +359,8 @@ export default function SuiviCoachPage() {
           </button>
         </div>
       </form>
+        </Modal>
+      )}
 
       {/* Calendrier des rencontres : un clic sur un jour prépare la date du formulaire. */}
       <section className="space-y-2">
@@ -361,7 +384,7 @@ export default function SuiviCoachPage() {
             return (
               <button
                 key={key}
-                onClick={() => { setForm({ ...form, date: key }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => { setEditingId(null); setForm({ ...emptyForm(key) }); setBookOpen(true); }}
                 className={`flex min-h-[78px] flex-col rounded-lg border p-1.5 text-left text-xs transition-colors hover:border-gold-500 ${isSameMonth(d, month) ? "bg-white text-slate-900" : "bg-slate-700 text-slate-400"} ${key === today ? "ring-2 ring-gold-400" : ""}`}
               >
                 <span className="font-black">{format(d, "d")}</span>
@@ -395,7 +418,9 @@ export default function SuiviCoachPage() {
         <div className="card space-y-2">
           {coaches.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1 last:border-0 text-sm">
-              <span className="font-semibold">{c.full_name}</span>
+              <Link href={`/direction-generale/suivi-coach/${c.id}`} className="font-semibold text-ink-800 hover:text-gold-700 hover:underline">
+                {c.full_name}
+              </Link>
               <span className="text-slate-500">{c.email}</span>
             </div>
           ))}
