@@ -23,6 +23,7 @@ interface CoachMeeting {
   notes: string | null;
   invite_sent_at: string | null;
   cancelled_at: string | null;
+  cc_contact_id: string | null;
 }
 interface CoachNote {
   id: string;
@@ -37,7 +38,8 @@ const plusMinutes = (t: string, mins: number) => {
   const total = h * 60 + m + mins;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
-const emptyForm = (date: string) => ({ coach_id: "", date, start: "13:00", end: "13:30", location: "", topic: "", send: true });
+const emptyForm = (date: string) => ({ coach_id: "", date, start: "13:00", end: "13:30", location: "", topic: "", send: true, cc: false });
+const isFrancis = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes("laterreur");
 
 export default function SuiviCoachPage() {
   const supabase = createClient();
@@ -51,6 +53,7 @@ export default function SuiviCoachPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [ccEmail, setCcEmail] = useState("");
   const [noteCoach, setNoteCoach] = useState("");
   const [noteText, setNoteText] = useState("");
 
@@ -71,6 +74,9 @@ export default function SuiviCoachPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Francis Laterreur : en copie conforme des rencontres (case dédiée), pas un entraîneur à booker. */
+  const francis = coaches.find((c) => isFrancis(c.full_name)) ?? null;
+  const bookable = coaches.filter((c) => !isFrancis(c.full_name));
   const nameOf = (id: string) => coaches.find((c) => c.id === id)?.full_name ?? "Entraîneur";
   const today = format(new Date(), "yyyy-MM-dd");
   const upcoming = meetings.filter((m) => m.meeting_date >= today && !m.cancelled_at);
@@ -102,7 +108,22 @@ export default function SuiviCoachPage() {
     setBusy(true);
     setMessage(null);
     try {
+      let ccId: string | null = null;
+      if (form.cc) {
+        if (francis) ccId = francis.id;
+        else {
+          if (!ccEmail.trim()) throw new Error("Entre le courriel de Francis Laterreur pour l'ajouter en copie.");
+          const { data: created, error: ce } = await supabase
+            .from("coach_contacts")
+            .insert({ full_name: "Francis Laterreur", email: ccEmail.trim().toLowerCase() })
+            .select("id")
+            .single();
+          if (ce) throw new Error(ce.message);
+          ccId = created.id as string;
+        }
+      }
       const row = {
+        cc_contact_id: ccId,
         coach_id: form.coach_id,
         meeting_date: form.date,
         start_time: form.start,
@@ -138,7 +159,7 @@ export default function SuiviCoachPage() {
 
   function startEdit(m: CoachMeeting) {
     setEditingId(m.id);
-    setForm({ coach_id: m.coach_id, date: m.meeting_date, start: m.start_time.slice(0, 5), end: m.end_time?.slice(0, 5) ?? "", location: m.location ?? "", topic: m.topic ?? "", send: !!m.invite_sent_at });
+    setForm({ coach_id: m.coach_id, date: m.meeting_date, start: m.start_time.slice(0, 5), end: m.end_time?.slice(0, 5) ?? "", location: m.location ?? "", topic: m.topic ?? "", send: !!m.invite_sent_at, cc: !!m.cc_contact_id });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -199,6 +220,7 @@ export default function SuiviCoachPage() {
           </div>
           <div className="text-sm text-slate-500">
             {[m.location, m.topic].filter(Boolean).join(" · ") || "Aucun lieu ni sujet"}
+            {m.cc_contact_id ? ` · avec ${coaches.find((c) => c.id === m.cc_contact_id)?.full_name ?? "Francis Laterreur"} (CC)` : ""}
           </div>
           <div className="text-xs text-slate-400">
             {m.invite_sent_at ? `Invitation envoyée le ${format(parseISO(m.invite_sent_at), "d MMM à HH:mm", { locale: fr })}` : "Invitation non envoyée"}
@@ -257,7 +279,7 @@ export default function SuiviCoachPage() {
           <label className="label">Entraîneur</label>
           <select className="input" value={form.coach_id} onChange={(e) => setForm({ ...form, coach_id: e.target.value })} required>
             <option value="">—</option>
-            {coaches.map((c) => (
+            {bookable.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.full_name}
               </option>
@@ -283,6 +305,15 @@ export default function SuiviCoachPage() {
         <div className="sm:col-span-3">
           <label className="label">Sujet</label>
           <input className="input" value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="Ex. suivi de saison, développement des gardiens…" />
+        </div>
+        <div className="sm:col-span-6 space-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.checked })} />
+            Ajouter Francis Laterreur en copie conforme (CC) — il sera aussi présent à la rencontre, et le courriel le mentionne
+          </label>
+          {form.cc && !francis && (
+            <input type="email" className="input max-w-sm" placeholder="Courriel de Francis Laterreur (une seule fois)" value={ccEmail} onChange={(e) => setCcEmail(e.target.value)} />
+          )}
         </div>
         <label className="sm:col-span-4 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.send} onChange={(e) => setForm({ ...form, send: e.target.checked })} />
@@ -377,7 +408,7 @@ export default function SuiviCoachPage() {
             <label className="label">Entraîneur</label>
             <select className="input" value={noteCoach} onChange={(e) => setNoteCoach(e.target.value)} required>
               <option value="">—</option>
-              {coaches.map((c) => (
+              {bookable.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.full_name}
                 </option>

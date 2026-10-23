@@ -30,6 +30,8 @@ export interface IcsInput {
   organizerName: string;
   attendeeEmail: string;
   attendeeName: string;
+  /** Autres participants (ex. personne en copie conforme). */
+  extraAttendees?: { email: string; name: string }[];
   cancel?: boolean;
 }
 
@@ -53,6 +55,7 @@ export function buildIcs(i: IcsInput): string {
     ...(i.location ? [`LOCATION:${esc(i.location)}`] : []),
     `ORGANIZER;CN=${esc(i.organizerName)}:mailto:${i.organizerEmail}`,
     `ATTENDEE;CN=${esc(i.attendeeName)};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${i.attendeeEmail}`,
+    ...(i.extraAttendees ?? []).map((a) => `ATTENDEE;CN=${esc(a.name)};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a.email}`),
     `STATUS:${i.cancel ? "CANCELLED" : "CONFIRMED"}`,
     "END:VEVENT",
     "END:VCALENDAR",

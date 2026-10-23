@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
   if (!m) return NextResponse.json({ error: "Rencontre introuvable." }, { status: 404 });
   const { data: coach } = await service.from("coach_contacts").select("id, full_name, email").eq("id", m.coach_id).single();
   const to = coach?.email as string | undefined;
+  // Personne en copie conforme (ex. Francis Laterreur) : en CC du courriel et participante de la rencontre.
+  const { data: cc } = m.cc_contact_id ? await service.from("coach_contacts").select("full_name, email").eq("id", m.cc_contact_id).single() : { data: null };
   if (!coach || !to) return NextResponse.json({ error: "Courriel de l'entraîneur introuvable." }, { status: 404 });
 
   const sequence = (m.invite_sequence as number) + (m.invite_sent_at ? 1 : 0);
@@ -41,9 +43,10 @@ export async function POST(req: NextRequest) {
   const first = (coach.full_name as string).trim().split(/\s+/)[0];
   const when = `${dateLabel}, ${start.replace(":", "h")}${end ? ` à ${end.replace(":", "h")}` : ""}`;
 
+  const ccLine = cc ? `\n${cc.full_name} sera également présent à cette rencontre.` : "";
   const message = cancel
     ? `Salut ${first},\n\nLa rencontre prévue le ${when} est annulée. Je te recontacte pour trouver une autre date.`
-    : `Salut ${first},\n\nJe t'invite à une rencontre individuelle :\n\n${when}${m.location ? `\nLieu : ${m.location}` : ""}${m.topic ? `\nSujet : ${m.topic}` : ""}\n\nL'invitation est jointe : accepte-la pour l'ajouter à ton agenda.`;
+    : `Salut ${first},\n\nJe t'invite à une rencontre individuelle :\n\n${when}${m.location ? `\nLieu : ${m.location}` : ""}${m.topic ? `\nSujet : ${m.topic}` : ""}${ccLine}\n\nL'invitation est jointe : accepte-la pour l'ajouter à ton agenda.`;
   const ics = buildIcs({
     uid: m.invite_uid as string,
     sequence,
@@ -57,6 +60,7 @@ export async function POST(req: NextRequest) {
     organizerName: "Jean Grignon-Francke",
     attendeeEmail: to,
     attendeeName: coach.full_name as string,
+    extraAttendees: cc ? [{ email: cc.email as string, name: cc.full_name as string }] : [],
     cancel,
   });
 
@@ -64,6 +68,7 @@ export async function POST(req: NextRequest) {
   const { error } = await resend.emails.send({
     from: `Jean Grignon-Francke <${coachEmail}>`,
     to: [to],
+    ...(cc ? { cc: [cc.email as string] } : {}),
     replyTo: coachEmail,
     subject: `${cancel ? "Annulée : " : ""}Rencontre individuelle — ${when}`,
     html: buildEmailHtml(message),
