@@ -5,3 +5,6 @@ node_modules
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
+
+# Réglages personnels de Claude Code
+.claude/settings.local.json
