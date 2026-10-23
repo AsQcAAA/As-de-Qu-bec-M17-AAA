@@ -8,6 +8,7 @@ import { buildEmailHtml, buildEmailText } from "@/lib/emailTemplate";
 import { computeFiche, ficheHtml, type TestResultLike } from "@/lib/testsFiche";
 import { buildMissingLineupEmail, findMissingOpponentLineups } from "@/lib/opponentLineupReminder";
 import { buildIcs } from "@/lib/ics";
+import { sendCoachMeetingInvite } from "@/lib/coachInvite";
 import type { Meeting, Player } from "@/lib/types";
 
 // Called weekly by Vercel Cron (see vercel.json). Checks which active
@@ -31,6 +32,11 @@ export async function GET(req: NextRequest) {
   const test = new URL(req.url).searchParams;
   if (test.get("test") === "1") {
     return NextResponse.json(await sendLineupReminderTest(supabase, new URL(req.url).origin, test.get("date")));
+  }
+
+  // Renvoie l'invitation d'une rencontre du Suivi de coach : /api/reminders?invitemeeting=<id> (annulation : &cancel=1).
+  if (test.get("invitemeeting")) {
+    return NextResponse.json(await sendCoachMeetingInvite(test.get("invitemeeting")!, test.get("cancel") === "1"));
   }
 
   // Essai de l'invitation du Suivi de coach : /api/reminders?testinvite=1 — un seul courriel, à COACH_EMAIL.
