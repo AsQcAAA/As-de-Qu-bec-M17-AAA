@@ -205,7 +205,7 @@ async function sendCoachInviteTest() {
   const coachEmail = process.env.COACH_EMAIL;
   if (!process.env.RESEND_API_KEY || !coachEmail) return { ok: false, error: "RESEND_API_KEY ou COACH_EMAIL manquant" };
   const when = "mardi 27 octobre 2026, 13h00 à 13h30";
-  const message = `Salut Olivier,\n\nJe t'invite à une rencontre individuelle :\n\n${when}\nLieu : Bureau\nSujet : Suivi de saison\n\nL'invitation est jointe : accepte-la pour l'ajouter à ton agenda.`;
+  const message = `Salut Olivier,\n\nJe t'invite à une rencontre individuelle :\n\n${when}\nLieu : Aréna Marc-Simoneau\nSujet : Suivi de saison\n\nL'invitation est jointe : accepte-la pour l'ajouter à ton agenda.`;
   const ics = buildIcs({
     uid: "test-suivi-coach-1@asdequebec",
     sequence: 0,
@@ -214,7 +214,7 @@ async function sendCoachInviteTest() {
     end: "13:30",
     summary: "Rencontre individuelle — Olivier Simoneau Paquet (TEST)",
     description: "Suivi de saison",
-    location: "Bureau",
+    location: "Aréna Marc-Simoneau",
     organizerEmail: coachEmail,
     organizerName: "Jean Grignon-Francke",
     attendeeEmail: coachEmail,

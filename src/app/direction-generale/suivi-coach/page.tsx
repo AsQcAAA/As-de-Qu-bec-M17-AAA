@@ -38,7 +38,8 @@ const plusMinutes = (t: string, mins: number) => {
   const total = h * 60 + m + mins;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
-const emptyForm = (date: string) => ({ coach_id: "", date, start: "13:00", end: "13:30", location: "", topic: "", send: true, cc: false });
+const ARENAS = ["Aréna de Boischatel", "Aréna Marc-Simoneau"];
+const emptyForm = (date: string) => ({ coach_id: "", date, start: "13:00", end: "13:30", location: ARENAS[0], topic: "", send: true, cc: false });
 const isFrancis = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes("laterreur");
 
 export default function SuiviCoachPage() {
@@ -159,7 +160,7 @@ export default function SuiviCoachPage() {
 
   function startEdit(m: CoachMeeting) {
     setEditingId(m.id);
-    setForm({ coach_id: m.coach_id, date: m.meeting_date, start: m.start_time.slice(0, 5), end: m.end_time?.slice(0, 5) ?? "", location: m.location ?? "", topic: m.topic ?? "", send: !!m.invite_sent_at, cc: !!m.cc_contact_id });
+    setForm({ coach_id: m.coach_id, date: m.meeting_date, start: m.start_time.slice(0, 5), end: m.end_time?.slice(0, 5) ?? "", location: m.location ?? ARENAS[0], topic: m.topic ?? "", send: !!m.invite_sent_at, cc: !!m.cc_contact_id });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -300,7 +301,14 @@ export default function SuiviCoachPage() {
         </div>
         <div className="sm:col-span-3">
           <label className="label">Lieu</label>
-          <input className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Bureau, Salle 117, Teams…" />
+          <select className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}>
+            {ARENAS.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+            {form.location && !ARENAS.includes(form.location) && <option value={form.location}>{form.location}</option>}
+          </select>
         </div>
         <div className="sm:col-span-3">
           <label className="label">Sujet</label>
