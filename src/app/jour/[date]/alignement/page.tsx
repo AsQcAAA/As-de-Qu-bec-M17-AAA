@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
@@ -29,7 +29,7 @@ import {
 } from "@/lib/lineupPositions";
 import Modal from "@/components/Modal";
 import GamePlanEditor from "@/components/GamePlanEditor";
-import PowerPlayLineups from "@/components/PowerPlayLineups";
+import { loadUnits, unitHref } from "@/lib/ppUnits";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
 import type { Absence, AbsenceReason, Game, Lineup, LineupUnit, Player, ScheduleEvent, UnitType } from "@/lib/types";
 
@@ -118,6 +118,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const { date } = use(params);
   const supabase = createClient();
   const { myId, isHeadCoach, authorLabel } = useCoachDirectory();
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Permet d'exporter en un clic depuis le pense-bête de la journée (JourContent) :
   // ?print=1 déclenche l'impression dès que l'alignement est chargé, sans repasser
@@ -157,12 +158,21 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const [addAbsentId, setAddAbsentId] = useState("");
   // Horaire du jour (meetings, départ, etc.) — repris dans la feuille imprimée.
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [editing, setEditing] = useState<"plan" | "horaire" | "pp" | null>(null);
+  const [editing, setEditing] = useState<"plan" | "horaire" | null>(null);
   // Chaque modification est déjà écrite en base au fil de l'eau ; ce bouton
   // réécrit l'alignement complet et le confirme à l'écran.
   const [savingAll, setSavingAll] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /** Ouvre dans l'onglet Power Play l'unité la plus récente (dernière date, PP1 d'abord) ; sinon l'onglet lui-même. */
+  async function openLatestPowerPlay() {
+    const { units } = await loadUnits(supabase);
+    const latest = units
+      .slice()
+      .sort((a, b) => b.date.localeCompare(a.date) || a.label.localeCompare(b.label));
+    router.push(latest.length > 0 ? unitHref(latest[0]) : "/power-play");
+  }
 
   /**
    * L'alignement du jour, créé au besoin.
@@ -695,7 +705,8 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               <button className="btn-secondary" onClick={() => setEditing("horaire")}>
                 🕐 Horaire
               </button>
-              <button className="btn-secondary" onClick={() => setEditing("pp")}>
+              {/* Le power play se travaille dans l'onglet Power Play : ce bouton ouvre l'unité la plus récente. */}
+              <button className="btn-secondary" onClick={openLatestPowerPlay}>
                 Power Play
               </button>
               {isGameDay && (
@@ -1030,29 +1041,6 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
       </Modal>
     )}
 
-    {editing === "pp" && (
-      <Modal onClose={() => setEditing(null)}>
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-white">Power Play — nos deux unités</h2>
-          <PowerPlayLineups
-            lineup={lineup}
-            ensureLineup={ensureLineup}
-            roster={(() => {
-              const inLineup = new Set(unitsRef.current.flatMap((u) => u.player_ids));
-              const skaters = players.filter((p) => p.position !== "G" && p.jersey_number != null);
-              const base = skaters.some((p) => inLineup.has(p.id)) ? skaters.filter((p) => inLineup.has(p.id)) : skaters;
-              return base
-                .slice()
-                .sort((a, b) => (a.jersey_number ?? 0) - (b.jersey_number ?? 0))
-                .map((p) => ({ number: String(p.jersey_number), name: lastName(p.full_name) }));
-            })()}
-          />
-          <button className="btn-dark" onClick={() => setEditing(null)}>
-            Fermer
-          </button>
-        </div>
-      </Modal>
-    )}
 
     {/* ---- Feuille imprimable (portrait) ----
         Les sections sont empilées sur toute la largeur plutôt que côte à côte :
