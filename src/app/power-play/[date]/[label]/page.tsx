@@ -191,17 +191,22 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     ...unit.extra.filter((x) => x.phase === ph).map((x) => ({ id: x.id, title: x.title, value: x.map })),
   ];
 
-  // Largeur d'une colonne de la feuille (mm) : 60 mm au maximum, réduite pour que la colonne la plus haute
-  // (glace complète = 2,35 × la largeur, demi-glace = 1,05 ×) tienne dans la hauteur utile d'une page portrait.
-  const colMm = (() => {
-    const AVAIL_MM = 238; // 297 - marges - en-tête
-    const widths = PHASES.map((ph) => {
+  // Feuille en PAYSAGE (281 × 170 mm utiles) : trois colonnes In-zone | Breakout | Faceoff. Le breakout (glace
+  // complète, haute et étroite) est plus étroit que les deux demi-glaces ; toutes les largeurs sont calculées
+  // pour que la plus haute colonne tienne dans la page, même avec plusieurs jeux par phase.
+  const colWidths = (() => {
+    const PAGE_W = 281 - 2 * 8; // largeur utile moins les deux gouttières
+    const AVAIL_H = 168;
+    const weights = [1.45, 1, 1.45];
+    let unit = PAGE_W / weights.reduce((a, b) => a + b, 0);
+    PHASES.forEach((ph) => {
       const maps = mapsOf(ph);
       const ratio = maps.length * (ph === 1 ? 400 / 170 : 178 / 170);
-      const overhead = maps.reduce((n, m) => n + 8 + (m.value.note.trim() ? 8 : 0), 0);
-      return (AVAIL_MM - overhead) / ratio;
+      const overhead = maps.reduce((n, m) => n + 9 + (m.value.note.trim() ? 8 : 0), 0);
+      unit = Math.min(unit, (AVAIL_H - overhead) / (ratio * weights[ph]));
     });
-    return Math.max(30, Math.min(60, ...widths));
+    unit = Math.max(14, unit);
+    return weights.map((w) => unit * w);
   })();
 
   return (
@@ -221,7 +226,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
                 Alignement du jour
               </Link>
             )}
-            <button className="btn" onClick={() => printWithOrientation("portrait", "8mm")}>
+            <button className="btn" onClick={() => printWithOrientation("landscape", "8mm")}>
               Imprimer / PDF
             </button>
             <button className="btn-secondary" onClick={exportPng} disabled={exporting}>
@@ -301,7 +306,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
       {/* Feuille exportable / imprimable : toutes les glaces, par phase, noms des joueurs sous les ronds.
           Hors écran à l'écran (sert à l'export image), visible seulement à l'impression. */}
       <div ref={sheetRef} className="fixed -left-[9999px] top-0 w-[1100px] bg-white p-6 text-black print:static print:left-0 print:w-auto print:p-0">
-        <header className="mb-3 flex items-end justify-between border-b-4 border-black pb-2">
+        <header className="mb-3 flex items-end justify-between border-b-4 border-black pb-1.5">
           <div>
             <h1 className="text-[20pt] font-black uppercase leading-none">
               {unit.label}
@@ -314,15 +319,15 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
         {/* Une colonne par phase (In-zone | Breakout | Faceoff) : toute l'unité tient sur UNE feuille.
             La largeur des glaces est calculée pour que la plus haute colonne rentre dans la page, même avec
             plusieurs jeux par phase. */}
-        <div className="flex items-start justify-center gap-4" style={{ breakInside: "avoid" }}>
+        <div className="flex items-start justify-center gap-4 pt-1" style={{ breakInside: "avoid" }}>
           {PHASES.map((ph) => (
-            <div key={ph} className="space-y-3" style={{ width: `${colMm}mm` }}>
+            <div key={ph} className="space-y-3" style={{ width: `${colWidths[ph]}mm` }}>
               {mapsOf(ph).map((m) => (
                 <section key={m.id} style={{ breakInside: "avoid" }}>
                   {m.id === "main" ? (
-                    <h2 className="mb-1 border-b-2 border-black pb-0.5 text-[10pt] font-black uppercase tracking-widest">{m.title}</h2>
+                    <h2 className="mb-1.5 rounded-sm bg-black px-2 py-0.5 text-[10pt] font-black uppercase tracking-[0.2em] text-white">{m.title}</h2>
                   ) : (
-                    <div className="mb-1 border-b-2 border-black pb-0.5 text-[10pt]">&nbsp;</div>
+                    <div className="mb-1.5 h-[6mm] rounded-sm bg-black/80" />
                   )}
                   <FormationStatic kind={KIND[ph]} value={m.value} names={names} markerColor={fill} />
                 </section>
