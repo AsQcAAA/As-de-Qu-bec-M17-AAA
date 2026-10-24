@@ -8,6 +8,7 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import OpponentLineupView from "@/components/OpponentLineupView";
 import FormationMap, { FormationStatic, emptyFormation, type FormationValue } from "@/components/FormationMap";
 import { printWithOrientation } from "@/lib/print";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
@@ -46,6 +47,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [form, setForm] = useState(emptyForm);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [history, setHistory] = useState<Game[]>([]);
+  /** Match choisi pour voir leur alignement (parmi nos matchs contre cette équipe). */
+  const [lineupGameId, setLineupGameId] = useState<string>("");
   /** Dernier match réellement joué contre cette équipe. */
   const [lastGame, setLastGame] = useState<Game | null>(null);
   const [ppMap, setPpMap] = useState<FormationValue>(() => emptyFormation("pp"));
@@ -559,6 +562,31 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           </div>
         </section>
       )}
+
+      {!loading && history.filter((g) => g.result).length > 0 && (() => {
+        const played = history.filter((g) => g.result).slice().reverse(); // le plus récent d'abord
+        const chosen = played.find((g) => g.id === lineupGameId) ?? played[0];
+        return (
+          <section className="card space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="font-semibold">Leur alignement contre nous</h2>
+              <div className="flex items-center gap-2">
+                <select className="input w-auto text-sm" value={chosen.id} onChange={(e) => setLineupGameId(e.target.value)}>
+                  {played.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {format(parseISO(g.game_date), "d MMM yyyy", { locale: fr })} — {g.result === "W" ? "V" : "D"} {g.goals_for ?? "-"}–{g.goals_against ?? "-"}
+                    </option>
+                  ))}
+                </select>
+                <Link href={`/resultats/${chosen.id}`} className="text-sm text-gold-700 hover:underline">
+                  Voir le match
+                </Link>
+              </div>
+            </div>
+            <OpponentLineupView gameId={chosen.id} teamSlug={teamSlug} />
+          </section>
+        );
+      })()}
 
       {!loading && history.length > 0 && (
         <section className="card space-y-3">
