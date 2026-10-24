@@ -634,37 +634,35 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         >
           {isGameDay ? "Match" : "Pratique"}
         </span>
-        {/* Heure du match et horaire des meetings (saisis dans l'horaire du jour), en haut à droite du bandeau. */}
-        {isGameDay && (gameEvent?.start_time || events.length > 0) && (
-          <div className="absolute right-5 top-4 z-10 hidden text-right sm:block">
-            {gameEvent?.start_time && (
-              <>
-                <div className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400">Mise au jeu</div>
-                <div className="text-4xl font-black leading-none text-white tabular-nums">{gameEvent.start_time.slice(0, 5).replace(":", "h")}</div>
-                {game?.location && <div className="mt-1 text-xs font-semibold text-slate-300">{game.location}</div>}
-              </>
-            )}
-            <div className="mt-2 space-y-0.5 text-xs text-slate-300">
-              {game?.bus_departure_time && (
-                <div>
-                  <span className="font-black tabular-nums text-gold-300">{game.bus_departure_time.slice(0, 5).replace(":", "h")}</span> Autobus
+        {/* Horaire du jour en ordre chronologique (autobus, meetings, match), en haut à droite du bandeau. */}
+        {isGameDay && (() => {
+          const hmFmt = (t: string) => t.slice(0, 5).replace(":", "h");
+          const rows = [
+            ...(game?.bus_departure_time ? [{ key: "bus", time: game.bus_departure_time.slice(0, 5), label: "Autobus", isGame: false }] : []),
+            ...events
+              .filter((e) => e.start_time)
+              .map((e) => {
+                const label = EVENT_TYPE_LABEL[e.event_type];
+                const title = e.title && e.title !== label && e.event_type !== "other" ? e.title : "";
+                return {
+                  key: e.id,
+                  time: e.start_time!.slice(0, 5),
+                  label: e.event_type === "game" ? `Match${game?.location ? ` · ${game.location}` : ""}` : e.event_type === "other" ? e.title || label : title ? `${label} — ${title}` : label,
+                  isGame: e.event_type === "game",
+                };
+              }),
+          ].sort((a, b) => a.time.localeCompare(b.time));
+          if (rows.length === 0) return null;
+          return (
+            <div className="absolute right-5 top-4 z-10 hidden space-y-0.5 text-right sm:block">
+              {rows.map((r) => (
+                <div key={r.key} className={r.isGame ? "pt-1 text-2xl font-black leading-tight text-white" : "text-xs text-slate-300"}>
+                  <span className={`font-black tabular-nums ${r.isGame ? "text-gold-400" : "text-gold-300"}`}>{hmFmt(r.time)}</span> {r.label}
                 </div>
-              )}
-              {events
-                .filter((e) => e.event_type !== "game" && e.start_time)
-                .map((e) => {
-                  const label = EVENT_TYPE_LABEL[e.event_type];
-                  const title = e.title && e.title !== label && e.event_type !== "other" ? e.title : "";
-                  return (
-                    <div key={e.id}>
-                      <span className="font-black tabular-nums text-gold-300">{e.start_time!.slice(0, 5).replace(":", "h")}</span>{" "}
-                      {e.event_type === "other" ? e.title || label : title ? `${label} — ${title}` : label}
-                    </div>
-                  );
-                })}
+              ))}
             </div>
-          </div>
-        )}
+          );
+        })()}
         <div className="relative p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {isGameDay && opponentTeam && (
