@@ -320,6 +320,16 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
                 Match du jour — {matchupLabel(game, findTeamByOpponent(game.opponent)?.name)}
               </h2>
             </div>
+            {(() => {
+              const t = events.find((e) => e.event_type === "game" && e.start_time)?.start_time;
+              return t || game.location ? (
+                <p className="text-sm font-bold">
+                  {t ? `Mise au jeu : ${t.slice(0, 5).replace(":", "h")}` : ""}
+                  {t && game.location ? " · " : ""}
+                  {game.location ?? ""}
+                </p>
+              ) : null;
+            })()}
             {game.bus_departure_time && !game.result && (
               <p className="text-sm font-bold">🚌 Départ de Québec : {game.bus_departure_time.slice(0, 5)}</p>
             )}
@@ -354,6 +364,13 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
           <section className="card space-y-3">
             <h2 className="font-semibold">Horaire du jour</h2>
             <DayScheduleEditor date={date} onChanged={load} />
+          </section>
+        )}
+        {/* Les jours de match, l'horaire (départ, repas, meetings…) reste visible sous la carte du match. */}
+        {game && (
+          <section className="card space-y-3">
+            <h2 className="font-semibold">Horaire du jour</h2>
+            <DayScheduleEditor date={date} isGameDay onChanged={load} />
           </section>
         )}
 
