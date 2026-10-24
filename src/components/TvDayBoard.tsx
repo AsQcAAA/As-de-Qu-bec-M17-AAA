@@ -287,7 +287,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
         {/* Le rappel n'a pas d'heure : il sort de la liste chronologique pour
             son propre bloc, sous l'horaire. */}
-        {blocks.horaire && !game && (events.length > 0 || individualMeetings.length > 0) && (
+        {blocks.horaire && (events.length > 0 || individualMeetings.length > 0) && (
           <div className="mb-8 space-y-1.5">
             {events.filter((e) => e.event_type !== "reminder").map((e) => (
               <div key={e.id}>
@@ -338,7 +338,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
         {/* Rappels de la journée : texte saisi tel quel, mis en évidence sous
             l'horaire — c'est la place que la télé a en réserve. */}
-        {blocks.horaire && !game && events.some((e) => e.event_type === "reminder") && (
+        {blocks.horaire && events.some((e) => e.event_type === "reminder") && (
           <div className="mb-8 space-y-2">
             <div className="text-sm font-black uppercase tracking-widest text-red-400">📌 Rappels</div>
             {events
