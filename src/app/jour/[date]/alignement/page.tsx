@@ -615,6 +615,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
 
   const filledCount = (label: string) => (rosterUnit(label)?.player_ids.filter(Boolean).length ?? 0);
   const totalFilled = ROSTER_TEMPLATE.reduce((n, t) => n + filledCount(t.label), 0);
+  const gameEvent = events.find((e) => e.event_type === "game" && e.start_time) ?? null;
   const skatersFilled = ROSTER_TEMPLATE.filter((t) => t.position !== "G").reduce(
     (n, t) => n + filledCount(t.label),
     0
@@ -633,6 +634,17 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         >
           {isGameDay ? "Match" : "Pratique"}
         </span>
+        {/* Heure du match (saisie dans l'horaire du jour), en haut à droite du bandeau. */}
+        {isGameDay && gameEvent?.start_time && (
+          <div className="absolute right-5 top-4 z-10 hidden text-right sm:block">
+            <div className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400">Mise au jeu</div>
+            <div className="text-4xl font-black leading-none text-white tabular-nums">{gameEvent.start_time.slice(0, 5).replace(":", "h")}</div>
+            {game?.location && <div className="mt-1 text-xs font-semibold text-slate-300">{game.location}</div>}
+            {game?.bus_departure_time && (
+              <div className="text-xs text-slate-400">Autobus {game.bus_departure_time.slice(0, 5).replace(":", "h")}</div>
+            )}
+          </div>
+        )}
         <div className="relative p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {isGameDay && opponentTeam && (
