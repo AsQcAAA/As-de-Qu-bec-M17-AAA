@@ -680,17 +680,16 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               <h1 className="text-2xl sm:text-3xl font-black capitalize text-white leading-tight">
                 {format(parseISO(date), "EEEE d MMMM", { locale: fr })}
               </h1>
-              <p className="text-slate-300 text-sm mt-0.5">
-                {isGameDay
-                  ? "Sélectionne l'effectif habillé pour le match."
-                  : "Sélectionne l'effectif, puis clique un chandail pour former les trios et duos."}
-              </p>
-              <p className="text-slate-400 text-xs mt-1">
-                ↔ Glisse un chandail sur un autre pour déplacer ou échanger deux joueurs.
-              </p>
-              <p className="text-slate-500 text-xs mt-0.5">
-                Chaque changement est enregistré automatiquement — le bouton Enregistrer sert à confirmer.
-              </p>
+              {/* Les consignes ne s'affichent que les jours de pratique : un jour de match, le bandeau reste sobre. */}
+              {!isGameDay && (
+                <>
+                  <p className="text-slate-300 text-sm mt-0.5">Sélectionne l&apos;effectif, puis clique un chandail pour former les trios et duos.</p>
+                  <p className="text-slate-400 text-xs mt-1">↔ Glisse un chandail sur un autre pour déplacer ou échanger deux joueurs.</p>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Chaque changement est enregistré automatiquement — le bouton Enregistrer sert à confirmer.
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
