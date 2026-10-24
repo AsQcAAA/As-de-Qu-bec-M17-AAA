@@ -198,15 +198,24 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     const PAGE_W = 281 - 2 * 8; // largeur utile moins les deux gouttières
     const AVAIL_H = 168;
     const weights = [1.45, 1, 1.45];
-    let unit = PAGE_W / weights.reduce((a, b) => a + b, 0);
-    PHASES.forEach((ph) => {
+    // Largeur maximale de chaque colonne d'après SA hauteur (une colonne à un seul dessin peut être très large).
+    const caps = PHASES.map((ph) => {
       const maps = mapsOf(ph);
       const ratio = maps.length * (ph === 1 ? 400 / 170 : 178 / 170);
       const overhead = maps.reduce((n, m) => n + 9 + (m.value.note.trim() ? 8 : 0), 0);
-      unit = Math.min(unit, (AVAIL_H - overhead) / (ratio * weights[ph]));
+      return Math.max(14, (AVAIL_H - overhead) / ratio);
     });
-    unit = Math.max(14, unit);
-    return weights.map((w) => unit * w);
+    const total = (u: number) => caps.reduce((n, c, i) => n + Math.min(c, u * weights[i]), 0);
+    // Les colonnes plafonnées gardent leur maximum ; la largeur restante revient à celles qui peuvent grandir.
+    if (total(1000) <= PAGE_W) return caps;
+    let lo = 1;
+    let hi = 1000;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (total(mid) > PAGE_W) hi = mid;
+      else lo = mid;
+    }
+    return caps.map((c, i) => Math.min(c, lo * weights[i]));
   })();
 
   return (
