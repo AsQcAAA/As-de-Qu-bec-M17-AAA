@@ -191,6 +191,19 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     ...unit.extra.filter((x) => x.phase === ph).map((x) => ({ id: x.id, title: x.title, value: x.map })),
   ];
 
+  // Largeur d'une colonne de la feuille (mm) : 60 mm au maximum, réduite pour que la colonne la plus haute
+  // (glace complète = 2,35 × la largeur, demi-glace = 1,05 ×) tienne dans la hauteur utile d'une page portrait.
+  const colMm = (() => {
+    const AVAIL_MM = 238; // 297 - marges - en-tête
+    const widths = PHASES.map((ph) => {
+      const maps = mapsOf(ph);
+      const ratio = maps.length * (ph === 1 ? 400 / 170 : 178 / 170);
+      const overhead = maps.reduce((n, m) => n + 8 + (m.value.note.trim() ? 8 : 0), 0);
+      return (AVAIL_MM - overhead) / ratio;
+    });
+    return Math.max(30, Math.min(60, ...widths));
+  })();
+
   return (
     <>
       <div className="space-y-6 print:hidden">
@@ -298,9 +311,12 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           </div>
           <div className="text-right text-[9pt] font-bold">As de Québec M17 AAA — Power Play</div>
         </header>
-        <div className="space-y-4">
+        {/* Une colonne par phase (In-zone | Breakout | Faceoff) : toute l'unité tient sur UNE feuille.
+            La largeur des glaces est calculée pour que la plus haute colonne rentre dans la page, même avec
+            plusieurs jeux par phase. */}
+        <div className="flex items-start justify-center gap-4" style={{ breakInside: "avoid" }}>
           {PHASES.map((ph) => (
-            <div key={ph} className="grid grid-cols-3 items-start gap-4" style={{ breakInside: "avoid" }}>
+            <div key={ph} className="space-y-3" style={{ width: `${colMm}mm` }}>
               {mapsOf(ph).map((m) => (
                 <section key={m.id} style={{ breakInside: "avoid" }}>
                   {m.id === "main" ? (
