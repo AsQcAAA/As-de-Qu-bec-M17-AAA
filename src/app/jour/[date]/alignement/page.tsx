@@ -29,7 +29,6 @@ import {
 } from "@/lib/lineupPositions";
 import Modal from "@/components/Modal";
 import GamePlanEditor from "@/components/GamePlanEditor";
-import { loadUnits, unitHref } from "@/lib/ppUnits";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
 import type { Absence, AbsenceReason, Game, Lineup, LineupUnit, Player, ScheduleEvent, UnitType } from "@/lib/types";
 
@@ -164,15 +163,6 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const [savingAll, setSavingAll] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  /** Ouvre dans l'onglet Power Play l'unité la plus récente (dernière date, PP1 d'abord) ; sinon l'onglet lui-même. */
-  async function openLatestPowerPlay() {
-    const { units } = await loadUnits(supabase);
-    const latest = units
-      .slice()
-      .sort((a, b) => b.date.localeCompare(a.date) || a.label.localeCompare(b.label));
-    router.push(latest.length > 0 ? unitHref(latest[0]) : "/power-play");
-  }
 
   /**
    * L'alignement du jour, créé au besoin.
@@ -734,8 +724,8 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
               <button className="btn-secondary" onClick={() => setEditing("horaire")}>
                 🕐 Horaire
               </button>
-              {/* Le power play se travaille dans l'onglet Power Play : ce bouton ouvre l'unité la plus récente. */}
-              <button className="btn-secondary" onClick={openLatestPowerPlay}>
+              {/* Le power play se travaille dans l'onglet Power Play (les unités les plus récentes y sont en haut). */}
+              <button className="btn-secondary" onClick={() => router.push("/power-play")}>
                 Power Play
               </button>
               {isGameDay && (
