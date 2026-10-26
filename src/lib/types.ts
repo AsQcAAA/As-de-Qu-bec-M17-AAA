@@ -139,6 +139,8 @@ export interface Game {
   /** Aucun rapport TPE n'existe pour ce match (ne pas le réclamer). */
   no_tpe_report?: boolean;
   /** Unités spéciales, lues sur la feuille de match. */
+  /** Unités de l'onglet Power Play utilisées lors de ce match (voir migration 056). */
+  pp_units?: { date: string; label: string }[];
   pp_goals: number | null;
   pp_opportunities: number | null;
   pk_kills: number | null;

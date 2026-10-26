@@ -27,7 +27,7 @@ import {
   type PpPhase,
   type PpUnit,
 } from "@/lib/ppUnits";
-import type { Player } from "@/lib/types";
+import type { Game, Player } from "@/lib/types";
 
 const COLOR_FILL: Record<PpColor, string> = { gris: PP_COLORS.pp1.fill, jaune: PP_COLORS.pp2.fill, bleu: PP_COLORS.pp3.fill };
 const KIND = ["pp", "bo", "fo"] as const;
@@ -48,6 +48,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const sheetRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  /** Matchs où cette unité a été utilisée, et tous les matchs (pour en lier un). */
+  const [allGames, setAllGames] = useState<Game[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -73,6 +75,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
         setUnit(u);
       }
       setPlayers((pls ?? []) as Player[]);
+      const { data: gms } = await supabase.from("games").select("*").order("game_date", { ascending: false });
+      setAllGames((gms ?? []) as Game[]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,6 +154,22 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     setUnit(next);
     persistPhase(supabase, next, phase, first.map);
     persistExtra(supabase, next, rest);
+  }
+
+  const usedIn = allGames.filter((g) => (g.pp_units ?? []).some((l) => l.date === date && l.label === label));
+  async function linkGame(gameId: string) {
+    const g = allGames.find((x) => x.id === gameId);
+    if (!g) return;
+    const next = [...(g.pp_units ?? []), { date, label }];
+    await supabase.from("games").update({ pp_units: next }).eq("id", gameId);
+    setAllGames((prev) => prev.map((x) => (x.id === gameId ? { ...x, pp_units: next } : x)));
+  }
+  async function unlinkGame(gameId: string) {
+    const g = allGames.find((x) => x.id === gameId);
+    if (!g) return;
+    const next = (g.pp_units ?? []).filter((l) => !(l.date === date && l.label === label));
+    await supabase.from("games").update({ pp_units: next }).eq("id", gameId);
+    setAllGames((prev) => prev.map((x) => (x.id === gameId ? { ...x, pp_units: next } : x)));
   }
 
   async function remove() {
@@ -246,6 +266,40 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
             </Link>
           </div>
         </div>
+
+        {/* Matchs où ce power play a été utilisé : on peut y revenir, et en lier un nouveau. */}
+        <section className="card space-y-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="font-semibold">Utilisé lors des matchs ({usedIn.length})</h2>
+            <select className="input w-auto text-sm" value="" onChange={(e) => e.target.value && linkGame(e.target.value)}>
+              <option value="">Lier à un match…</option>
+              {allGames
+                .filter((g) => !usedIn.some((u) => u.id === g.id))
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {format(parseISO(g.game_date), "d MMM yyyy", { locale: fr })} — {g.opponent}
+                  </option>
+                ))}
+            </select>
+          </div>
+          {usedIn.length === 0 ? (
+            <p className="text-sm text-slate-500">Aucun match lié. Lie cette unité au match où tu l&apos;as utilisée pour pouvoir y revenir.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {usedIn.map((g) => (
+                <span key={g.id} className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1 text-sm">
+                  <Link href={`/resultats/${g.id}`} className="font-semibold hover:text-gold-700 hover:underline">
+                    {format(parseISO(g.game_date), "d MMM yyyy", { locale: fr })} — {g.opponent}
+                    {g.result ? ` (${g.goals_for ?? "-"}–${g.goals_against ?? "-"})` : ""}
+                  </Link>
+                  <button className="text-xs text-red-600 hover:underline" onClick={() => unlinkGame(g.id)}>
+                    Retirer
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
 
         {PHASES.map((ph) => (
           <section key={ph} className="space-y-3">

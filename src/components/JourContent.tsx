@@ -333,6 +333,19 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
             {game.bus_departure_time && !game.result && (
               <p className="text-sm font-bold">🚌 Départ de Québec : {game.bus_departure_time.slice(0, 5)}</p>
             )}
+            {(game.pp_units ?? []).length > 0 && (
+              <p className="text-sm">
+                <span className="font-bold">Power Play :</span>{" "}
+                {(game.pp_units ?? []).map((l, i) => (
+                  <span key={`${l.date}|${l.label}`}>
+                    {i > 0 ? ", " : ""}
+                    <Link href={`/power-play/${l.date}/${encodeURIComponent(l.label)}`} className="text-gold-700 hover:underline">
+                      {l.label} ({l.date})
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            )}
             {game.result && (
               <span className="badge bg-gold-100 text-ink-800">
                 {RESULT_LABEL[game.result]} {game.goals_for ?? "-"}–{game.goals_against ?? "-"}

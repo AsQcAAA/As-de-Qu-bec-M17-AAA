@@ -11,6 +11,7 @@ import { findTeamByOpponent, teamColor, LHEQ_M17_AAA_TEAMS } from "@/lib/lheqTea
 import { matchPlayer, parseGameSheet, type ParsedGameSheet } from "@/lib/gameSheet";
 import Modal from "@/components/Modal";
 import GamePlanEditor from "@/components/GamePlanEditor";
+import GamePowerPlayCard from "@/components/GamePowerPlayCard";
 import OpponentLineupEditor from "@/components/OpponentLineupEditor";
 import GameLineupReadOnly from "@/components/GameLineupReadOnly";
 import GameSheetImport, { type ImportDecision } from "@/components/GameSheetImport";
@@ -777,6 +778,8 @@ export default function GameDetailPage() {
           events={events}
         />
       </div>
+
+      <GamePowerPlayCard game={game} onChanged={load} />
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Pointeurs du match</h2>
