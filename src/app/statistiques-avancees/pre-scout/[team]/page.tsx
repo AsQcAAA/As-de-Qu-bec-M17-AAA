@@ -8,7 +8,7 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import { TEAM_STATS, TEAM_STATS_UPDATED } from "@/lib/leagueTeamStats";
+import { TEAM_STATS } from "@/lib/leagueTeamStats";
 import OpponentLineupView from "@/components/OpponentLineupView";
 import FormationMap, { FormationStatic, emptyFormation, type FormationValue } from "@/components/FormationMap";
 import { printWithOrientation } from "@/lib/print";
@@ -427,9 +427,6 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <section className="card space-y-3">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <h2 className="font-semibold">Statistiques d&apos;équipe — saison régulière</h2>
-              <span className="text-xs text-slate-400">
-                {t.rank}<sup>e</sup> au classement · mises à jour le {TEAM_STATS_UPDATED}
-              </span>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
               {cell("Fiche", `${t.w}-${t.lReg}-${t.lOt + t.lSo}`, `${t.gp} MJ · ${t.pts} pts (${t.ptsPct})`, "Victoires – défaites – défaites en prolongation ou en fusillade")}
