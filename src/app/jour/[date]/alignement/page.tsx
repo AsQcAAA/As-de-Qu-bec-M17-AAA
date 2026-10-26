@@ -29,6 +29,7 @@ import {
 } from "@/lib/lineupPositions";
 import Modal from "@/components/Modal";
 import GamePlanEditor from "@/components/GamePlanEditor";
+import GamePowerPlayCard from "@/components/GamePowerPlayCard";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
 import type { Absence, AbsenceReason, Game, Lineup, LineupUnit, Player, ScheduleEvent, UnitType } from "@/lib/types";
 
@@ -760,6 +761,9 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
           </div>
         </div>
       </section>
+
+      {/* Avant le match : lier le power play travaillé à la pratique (ou un autre) à ce match. */}
+      {isGameDay && game && <GamePowerPlayCard game={game} onChanged={load} />}
 
       {tooManySkaters && (
         <p className="rounded-xl border border-red-400/50 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">

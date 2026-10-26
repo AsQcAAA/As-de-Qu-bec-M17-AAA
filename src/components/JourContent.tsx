@@ -12,6 +12,7 @@ import { ABSENCE_REASON_LABEL, REASON_EMOJI } from "@/lib/absenceReasons";
 import { RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import GamePlanEditor from "@/components/GamePlanEditor";
 import DayScheduleEditor from "@/components/DayScheduleEditor";
+import GamePowerPlayCard from "@/components/GamePowerPlayCard";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { useCoachDirectory } from "@/lib/useCoach";
 import type { Absence, EventType, Game, Lineup, LineupUnit, Meeting, Player, ScheduleEvent } from "@/lib/types";
@@ -379,6 +380,8 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
             <DayScheduleEditor date={date} onChanged={load} />
           </section>
         )}
+        {/* Avant le match : lier le power play travaillé à la pratique à ce match. */}
+        {game && <GamePowerPlayCard game={game} onChanged={load} />}
         {/* Les jours de match, l'horaire (départ, repas, meetings…) reste visible sous la carte du match. */}
         {game && (
           <section className="card space-y-3">
