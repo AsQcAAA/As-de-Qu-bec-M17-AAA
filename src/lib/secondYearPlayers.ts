@@ -92,7 +92,6 @@ export const SECOND_YEAR_PLAYERS: Record<string, SecondYearPlayer[]> = {
   "gaulois-ric": [sk("Zachary D'Aquila", 15, 0, 3)],
   "dynamiques-ccl": [
     sk("Félix Theriault", 32, 4, 14, "ex-Conquérants"),
-    sk("Jacob Bolduc", 24, 10, 5, "ex-Saguenay — homonyme possible"),
     gk("Charles Mathieu", 17, "12-4-1", 1.93),
   ],
   "seigneurs-mi": [sk("Théodore Chayer", 28, 6, 1, "ex-Conquérants")],

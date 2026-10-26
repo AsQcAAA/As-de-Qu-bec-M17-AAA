@@ -8,6 +8,7 @@ import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { TEAM_STATS, TEAM_STATS_UPDATED } from "@/lib/leagueTeamStats";
 import OpponentLineupView from "@/components/OpponentLineupView";
 import FormationMap, { FormationStatic, emptyFormation, type FormationValue } from "@/components/FormationMap";
 import { printWithOrientation } from "@/lib/print";
@@ -407,6 +408,45 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <p className="text-xs text-slate-500">Statistiques de la saison 2025-26 (LHEQ, saison régulière).</p>
         </section>
       )}
+
+      {!loading && TEAM_STATS[teamSlug] && (() => {
+        const t = TEAM_STATS[teamSlug];
+        const asStats = TEAM_STATS["as-de-quebec"];
+        const cell = (label: string, value: string | number, sub?: string, hint?: string) => (
+          <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-center" title={hint}>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</div>
+            <div className="text-xl font-black tabular-nums">{value}</div>
+            {sub && <div className="text-[11px] text-slate-500">{sub}</div>}
+          </div>
+        );
+        return (
+          <section className="card space-y-3">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <h2 className="font-semibold">Statistiques d&apos;équipe — saison régulière</h2>
+              <span className="text-xs text-slate-400">
+                {t.rank}<sup>e</sup> au classement · mises à jour le {TEAM_STATS_UPDATED}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+              {cell("Fiche", `${t.w}-${t.lReg}-${t.lOt + t.lSo}`, `${t.gp} MJ · ${t.pts} pts (${t.ptsPct})`, "Victoires – défaites – défaites en prolongation ou en fusillade")}
+              {cell("Buts pour", t.gf, `${t.gfPerGame} par match`)}
+              {cell("Buts contre", t.ga, `${t.gaPerGame} par match`)}
+              {cell("Différentiel", t.diff, asStats ? `As : ${asStats.diff}` : undefined)}
+              {cell("Avantage numérique", `${t.ppPct} %`, t.pp, "Buts en avantage numérique / occasions")}
+              {cell("Désavantage numérique", `${t.pkPct} %`, t.pk, "Arrêts en désavantage numérique / occasions")}
+              {cell("Pénalités", t.pim, `${t.pimPerGame} par match`, "Minutes de pénalité")}
+              {cell("V rég. / prol. / fus.", `${t.wReg} / ${t.wOt} / ${t.wSo}`, "Victoires")}
+              {cell("D rég. / prol. / fus.", `${t.lReg} / ${t.lOt} / ${t.lSo}`, "Défaites")}
+              {cell("Nuls", t.ties)}
+            </div>
+            {asStats && (
+              <p className="text-xs text-slate-400">
+                Pour comparer, les As : AN {asStats.ppPct} %, DN {asStats.pkPct} %, {asStats.gfPerGame} BP/match, {asStats.gaPerGame} BC/match.
+              </p>
+            )}
+          </section>
+        );
+      })()}
 
       {!loading && (
         <div className="grid md:grid-cols-2 gap-6">
