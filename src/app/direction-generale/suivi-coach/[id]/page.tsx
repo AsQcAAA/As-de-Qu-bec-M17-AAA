@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -35,6 +35,14 @@ function MeetingCard({ m, onSave }: { m: Meeting; onSave: (id: string, patch: { 
   const [topic, setTopic] = useState(m.topic ?? "");
   const [notes, setNotes] = useState(m.notes ?? "");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | string>("idle");
+  // Le champ s'agrandit avec le texte : tout le contenu enregistré est visible, sans défiler.
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [notes]);
 
   async function commit(patch: { topic?: string | null; notes?: string | null }) {
     setStatus("saving");
@@ -67,7 +75,8 @@ function MeetingCard({ m, onSave }: { m: Meeting; onSave: (id: string, patch: { 
       <div>
         <label className="label">Contenu de la rencontre</label>
         <textarea
-          className="input"
+          ref={areaRef}
+          className="input resize-none overflow-hidden"
           rows={5}
           placeholder="Ce qui a été discuté, décisions, points à suivre…"
           value={notes}
