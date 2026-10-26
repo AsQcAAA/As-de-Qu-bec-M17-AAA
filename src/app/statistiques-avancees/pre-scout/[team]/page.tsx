@@ -214,11 +214,15 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         {/* Leur fiche, dans le bandeau : victoires, défaites, défaites en prolongation et 5 derniers matchs. */}
         <div className="sm:ml-auto flex items-center gap-4 rounded-xl border border-white/15 bg-black/40 px-4 py-2 text-white">
           <div className="flex items-center gap-3">
-            {[
-              ["V", form.wins],
-              ["D", form.losses],
-              ["DP", form.otl_losses],
-            ].map(([label, value]) => (
+            {(() => {
+              // Fiche officielle du classement de la ligue ; la saisie manuelle ne sert que si l'équipe n'y figure pas.
+              const t = TEAM_STATS[teamSlug];
+              return [
+                ["V", t ? String(t.w) : form.wins],
+                ["D", t ? String(t.lReg) : form.losses],
+                ["DP", t ? String(t.lOt + t.lSo) : form.otl_losses],
+              ];
+            })().map(([label, value]) => (
               <div key={label} className="text-center leading-none">
                 <div className="text-2xl font-black tabular-nums">{value || "–"}</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-gold-400 mt-1">{label}</div>
