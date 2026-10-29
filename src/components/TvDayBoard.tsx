@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { EVENT_TYPE_LABEL, showsLocation } from "@/lib/eventTypes";
 import { FormationStatic, type FormationValue } from "@/components/FormationMap";
 import { PP_COLORS } from "@/components/PowerPlayLineups";
+import { PP_COLOR_LABEL, loadUnits, type PpUnit } from "@/lib/ppUnits";
 import JerseyDisplay from "@/components/JerseyDisplay";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import { matchupLabel } from "@/lib/gameResults";
@@ -83,6 +84,10 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   const [individualMeetings, setIndividualMeetings] = useState<Player[]>([]);
   const [exporting, setExporting] = useState(false);
   /** Power plays à afficher sur la TV (choisis dans l'alignement du jour). */
+  /** Power plays choisis pour la journée (onglet Power Play) et phases à montrer : 0 = in-zone, 1 = breakout, 2 = faceoff. */
+  const [allPpUnits, setAllPpUnits] = useState<PpUnit[]>([]);
+  const [pick, setPick] = useState<{ units: { date: string; label: string }[]; phases: number[] }>({ units: [], phases: [0] });
+  const [pickOpen, setPickOpen] = useState(false);
   const [ppTv, setPpTv] = useState<{ pp1: FormationValue; pp2: FormationValue; pp3: FormationValue } | null>(null);
 
   useEffect(() => {
@@ -116,6 +121,12 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       setEvents(evts ?? []);
       setGame(gm ?? null);
       const l: Lineup | undefined = lineups?.[0];
+      const [{ units: ppUnits }, { data: disp }] = await Promise.all([
+        loadUnits(supabase),
+        supabase.from("day_pp_display").select("units, phases").eq("day", date).maybeSingle(),
+      ]);
+      setAllPpUnits(ppUnits);
+      if (disp) setPick({ units: (disp.units as { date: string; label: string }[]) ?? [], phases: (disp.phases as number[]) ?? [0] });
       setPpTv(
         l?.show_pp_tv && ((l.pp1_map?.markers.length ?? 0) > 0 || (l.pp2_map?.markers.length ?? 0) > 0 || (l.pp3_map?.markers.length ?? 0) > 0)
           ? {
@@ -138,6 +149,12 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     const timer = setInterval(load, 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, [date, cast]);
+
+  /** Enregistre le choix des PP à afficher ce jour-là. */
+  async function savePick(next: { units: { date: string; label: string }[]; phases: number[] }) {
+    setPick(next);
+    await supabase.from("day_pp_display").upsert({ day: date, units: next.units, phases: next.phases, updated_at: new Date().toISOString() }, { onConflict: "day" });
+  }
 
   async function exportImage() {
     if (!captureRef.current) return;
@@ -178,17 +195,43 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
   for (const p of players) {
     if (p.jersey_number != null) ppNames[String(p.jersey_number)] = p.full_name.split(" ").pop() ?? "";
   }
-  const ppBlock = blocks.pp && ppTv && (
+  const PHASE_NAMES = ["In-zone", "Breakout", "Faceoff"] as const;
+  const PHASE_KINDS = ["pp", "bo", "fo"] as const;
+  // Unités choisies pour la journée ; à défaut, les anciens PP1 à PP3 saisis dans l'alignement du jour.
+  const chosenItems = pick.units.flatMap((l) => {
+    const u = allPpUnits.find((x) => x.date === l.date && x.label === l.label);
+    if (!u) return [];
+    return pick.phases
+      .slice()
+      .sort()
+      .map((ph) => ({
+        key: `${l.date}|${l.label}|${ph}`,
+        title: `${u.label} — ${PHASE_NAMES[ph]}`,
+        kind: PHASE_KINDS[ph],
+        value: ph === 0 ? u.inzone : ph === 1 ? u.breakout : u.faceoff,
+        fill: u.color ? { gris: PP_COLORS.pp1.fill, jaune: PP_COLORS.pp2.fill, bleu: PP_COLORS.pp3.fill }[u.color] : undefined,
+        colorLabel: u.color ? PP_COLOR_LABEL[u.color] : null,
+      }))
+      .filter((it) => it.value && it.value.markers.length > 0);
+  });
+  const legacyItems = ppTv
+    ? ([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2], ["PP3", ppTv.pp3, PP_COLORS.pp3]] as const)
+        .filter(([, v]) => v.markers.length > 0)
+        .map(([label, v, c]) => ({ key: label, title: `${label} — ${c.label}`, kind: "pp" as const, value: v, fill: c.fill, colorLabel: null as string | null }))
+    : [];
+  const ppItems = chosenItems.length > 0 ? chosenItems : legacyItems;
+  const ppBlock = blocks.pp && ppItems.length > 0 && (
     <div className="mb-8">
       <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
       <div className={`grid gap-4 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
-        {([["PP1", ppTv.pp1, PP_COLORS.pp1], ["PP2", ppTv.pp2, PP_COLORS.pp2], ["PP3", ppTv.pp3, PP_COLORS.pp3]] as const)
-          .filter(([label, v]) => label !== "PP3" || v.markers.length > 0)
-          .map(([label, v, c]) => (
-          <div key={label}>
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-300">{label} — {c.label}</div>
+        {ppItems.map((it) => (
+          <div key={it.key}>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-300">
+              {it.title}
+              {it.colorLabel ? ` · ${it.colorLabel}` : ""}
+            </div>
             <div className="rounded-lg overflow-hidden">
-              <FormationStatic kind="pp" value={{ ...v, note: "" }} names={ppNames} markerColor={c.fill} />
+              <FormationStatic kind={it.kind} value={{ ...it.value!, note: "" }} names={ppNames} markerColor={it.fill} />
             </div>
           </div>
         ))}
@@ -235,10 +278,61 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
               </label>
             ))}
           </div>
+          {blocks.pp && (
+            <button onClick={() => setPickOpen((o) => !o)} className="btn-secondary">
+              {pickOpen ? "Fermer le choix des PP" : `Choisir les PP (${pick.units.length})`}
+            </button>
+          )}
           <a
             href={`/diffusion/${date}?${[phone ? "vue=telephone" : "", blocsQuery.length < 3 ? `blocs=${blocsQuery.join(",")}` : ""].filter(Boolean).join("&")}`} target="_blank" rel="noreferrer" className="btn-secondary">
             Ouvrir la page à diffuser
           </a>
+        </div>
+      )}
+
+      {!cast && pickOpen && (
+        <div className="mx-4 mb-4 space-y-3 rounded-xl border border-white/15 bg-white/5 p-4 print:hidden">
+          <div className="text-sm font-bold text-white">Power plays à afficher ce jour-là</div>
+          <div className="flex flex-wrap gap-4 text-sm text-slate-200">
+            {["In-zone", "Breakout", "Faceoff"].map((name, ph) => (
+              <label key={name} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={pick.phases.includes(ph)}
+                  onChange={(e) => savePick({ ...pick, phases: e.target.checked ? [...pick.phases, ph] : pick.phases.filter((x) => x !== ph) })}
+                />
+                {name}
+              </label>
+            ))}
+          </div>
+          {allPpUnits.length === 0 ? (
+            <p className="text-sm text-slate-400">Aucune unité dans l&apos;onglet Power Play pour l&apos;instant.</p>
+          ) : (
+            <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+              {allPpUnits
+                .slice()
+                .sort((a, b) => b.date.localeCompare(a.date) || a.label.localeCompare(b.label))
+                .map((u) => {
+                  const on = pick.units.some((l) => l.date === u.date && l.label === u.label);
+                  return (
+                    <label key={u.key} className="flex items-center gap-2 text-sm text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={(e) =>
+                          savePick({
+                            ...pick,
+                            units: e.target.checked ? [...pick.units, { date: u.date, label: u.label }] : pick.units.filter((l) => !(l.date === u.date && l.label === u.label)),
+                          })
+                        }
+                      />
+                      {u.label} — {format(parseISO(u.date), "EEE d MMM", { locale: fr })}
+                      {u.color ? ` (${PP_COLOR_LABEL[u.color].toLowerCase()})` : ""}
+                    </label>
+                  );
+                })}
+            </div>
+          )}
         </div>
       )}
 
