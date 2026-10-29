@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { findTeamByOpponent } from "@/lib/lheqTeams";
 import type { Game, ScheduleEvent } from "@/lib/types";
 import { printWithOrientation } from "@/lib/print";
+import { TOURNAMENT_DATES, TOURNAMENT_TITLE } from "@/lib/tournoiStAugustin";
 import Modal from "@/components/Modal";
 import EmailComposer from "@/components/EmailComposer";
 import RecipientPicker from "@/components/RecipientPicker";
@@ -152,6 +153,20 @@ export default function CalendrierExportPage() {
           <div className="grid grid-cols-7 gap-1">
             {days.map((day) => {
               const key = format(day, "yyyy-MM-dd");
+              // Tournoi de St-Augustin : seul le bloc du tournoi (jeudi à dimanche), comme dans le calendrier, sans les matchs.
+              if (TOURNAMENT_DATES.includes(key)) {
+                if (key !== TOURNAMENT_DATES[0]) return null;
+                return (
+                  <div
+                    key={key}
+                    style={{ gridColumn: "span 4" }}
+                    className="cal-cell flex h-[152px] flex-col items-center justify-center gap-1 rounded-md border border-red-700 bg-red-600 p-2 text-center text-white"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-widest">5 au 8 novembre</span>
+                    <span className="text-2xl font-black leading-tight">{TOURNAMENT_TITLE}</span>
+                  </div>
+                );
+              }
               const dayEvents = eventsByDay.get(key) ?? [];
               const inMonth = isSameMonth(day, month);
               const game = gameByDate.get(key);
