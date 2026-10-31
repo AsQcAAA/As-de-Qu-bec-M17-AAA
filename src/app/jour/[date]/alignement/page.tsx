@@ -607,6 +607,15 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   const filledCount = (label: string) => (rosterUnit(label)?.player_ids.filter(Boolean).length ?? 0);
   const totalFilled = ROSTER_TEMPLATE.reduce((n, t) => n + filledCount(t.label), 0);
   const gameEvent = events.find((e) => e.event_type === "game" && e.start_time) ?? null;
+  /** La feuille de match n'apparaît qu'une fois le match fini : 2 h après la mise au jeu (ou le lendemain si l'heure est inconnue). */
+  const gameOver = (() => {
+    if (!isGameDay) return false;
+    const now = new Date();
+    if (!gameEvent?.start_time) return date < format(now, "yyyy-MM-dd");
+    const [h, m] = gameEvent.start_time.split(":").map(Number);
+    const [y, mo, d] = date.split("-").map(Number);
+    return now.getTime() >= new Date(y, mo - 1, d, h + 2, m).getTime();
+  })();
   const skatersFilled = ROSTER_TEMPLATE.filter((t) => t.position !== "G").reduce(
     (n, t) => n + filledCount(t.label),
     0
@@ -734,7 +743,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                   📋 Plan de match
                 </button>
               )}
-              {isGameDay && (
+              {gameOver && (
                 <Link href={`/resultats/${game!.id}`} className="btn-secondary">
                   📄 Feuille de match
                 </Link>
