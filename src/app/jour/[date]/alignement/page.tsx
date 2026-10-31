@@ -618,7 +618,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
     <>
     <div className="space-y-6 print:hidden">
       {/* ---- Bandeau d'en-tête ---- */}
-      <section className="relative overflow-hidden rounded-2xl border border-gold-400/25 bg-gradient-to-br from-ink-800/90 via-ink-900/90 to-black/90">
+      <section className="relative overflow-hidden rounded-2xl border border-gold-400/25 bg-gradient-to-br from-ink-800/90 via-ink-900/90 to-black/90 sm:flex sm:items-start">
         <span
           className="pointer-events-none select-none absolute -right-4 top-1/2 -translate-y-1/2 text-[7rem] font-black text-white/[0.04] uppercase tracking-tighter leading-none"
           aria-hidden
@@ -645,7 +645,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
           ].sort((a, b) => a.time.localeCompare(b.time));
           if (rows.length === 0) return null;
           return (
-            <div className="absolute right-5 top-4 z-10 hidden space-y-0.5 text-right sm:block">
+            <div className="relative z-10 order-2 hidden max-w-[45%] shrink-0 space-y-0.5 p-5 text-right sm:block sm:pl-0 sm:pt-6">
               {rows.map((r) => (
                 <div key={r.key} className={r.isGame ? "pt-1 text-2xl font-black leading-tight text-white" : "text-xs text-slate-300"}>
                   <span className={`font-black tabular-nums ${r.isGame ? "text-gold-400" : "text-gold-300"}`}>{hmFmt(r.time)}</span> {r.label}
@@ -654,7 +654,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
             </div>
           );
         })()}
-        <div className="relative p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
+        <div className="relative order-1 min-w-0 flex-1 p-5 sm:p-6 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {isGameDay && opponentTeam && (
               // eslint-disable-next-line @next/next/no-img-element
