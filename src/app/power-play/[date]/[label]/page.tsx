@@ -415,9 +415,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
           <div>
             <h1 className="text-[20pt] font-black uppercase leading-none">
               {unit.label}
-              {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
             </h1>
-            <p className="text-[12pt] font-bold capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
           </div>
           <div className="text-right text-[9pt] font-bold">As de Québec M17 AAA — Power Play</div>
         </header>
