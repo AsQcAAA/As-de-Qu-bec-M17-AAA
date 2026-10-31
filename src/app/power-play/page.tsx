@@ -18,15 +18,20 @@ export default function PowerPlayPage() {
   const [loading, setLoading] = useState(true);
   const [units, setUnits] = useState<PpUnit[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  /** Titres personnalisés par date (remplacent la date affichée en en-tête de groupe). */
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<{ date: string; value: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{ date: string; label: string; color: PpColor | "" }>({ date: format(new Date(), "yyyy-MM-dd"), label: "", color: "" });
 
   async function load() {
-    const [{ units: us, error: e1 }, { data: pls }] = await Promise.all([
+    const [{ units: us, error: e1 }, { data: pls }, { data: tts }] = await Promise.all([
       loadUnits(supabase),
       supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
+      supabase.from("pp_date_titles").select("unit_date, title"),
     ]);
+    setTitles(Object.fromEntries((tts ?? []).map((t) => [t.unit_date as string, t.title as string])));
     if (e1) setError("L'onglet n'est pas prêt (migrations 051 et 052 à exécuter).");
     setUnits(us);
     setPlayers((pls ?? []) as Player[]);
@@ -47,6 +52,26 @@ export default function PowerPlayPage() {
     for (const list of m.values()) list.sort((a, b) => a.label.localeCompare(b.label));
     return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [units]);
+
+  async function saveTitle() {
+    if (!editing) return;
+    const title = editing.value.trim();
+    const { date } = editing;
+    const { error: err } = title
+      ? await supabase.from("pp_date_titles").upsert({ unit_date: date, title, updated_at: new Date().toISOString() }, { onConflict: "unit_date" })
+      : await supabase.from("pp_date_titles").delete().eq("unit_date", date);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setTitles((t) => {
+      const n = { ...t };
+      if (title) n[date] = title;
+      else delete n[date];
+      return n;
+    });
+    setEditing(null);
+  }
 
   async function addUnit(e: React.FormEvent) {
     e.preventDefault();
@@ -117,7 +142,33 @@ export default function PowerPlayPage() {
       ) : (
         byDate.map(([date, list]) => (
           <section key={date} className="space-y-2">
-            <h2 className="text-lg font-bold capitalize text-white">{format(parseISO(date), "EEEE d MMMM yyyy", { locale: fr })}</h2>
+            {editing?.date === date ? (
+              <form
+                className="flex flex-wrap items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveTitle();
+                }}
+              >
+                <input
+                  autoFocus
+                  className="input w-auto min-w-[16rem] text-sm"
+                  value={editing.value}
+                  onChange={(e) => setEditing({ date, value: e.target.value })}
+                  placeholder="Ex. Power play pré-tournoi #1 (vide = date)"
+                />
+                <button type="submit" className="btn">Enregistrer</button>
+                <button type="button" className="btn-secondary" onClick={() => setEditing(null)}>Annuler</button>
+              </form>
+            ) : (
+              <div className="flex flex-wrap items-baseline gap-x-3">
+                <h2 className="text-lg font-bold text-white">{titles[date] ?? <span className="capitalize">{format(parseISO(date), "EEEE d MMMM yyyy", { locale: fr })}</span>}</h2>
+                {titles[date] && <span className="text-xs capitalize text-slate-400">{format(parseISO(date), "EEEE d MMMM yyyy", { locale: fr })}</span>}
+                <button className="text-xs font-semibold text-gold-400 hover:underline" onClick={() => setEditing({ date, value: titles[date] ?? "" })}>
+                  ✎ Renommer
+                </button>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((u) => (
                 <Link key={u.key} href={unitHref(u)} className="card space-y-2 transition hover:ring-2 hover:ring-gold-400">
