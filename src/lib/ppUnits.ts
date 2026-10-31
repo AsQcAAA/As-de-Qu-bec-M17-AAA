@@ -84,18 +84,21 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
 /** Écrit une phase : l'in-zone d'une unité d'alignement retourne dans l'alignement, le reste dans pp_units. */
 export async function persistPhase(supabase: SupabaseClient, u: PpUnit, phase: PpPhase, value: FormationValue) {
   if (phase === 0 && u.fromLineup) {
-    await supabase.from("lineups").update({ [LINEUP_KEY[u.label].col]: value }).eq("lineup_date", u.date);
+    const { error } = await supabase.from("lineups").update({ [LINEUP_KEY[u.label].col]: value }).eq("lineup_date", u.date);
+    if (error) throw error;
     return;
   }
   const col = phase === 0 ? "map" : phase === 1 ? "bo_map" : "fo_map";
-  await supabase.from("pp_units").upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", [col]: value }, { onConflict: "unit_date,label" });
+  const { error } = await supabase.from("pp_units").upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", [col]: value }, { onConflict: "unit_date,label" });
+  if (error) throw error;
 }
 
 export const unitHref = (u: { date: string; label: string }) => `/power-play/${u.date}/${encodeURIComponent(u.label)}`;
 
 /** Enregistre la liste des glaces supplémentaires d'une unité. */
 export async function persistExtra(supabase: SupabaseClient, u: PpUnit, extra: PpExtra[]) {
-  await supabase.from("pp_units").upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", extra }, { onConflict: "unit_date,label" });
+  const { error } = await supabase.from("pp_units").upsert({ unit_date: u.date, label: u.label, color: u.color, kind: "inzone", extra }, { onConflict: "unit_date,label" });
+  if (error) throw error;
 }
 
 export const newExtraId = rid;

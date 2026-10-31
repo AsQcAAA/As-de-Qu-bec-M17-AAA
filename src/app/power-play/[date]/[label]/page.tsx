@@ -65,12 +65,12 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
         if (!u.breakout) {
           const v = seedPhase(u.inzone, BO_START);
           u = { ...u, breakout: v };
-          persistPhase(supabase, u, 1, v);
+          persistPhase(supabase, u, 1, v).catch(() => setSaveError(true));
         }
         if (!u.faceoff) {
           const v = seedPhase(u.inzone, FO_START);
           u = { ...u, faceoff: v };
-          persistPhase(supabase, u, 2, v);
+          persistPhase(supabase, u, 2, v).catch(() => setSaveError(true));
         }
         setUnit(u);
       }
@@ -87,22 +87,63 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     [players]
   );
 
-  function change(phase: PpPhase, value: FormationValue) {
-    if (!unit) return;
-    const next = { ...unit, ...(phase === 0 ? { inzone: value } : phase === 1 ? { breakout: value } : { faceoff: value }) };
-    setUnit(next);
-    const k = `main-${phase}`;
+  /** Dernier état connu (évite qu'un second changement dans le même tick parte d'un état périmé). */
+  const unitRef = useRef<PpUnit | null>(null);
+  unitRef.current = unit;
+  /** Enregistrements en attente (anti-rebond), vidés au départ de la page pour ne jamais perdre un changement. */
+  const pending = useRef<Record<string, () => Promise<unknown>>>({});
+  const [saveError, setSaveError] = useState(false);
+
+  function schedule(k: string, run: () => Promise<unknown>, delay = 400) {
     clearTimeout(timers.current[k]);
-    timers.current[k] = setTimeout(() => persistPhase(supabase, next, phase, value), 400);
+    pending.current[k] = run;
+    timers.current[k] = setTimeout(() => {
+      delete pending.current[k];
+      run().catch(() => setSaveError(true));
+    }, delay);
+  }
+
+  function flushAll() {
+    for (const k of Object.keys(pending.current)) {
+      clearTimeout(timers.current[k]);
+      const run = pending.current[k];
+      delete pending.current[k];
+      run().catch(() => undefined);
+    }
+  }
+
+  useEffect(() => {
+    const onHide = () => flushAll();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+      flushAll();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function change(phase: PpPhase, value: FormationValue) {
+    const cur = unitRef.current;
+    if (!cur) return;
+    const next = { ...cur, ...(phase === 0 ? { inzone: value } : phase === 1 ? { breakout: value } : { faceoff: value }) };
+    unitRef.current = next;
+    setUnit(next);
+    schedule(`main-${phase}`, () => persistPhase(supabase, next, phase, value));
   }
 
   function saveExtras(extra: PpExtra[], immediate = false) {
-    if (!unit) return;
-    const next = { ...unit, extra };
+    const cur = unitRef.current;
+    if (!cur) return;
+    const next = { ...cur, extra };
+    unitRef.current = next;
     setUnit(next);
-    clearTimeout(timers.current.extra);
-    if (immediate) persistExtra(supabase, next, extra);
-    else timers.current.extra = setTimeout(() => persistExtra(supabase, next, extra), 400);
+    if (immediate) {
+      clearTimeout(timers.current.extra);
+      delete pending.current.extra;
+      persistExtra(supabase, next, extra).catch(() => setSaveError(true));
+    } else schedule("extra", () => persistExtra(supabase, next, extra));
   }
 
   /** Nouvelle glace de la même phase : mêmes 5 joueurs aux positions de départ, jeu à redessiner. */
@@ -152,8 +193,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     const rest = unit.extra.filter((x) => x.id !== first.id);
     const next = { ...unit, extra: rest, ...(phase === 0 ? { inzone: first.map } : phase === 1 ? { breakout: first.map } : { faceoff: first.map }) };
     setUnit(next);
-    persistPhase(supabase, next, phase, first.map);
-    persistExtra(supabase, next, rest);
+    persistPhase(supabase, next, phase, first.map).catch(() => setSaveError(true));
+    persistExtra(supabase, next, rest).catch(() => setSaveError(true));
   }
 
   const usedIn = allGames.filter((g) => (g.pp_units ?? []).some((l) => l.date === date && l.label === label));
@@ -241,6 +282,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   return (
     <>
       <div className="space-y-6 print:hidden">
+        {saveError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">Un changement n&apos;a pas pu être enregistré. Vérifie ta connexion puis modifie à nouveau le jeu.</div>}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold">
