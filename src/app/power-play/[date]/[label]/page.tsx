@@ -216,8 +216,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   // pour que la plus haute colonne tienne dans la page, même avec plusieurs jeux par phase.
   const colWidths = (() => {
     const PAGE_W = 281 - 2 * 8; // largeur utile moins les deux gouttières
-    const AVAIL_H = 168;
-    const weights = [1.45, 1, 1.45];
+    const AVAIL_H = 170;
+    const weights = [1.05, 1, 1.3];
     // Largeur maximale de chaque colonne d'après SA hauteur (une colonne à un seul dessin peut être très large).
     const caps = PHASES.map((ph) => {
       const maps = mapsOf(ph);
