@@ -21,6 +21,7 @@ import WeeklyThemePopupContent from "@/components/WeeklyThemePopupContent";
 import TeamBuildingPopupContent from "@/components/TeamBuildingPopupContent";
 import PostGameUploadsReminder from "@/components/PostGameUploadsReminder";
 import PhysioAlert from "@/components/PhysioAlert";
+import { TOURNAMENT_DATES, TOURNAMENT_SLUG, TOURNAMENT_TITLE } from "@/lib/tournoiStAugustin";
 import type { Absence, DailyReport, Game, Injury, Meeting, Player, ScheduleEvent } from "@/lib/types";
 
 const UNJUSTIFIED_ALERT_THRESHOLD = 2;
@@ -308,6 +309,33 @@ export default function DashboardPage() {
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {weekDays.map((day) => {
             const key = format(day, "yyyy-MM-dd");
+            // Semaine de tournoi : un seul bloc rouge de jeudi à dimanche, comme au calendrier, avec le premier adversaire.
+            if (TOURNAMENT_DATES.includes(key)) {
+              if (key !== TOURNAMENT_DATES[0]) return null;
+              const firstGame = gameByDate.get(key);
+              const firstOpp = firstGame ? findTeamByOpponent(firstGame.opponent) : undefined;
+              return (
+                <Link
+                  key={key}
+                  href={`/tournoi/${TOURNAMENT_SLUG}`}
+                  style={{ gridColumn: "span 4" }}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent bg-red-600 px-2 py-2 text-center text-white transition-colors hover:brightness-110"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-90">Semaine de tournoi · 5 au 8 novembre</span>
+                  <span className="text-lg sm:text-xl font-black leading-tight">{TOURNAMENT_TITLE}</span>
+                  {firstGame && (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold">
+                      {firstOpp && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={firstOpp.logo} alt="" className="h-5 w-5 rounded-full bg-white object-contain p-0.5" />
+                      )}
+                      Premier match : {firstOpp?.name ?? firstGame.opponent}
+                    </span>
+                  )}
+                  <span className="text-[11px] font-semibold opacity-90">Tableau du tournoi →</span>
+                </Link>
+              );
+            }
             const today = isSameDay(day, new Date());
             const dayEvents = eventsByDay.get(key) ?? [];
             const game = gameByDate.get(key);
