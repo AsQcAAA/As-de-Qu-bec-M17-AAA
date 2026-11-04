@@ -9,6 +9,25 @@ export interface FormationMarker {
   y: number;
   /** PK adverse : attaquant (F) ou défenseur (D) — remplace le « X ». */
   role?: "F" | "D";
+  /** Palette du joueur : gaucher (G) ou droitier (D). Dessinée comme un bâton à côté du rond. */
+  hand?: "L" | "R";
+}
+
+/** Bâton dessiné sous le rond : lame à gauche pour un gaucher, à droite pour un droitier. */
+function Stick({ hand }: { hand: "L" | "R" }) {
+  const k = hand === "L" ? -1 : 1;
+  return (
+    <path
+      d={`M ${k * 4.5} 5.5 L ${k * 11} 12.5 L ${k * 15.5} 12.5`}
+      fill="none"
+      stroke="#0d0c0c"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <title>{hand === "L" ? "Gaucher" : "Droitier"}</title>
+    </path>
+  );
 }
 
 /** Flèche dessinée sur la glace : déplacement (trait plein) ou passe (pointillé). */
@@ -297,6 +316,7 @@ export default function FormationMap({
       number: value.markers[idx]?.number ?? "",
       x,
       y,
+      ...(value.markers[idx]?.hand ? { hand: value.markers[idx].hand } : {}),
       ...(isRoleKind(kind) ? { role: value.markers[idx]?.role ?? (idx < 2 ? ("F" as const) : ("D" as const)) } : {}),
     }));
     // Les joueurs en trop (au-delà du modèle) restent là où ils sont.
@@ -385,6 +405,26 @@ export default function FormationMap({
           >
             Retirer le joueur sélectionné
           </button>
+        )}
+        {selected && (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <span className="text-slate-500">Palette :</span>
+            {(
+              [
+                ["L", "Gaucher"],
+                ["R", "Droitier"],
+              ] as const
+            ).map(([h, label]) => (
+              <button
+                key={h}
+                type="button"
+                className={`rounded border px-2 py-0.5 font-bold ${selected.hand === h ? "border-gold-500 bg-gold-400 text-ink-900" : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"}`}
+                onClick={() => update(value.markers.map((x) => (x.id === selected.id ? { ...x, hand: selected.hand === h ? undefined : h } : x)))}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
         )}
       </div>
 
@@ -590,6 +630,7 @@ export default function FormationMap({
                 else update(value.markers.map((x) => (x.id === m.id ? { ...x, role: roleOf(value.markers, x) === "D" ? "F" : "D" } : x)));
               }}
             >
+              {m.hand && <Stick hand={m.hand} />}
               {isSel && <circle r="10.5" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeDasharray="3 2" />}
               <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.3" />
               {editingId === m.id ? (
@@ -644,6 +685,7 @@ export function FormationStatic({ kind, value, names, markerColor }: { kind: Kin
         ))}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
+            {m.hand && <Stick hand={m.hand} />}
             <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
               {m.number || (isRoleKind(kind) ? roleOf(value.markers, m) : "X")}

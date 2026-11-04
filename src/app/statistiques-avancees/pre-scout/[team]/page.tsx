@@ -73,10 +73,43 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   }
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // ---- Qui a écrit quoi : chaque changement de note est consigné avec l'auteur (migration 059). ----
+  const FIELD_LABEL: Record<string, string> = {
+    notes: "Notes de pre-scout",
+    pp: "PP 1",
+    pp2: "PP 2",
+    ppbo: "PP BO",
+    fo: "PP FO",
+    pk: "PK",
+    pkbo: "PK FC",
+    pkfo: "PK FO",
+  };
+  const [noteLog, setNoteLog] = useState<{ id: string; field: string; author_name: string; text: string; created_at: string }[]>([]);
+  const lastLogged = useRef<Record<string, string>>({});
+  const logTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const author = useRef<{ id: string | null; name: string }>({ id: null, name: "Inconnu" });
+
+  async function writeLog(field: string, text: string) {
+    if ((lastLogged.current[field] ?? "") === text) return;
+    lastLogged.current[field] = text;
+    const { data } = await supabase
+      .from("scout_note_log")
+      .insert({ team_slug: teamSlug, field, author_id: author.current.id, author_name: author.current.name, text })
+      .select()
+      .single();
+    if (data) setNoteLog((l) => [data as (typeof l)[number], ...l]);
+  }
+  /** Attend 3 s sans frappe avant de consigner (une entrée par rédaction, pas par lettre). */
+  function scheduleLog(field: string, text: string) {
+    clearTimeout(logTimers.current[field]);
+    logTimers.current[field] = setTimeout(() => writeLog(field, text), 3000);
+  }
+
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
   function saveMap(kind: "pp" | "pp2" | "ppbo" | "fo" | "pk" | "pkbo" | "pkfo", value: FormationValue) {
     ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, fo: setFoMap, pk: setPkMap, pkbo: setPkBoMap, pkfo: setPkFoMap })[kind](value);
     clearTimeout(mapTimers.current[kind]);
+    scheduleLog(kind, value.note.trim());
     mapTimers.current[kind] = setTimeout(() => {
       supabase
         .from("scout_notes")
@@ -109,6 +142,24 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         .order("game_date", { ascending: true });
       setLeagueGames(lg ?? []);
       const note = data as ScoutNote | null;
+      // Auteur courant (pour signer les modifications) et historique déjà consigné.
+      const { data: au } = await supabase.auth.getUser();
+      if (au.user) {
+        const { data: prof } = await supabase.from("coach_profiles").select("full_name").eq("id", au.user.id).maybeSingle();
+        author.current = { id: au.user.id, name: (prof?.full_name as string | undefined) || au.user.email || "Inconnu" };
+      }
+      const { data: lgs } = await supabase.from("scout_note_log").select("*").eq("team_slug", teamSlug).order("created_at", { ascending: false }).limit(200);
+      setNoteLog((lgs ?? []) as typeof noteLog);
+      lastLogged.current = {
+        notes: (note?.notes ?? "").trim(),
+        pp: (note?.pp_map?.note ?? "").trim(),
+        pp2: (note?.pp2_map?.note ?? "").trim(),
+        ppbo: (note?.ppbo_map?.note ?? "").trim(),
+        fo: (note?.fo_map?.note ?? "").trim(),
+        pk: (note?.pk_map?.note ?? "").trim(),
+        pkbo: (note?.pkbo_map?.note ?? "").trim(),
+        pkfo: (note?.pkfo_map?.note ?? "").trim(),
+      };
       setPpMap(note?.pp_map ?? emptyFormation("pp"));
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
@@ -177,6 +228,44 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
     load();
   }, [teamSlug]);
 
+  // Enregistrement automatique : le formulaire (notes, fiche, 5 derniers) part 1 s après la dernière frappe,
+  // et tout ce qui est en attente est envoyé en quittant la page.
+  const formReady = useRef(false);
+  const formRef = useRef(form);
+  formRef.current = form;
+  const dirty = useRef(false);
+  useEffect(() => {
+    if (loading) return;
+    if (!formReady.current) {
+      formReady.current = true; // premier passage : le formulaire vient d'être chargé, rien à sauver
+      return;
+    }
+    dirty.current = true;
+    const t = setTimeout(() => {
+      dirty.current = false;
+      save();
+    }, 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
+  useEffect(() => {
+    const flush = () => {
+      if (dirty.current) {
+        dirty.current = false;
+        save();
+      }
+      for (const k of Object.keys(logTimers.current)) {
+        clearTimeout(logTimers.current[k]);
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!team) return notFound();
 
   async function save() {
@@ -193,6 +282,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       },
       { onConflict: "team_slug" }
     );
+    await writeLog("notes", form.notes.trim());
     setUpdatedAt(new Date().toISOString());
     setSaving(false);
   }
@@ -776,6 +866,33 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
+            {noteLog.find((l) => l.field === "notes") && (
+              <p className="text-xs text-slate-500">
+                Dernière modification par <span className="font-semibold">{noteLog.find((l) => l.field === "notes")!.author_name}</span>,{" "}
+                {format(parseISO(noteLog.find((l) => l.field === "notes")!.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+              </p>
+            )}
+          </section>
+
+          <section className="card space-y-2">
+            <details>
+              <summary className="cursor-pointer font-semibold">Historique des notes — qui a écrit quoi ({noteLog.length})</summary>
+              {noteLog.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">Aucune modification consignée pour l&apos;instant. Les prochaines notes (générales, PP, PK) seront signées ici. Le texte déjà écrit avant ça n&apos;a pas d&apos;auteur connu.</p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {noteLog.map((l) => (
+                    <li key={l.id} className="border-l-2 border-gold-400/60 pl-3 text-sm">
+                      <div className="text-xs text-slate-500">
+                        <span className="font-bold text-slate-700">{l.author_name}</span> · {FIELD_LABEL[l.field] ?? l.field} ·{" "}
+                        {format(parseISO(l.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                      </div>
+                      <div className="whitespace-pre-line">{l.text || <em className="text-slate-400">(texte effacé)</em>}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
           </section>
         </div>
       )}

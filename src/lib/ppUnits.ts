@@ -41,8 +41,8 @@ export interface PpUnit {
 
 /** Les mêmes joueurs que l'in-zone, posés aux positions de départ de la phase. */
 export function seedPhase(inzone: FormationValue, starts: [number, number][]): FormationValue {
-  const numbers = inzone.markers.filter((m) => m.number !== "").map((m) => m.number);
-  return { note: "", markers: numbers.slice(0, 5).map((number, i) => ({ id: rid(), number, x: starts[i][0], y: starts[i][1] })) };
+  const named = inzone.markers.filter((m) => m.number !== "").slice(0, 5);
+  return { note: "", markers: named.map((m, i) => ({ id: rid(), number: m.number, x: starts[i][0], y: starts[i][1], ...(m.hand ? { hand: m.hand } : {}) })) };
 }
 
 /** Toutes les unités : celles de l'alignement du jour (PP1 à PP3) et celles créées dans l'onglet. */
