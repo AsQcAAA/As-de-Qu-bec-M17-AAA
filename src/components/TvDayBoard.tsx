@@ -161,7 +161,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     setExporting(true);
     try {
       const dataUrl = await toPng(captureRef.current, {
-        pixelRatio: 2,
+        pixelRatio: phone ? 3 : 2,
         backgroundColor: "#0d0c0c",
         // « mx-auto » décalait le contenu dans l'image exportée (marges automatiques recalculées
         // hors page) : on les annule sur la copie capturée.
@@ -221,7 +221,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
     : [];
   const ppItems = chosenItems.length > 0 ? chosenItems : legacyItems;
   const ppBlock = blocks.pp && ppItems.length > 0 && (
-    <div className="mb-8">
+    <div className={phone ? "mb-2" : "mb-8"}>
       <div className="text-xl font-bold mb-3 text-gold-400">Power Play</div>
       <div className={`grid gap-4 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
         {ppItems.map((it) => (
@@ -342,7 +342,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         ref={captureRef}
         className={
           phone
-            ? "bg-ink-900 text-white p-6 w-full max-w-md mx-auto"
+            ? "bg-ink-900 text-white p-4 w-[420px] max-w-full mx-auto"
             : cast
               ? "text-white px-8 py-6 w-full"
               : "bg-ink-900 text-white p-10 max-w-5xl mx-auto"
@@ -361,7 +361,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         <div className={compact && hasRoster ? "w-1/2 min-w-0" : ""}>
         {/* Le nom de l'équipe passe SOUS la date : placé à droite, il sortait du
             cadre de l'image exportée sur les journées au titre long. */}
-        <div className="border-b border-gold-500/40 pb-6 mb-6">
+        <div className={`border-b border-gold-500/40 ${phone ? "pb-3 mb-4" : "pb-6 mb-6"}`}>
           <div className="flex items-baseline gap-4">
             <div className="text-center bg-gold-500 text-ink-900 rounded-lg px-4 py-2 leading-none">
               <div className="text-xs font-bold uppercase">{format(parseISO(date), "MMM", { locale: fr })}</div>
@@ -382,7 +382,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         {/* Le rappel n'a pas d'heure : il sort de la liste chronologique pour
             son propre bloc, sous l'horaire. */}
         {blocks.horaire && (events.length > 0 || individualMeetings.length > 0) && (
-          <div className="mb-8 space-y-1.5">
+          <div className={`${phone ? "mb-5" : "mb-8"} space-y-1.5`}>
             {events.filter((e) => e.event_type !== "reminder").map((e) => (
               <div key={e.id}>
                 <div className="flex gap-4 text-lg">
@@ -457,13 +457,13 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                 À l'entraînement, les gardiens sautent : les deux y sont
                 toujours, l'information n'apprend rien aux joueurs. */}
             <div className={phone ? "flex flex-col gap-5" : compact ? "flex items-start gap-4" : "flex flex-wrap gap-8"}>
-              {[["F"], compact ? ["D", "G"] : ["D"], compact ? [] : ["G"]].map((categories, columnIndex) => {
+              {[["F"], compact || phone ? ["D", "G"] : ["D"], compact || phone ? [] : ["G"]].map((categories, columnIndex) => {
                 const groups = POSITION_GROUPS.filter(
                   (g) => categories.includes(g.category) && !(cast && !game && g.category === "G")
                 );
                 if (groups.length === 0) return null;
                 return (
-                  <div key={columnIndex} className="space-y-3">
+                  <div key={columnIndex} className={phone && columnIndex === 1 ? "flex items-start justify-between gap-4" : "space-y-3"}>
                     {groups.map((g) => {
                       const ids = (rosterUnit(g.unitLabel)?.player_ids ?? []).filter(Boolean);
                       if (ids.length === 0) return null;
