@@ -180,7 +180,8 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
   const byColor = (color: string) => units.filter((u) => u.color_group === color);
   const rosterUnit = (label: string) => units.find((u) => u.unit_label === label);
-  const hasRoster = blocks.alignement && POSITION_GROUPS.some((g) => (rosterUnit(g.unitLabel)?.player_ids.length ?? 0) > 0);
+  const hasRoster0 = blocks.alignement && POSITION_GROUPS.some((g) => (rosterUnit(g.unitLabel)?.player_ids.length ?? 0) > 0);
+  const hasRoster = hasRoster0;
 
   function playerGroupColor(playerId: string, category: "F" | "D" | "G"): "gris" | "jaune" | null {
     if (category === "G") return null;
@@ -238,6 +239,9 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       </div>
     </div>
   );
+
+  /** Vue téléphone : le Power Play passe dans une 2e colonne, à côté de l'horaire et de l'alignement. */
+  const split = phone && hasRoster && !!ppBlock;
 
   return (
     // Photo d'équipe en fond, pour la diffusion seulement : l'export PNG et la
@@ -342,7 +346,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         ref={captureRef}
         className={
           phone
-            ? "bg-ink-900 text-white p-4 w-[420px] max-w-full mx-auto"
+            ? `bg-ink-900 text-white p-4 max-w-full mx-auto ${split ? "w-[820px]" : "w-[420px]"}`
             : cast
               ? "text-white px-8 py-6 w-full"
               : "bg-ink-900 text-white p-10 max-w-5xl mx-auto"
@@ -357,11 +361,11 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         {/* En diffusion avec alignement, l'écran se coupe en deux DÈS le haut :
             la date ouvre la colonne de gauche, l'alignement démarre à la même
             hauteur à droite plutôt que sous le trait de séparation. */}
-        <div className={compact && hasRoster ? "flex items-start gap-6" : ""}>
-        <div className={compact && hasRoster ? "w-1/2 min-w-0" : ""}>
+        <div className={compact && hasRoster ? "flex items-start gap-6" : split ? "grid grid-cols-2 grid-rows-[auto_auto_auto_1fr] items-start gap-x-4" : ""}>
+        <div className={compact && hasRoster ? "w-1/2 min-w-0" : split ? "contents" : ""}>
         {/* Le nom de l'équipe passe SOUS la date : placé à droite, il sortait du
             cadre de l'image exportée sur les journées au titre long. */}
-        <div className={`border-b border-gold-500/40 ${phone ? "pb-3 mb-4" : "pb-6 mb-6"}`}>
+        <div className={`border-b border-gold-500/40 ${phone ? "pb-3 mb-4" : "pb-6 mb-6"} ${split ? "col-span-2 row-start-1" : ""}`}>
           <div className="flex items-baseline gap-4">
             <div className="text-center bg-gold-500 text-ink-900 rounded-lg px-4 py-2 leading-none">
               <div className="text-xs font-bold uppercase">{format(parseISO(date), "MMM", { locale: fr })}</div>
@@ -382,7 +386,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         {/* Le rappel n'a pas d'heure : il sort de la liste chronologique pour
             son propre bloc, sous l'horaire. */}
         {blocks.horaire && (events.length > 0 || individualMeetings.length > 0) && (
-          <div className={`${phone ? "mb-5" : "mb-8"} space-y-1.5`}>
+          <div className={`${phone ? "mb-5" : "mb-8"} space-y-1.5 ${split ? "col-start-1 row-start-2" : ""}`}>
             {events.filter((e) => e.event_type !== "reminder").map((e) => (
               <div key={e.id}>
                 <div className="flex gap-4 text-lg">
@@ -433,7 +437,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         {/* Rappels de la journée : texte saisi tel quel, mis en évidence sous
             l'horaire — c'est la place que la télé a en réserve. */}
         {blocks.horaire && events.some((e) => e.event_type === "reminder") && (
-          <div className="mb-8 space-y-2">
+          <div className={`mb-8 space-y-2 ${split ? "col-start-1 row-start-3" : ""}`}>
             <div className="text-sm font-black uppercase tracking-widest text-red-400">📌 Rappels</div>
             {events
               .filter((e) => e.event_type === "reminder")
@@ -449,7 +453,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
         </div>
 
         {hasRoster && (
-          <div className={compact && hasRoster ? "w-1/2 min-w-0" : "mb-8"}>
+          <div className={compact && hasRoster ? "w-1/2 min-w-0" : split ? "col-start-1 row-start-4 min-w-0" : "mb-8"}>
             <div className="text-xl font-bold mb-3 text-gold-400">Alignement</div>
             {/* Attaquants à gauche (3 de front, comme à la construction),
                 défenseurs et gardiens à droite : sur une télé en paysage, tout
@@ -463,7 +467,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                 );
                 if (groups.length === 0) return null;
                 return (
-                  <div key={columnIndex} className={phone && columnIndex === 1 ? "flex items-start justify-between gap-4" : "space-y-3"}>
+                  <div key={columnIndex} className={phone && columnIndex === 1 ? "flex items-start gap-3" : "space-y-3"}>
                     {groups.map((g) => {
                       const ids = (rosterUnit(g.unitLabel)?.player_ids ?? []).filter(Boolean);
                       if (ids.length === 0) return null;
@@ -485,7 +489,7 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                                 player={players.find((pl) => pl.id === id) ?? null}
                                 ring={playerGroupColor(id, g.category) ?? undefined}
                                 expectedPosition={g.category}
-                                size={compact ? "sm" : "normal"}
+                                size={compact || (phone && g.category !== "F") ? "sm" : "normal"}
                                 statusLabel={statusById.get(id)}
                               />
                             ))}
@@ -497,9 +501,10 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
                 );
               })}
             </div>
-            {ppBlock && <div className="mt-6">{ppBlock}</div>}
+            {ppBlock && !split && <div className="mt-6">{ppBlock}</div>}
           </div>
         )}
+        {split && ppBlock && <div className="col-start-2 row-span-3 row-start-2 min-w-0">{ppBlock}</div>}
         </div>
 
         <div className={`grid gap-8 ${phone ? "grid-cols-1" : "grid-cols-2"}`}>
