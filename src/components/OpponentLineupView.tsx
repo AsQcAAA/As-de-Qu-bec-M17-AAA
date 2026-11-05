@@ -11,7 +11,7 @@ type Slots = Record<string, Slot>;
 
 const groups: { title: string; keys: string[][]; labels: string[] }[] = [
   { title: "Attaquants", keys: [1, 2, 3, 4].map((l) => ["AG", "C", "AD"].map((p) => `F${l}-${p}`)), labels: ["AG", "C", "AD"] },
-  { title: "Défenseurs", keys: [1, 2, 3].map((l) => ["DG", "DD"].map((p) => `D${l}-${p}`)), labels: ["DG", "DD"] },
+  { title: "Défenseurs", keys: [...[1, 2, 3].map((l) => ["DG", "DD"].map((p) => `D${l}-${p}`)), ["D4-DG"]], labels: ["DG", "DD"] },
   { title: "Gardiens", keys: [["G1", "G2"]], labels: ["G", "G"] },
 ];
 
@@ -53,7 +53,7 @@ export default function OpponentLineupView({ gameId, teamSlug }: { gameId: strin
                   const name = s?.n ? s.name || (roster as Record<string, string>)[s.n] : undefined;
                   return (
                     <div key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <span className="w-6 shrink-0 text-[10px] font-bold text-slate-400">{g.labels[i]}</span>
+                      <span className="w-6 shrink-0 text-[10px] font-bold text-slate-400">{(key === "D4-DG" ? "D7" : g.labels[i])}</span>
                       {s?.n ? (
                         <>
                           <span className="font-black tabular-nums">{s.n}</span>

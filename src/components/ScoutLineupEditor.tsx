@@ -9,7 +9,7 @@ export type ScoutSlots = Record<string, ScoutSlot>;
 
 const groups: { title: string; keys: string[][]; labels: string[] }[] = [
   { title: "Attaquants", keys: [1, 2, 3, 4].map((l) => ["AG", "C", "AD"].map((p) => `F${l}-${p}`)), labels: ["AG", "C", "AD"] },
-  { title: "Défenseurs", keys: [1, 2, 3].map((l) => ["DG", "DD"].map((p) => `D${l}-${p}`)), labels: ["DG", "DD"] },
+  { title: "Défenseurs", keys: [...[1, 2, 3].map((l) => ["DG", "DD"].map((p) => `D${l}-${p}`)), ["D4-DG"]], labels: ["DG", "DD"] },
   { title: "Gardiens", keys: [["G1", "G2"]], labels: ["G1", "G2"] },
 ];
 
@@ -50,7 +50,7 @@ export default function ScoutLineupEditor({
                 const shown = s.name || (auto ? titleCase(auto) : "");
                 return (
                   <div key={key} className="flex items-center gap-1.5 rounded border border-slate-200 px-1.5 py-0.5">
-                    <span className="w-6 shrink-0 text-[10px] font-bold text-slate-400">{g.labels[i]}</span>
+                    <span className="w-6 shrink-0 text-[10px] font-bold text-slate-400">{(key === "D4-DG" ? "D7" : g.labels[i])}</span>
                     <input
                       inputMode="numeric"
                       className="w-10 rounded border border-slate-300 px-0.5 py-0 text-center text-xs font-bold"

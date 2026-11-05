@@ -19,7 +19,7 @@ const groups: { title: string; keys: string[][] }[] = [
   },
   {
     title: "Défenseurs",
-    keys: [1, 2, 3].map((l) => DEFENSE_POS.map((p) => `D${l}-${p}`)),
+    keys: [...[1, 2, 3].map((l) => DEFENSE_POS.map((p) => `D${l}-${p}`)), ["D4-DG"]],
   },
   { title: "Gardiens", keys: [["G1", "G2"]] },
 ];
@@ -106,6 +106,7 @@ export default function OpponentLineupEditor({
                 const auto = s.n ? known.get(s.n.trim()) : undefined;
                 return (
                   <div key={key} className="flex items-center gap-1.5 rounded border border-slate-200 px-1.5 py-0.5">
+                    {key === "D4-DG" && <span className="w-6 shrink-0 text-[10px] font-bold text-slate-400">D7</span>}
                     <input
                       inputMode="numeric"
                       className="w-9 rounded border border-slate-300 px-0.5 py-0 text-center text-xs font-bold"
