@@ -405,6 +405,16 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       </div>
 
       {!loading && (
+        <section id="alignement" className="card space-y-3">
+          <div>
+            <h2 className="font-semibold">Alignement attendu — {team.name}</h2>
+            <p className="text-xs text-slate-500">Entre les numéros (le nom vient de l&apos;effectif, ou écris-le). Tout s&apos;enregistre automatiquement.</p>
+          </div>
+          <ScoutLineupEditor teamSlug={teamSlug} value={lineup} onChange={saveLineup} />
+        </section>
+      )}
+
+      {!loading && (
         <section className="card space-y-2">
           <h2 className="font-semibold">Dernier match face à cette équipe</h2>
           {lastGame ? (
@@ -703,16 +713,6 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               );
             })()}
           </div>
-        </section>
-      )}
-
-      {!loading && (
-        <section className="card space-y-3">
-          <div>
-            <h2 className="font-semibold">Alignement attendu — {team.name}</h2>
-            <p className="text-xs text-slate-500">Entre les numéros (le nom vient de l&apos;effectif, ou écris-le). Tout s&apos;enregistre automatiquement.</p>
-          </div>
-          <ScoutLineupEditor teamSlug={teamSlug} value={lineup} onChange={saveLineup} />
         </section>
       )}
 
