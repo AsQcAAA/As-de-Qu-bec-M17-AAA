@@ -16,7 +16,7 @@ const PANELS = [
  * l'alignement adverse pour qu'on puisse les comparer côte à côte. Il se
  * modifie depuis l'alignement du jour, pas d'ici.
  */
-export default function GameLineupReadOnly({ gameDate }: { gameDate: string }) {
+export default function GameLineupReadOnly({ gameDate, gameId }: { gameDate: string; gameId?: string }) {
   const supabase = createClient();
   const [units, setUnits] = useState<Record<string, string[]>>({});
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
@@ -24,7 +24,11 @@ export default function GameLineupReadOnly({ gameDate }: { gameDate: string }) {
 
   useEffect(() => {
     async function load() {
-      const { data: lineups } = await supabase.from("lineups").select("id").eq("lineup_date", gameDate).limit(1);
+      // Jour de tournoi : l'alignement propre à ce match ; sinon celui de la journée.
+      let { data: lineups } = gameId ? await supabase.from("lineups").select("id").eq("game_id", gameId).limit(1) : { data: null };
+      if (!lineups?.[0]) {
+        ({ data: lineups } = await supabase.from("lineups").select("id").eq("lineup_date", gameDate).is("game_id", null).limit(1));
+      }
       const lineupId = lineups?.[0]?.id;
       if (lineupId) {
         const [{ data: u }, { data: pls }] = await Promise.all([
@@ -38,7 +42,7 @@ export default function GameLineupReadOnly({ gameDate }: { gameDate: string }) {
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameDate]);
+  }, [gameDate, gameId]);
 
   if (!loaded) return null;
   const hasAny = PANELS.some((p) => (units[p.label] ?? []).some(Boolean));

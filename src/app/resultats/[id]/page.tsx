@@ -770,7 +770,7 @@ export default function GameDetailPage() {
           main ici serait redondant et risquerait de contredire l'officiel. */}
       {/* Alignements côte à côte : le nôtre (lecture seule) et celui de l'adversaire. */}
       <div className="grid gap-4 md:grid-cols-2 items-start">
-        <GameLineupReadOnly gameDate={game.game_date} />
+        <GameLineupReadOnly gameDate={game.game_date} gameId={game.id} />
         <OpponentLineupEditor
           gameId={game.id}
           opponentName={findTeamByOpponent(game.opponent)?.name ?? game.opponent}

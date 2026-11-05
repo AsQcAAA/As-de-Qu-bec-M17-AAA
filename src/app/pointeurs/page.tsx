@@ -91,7 +91,7 @@ export default function PointeursPage() {
         supabase.from("games").select("*"),
         supabase.from("player_game_stats").select("*"),
         supabase.from("game_events").select("*"),
-        supabase.from("lineups").select("id, lineup_date"),
+        supabase.from("lineups").select("id, lineup_date, game_id"),
         supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
         supabase.from("player_game_advanced_stats").select("*"),
       ]);

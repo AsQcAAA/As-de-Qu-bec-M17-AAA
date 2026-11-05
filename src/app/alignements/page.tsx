@@ -1,6 +1,6 @@
 "use client";
 
-import { pickGameOfDay } from "@/lib/dayGame";
+import { findLineup, selectGame } from "@/lib/dayLineup";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -54,19 +54,23 @@ export default function AlignementsPage() {
   const [practiceOptions, setPracticeOptions] = useState<{ date: string; label: string }[]>([]);
   const [hasLineup, setHasLineup] = useState(false);
   const [game, setGame] = useState<Game | null>(null);
+  /** Journée de tournoi : plusieurs matchs, un alignement chacun. */
+  const [dayGames, setDayGames] = useState<Game[]>([]);
+  const [gameId, setGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function load(d: string) {
+  async function load(d: string, gid: string | null) {
     setLoading(true);
-    const [{ data: pls }, { data: lineups }, { data: gmAll }] = await Promise.all([
+    const [{ data: pls }, { data: gmAll }] = await Promise.all([
       supabase.from("players").select("*"),
-      supabase.from("lineups").select("*").eq("lineup_date", d).limit(1),
       supabase.from("games").select("*").eq("game_date", d).order("created_at"),
     ]);
     setPlayers(pls ?? []);
-    const gm = pickGameOfDay(gmAll);
+    const dg = (gmAll ?? []) as Game[];
+    const gm = selectGame(dg, gid);
+    setDayGames(dg);
     setGame(gm);
-    const l = lineups?.[0] ?? null;
+    const l = await findLineup(supabase, d, gm, dg.length);
     setHasLineup(!!l);
     if (l) {
       const { data: u } = await supabase.from("lineup_units").select("*").eq("lineup_id", l.id).order("unit_order");
@@ -108,9 +112,14 @@ export default function AlignementsPage() {
   }, []);
 
   useEffect(() => {
-    load(date);
+    load(date, gameId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [date, gameId]);
+
+  const changeDate = (d: string) => {
+    setGameId(null);
+    setDate(d);
+  };
 
   const byId = new Map(players.map((p) => [p.id, p]));
   const STARTERS_LABEL = "Partants (match)";
@@ -153,7 +162,7 @@ export default function AlignementsPage() {
           <select
             className="input w-auto"
             value={gameOptions.some((o) => o.date === date) ? date : ""}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
+            onChange={(e) => e.target.value && changeDate(e.target.value)}
           >
             <option value="">— Alignement de match —</option>
             {gameOptions.map((o) => (
@@ -165,7 +174,7 @@ export default function AlignementsPage() {
           <select
             className="input w-auto"
             value={practiceOptions.some((o) => o.date === date) ? date : ""}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
+            onChange={(e) => e.target.value && changeDate(e.target.value)}
           >
             <option value="">— Alignement de pratique —</option>
             {practiceOptions.map((o) => (
@@ -175,9 +184,24 @@ export default function AlignementsPage() {
             ))}
           </select>
           <label className="label mb-0 !text-slate-100">Date</label>
-          <input type="date" className="input w-auto" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" className="input w-auto" value={date} onChange={(e) => changeDate(e.target.value)} />
         </div>
       </div>
+
+      {dayGames.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {dayGames.map((g, i) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setGameId(g.id)}
+              className={`rounded-full border px-3 py-1.5 text-sm font-bold ${g.id === game?.id ? "border-gold-400 bg-gold-400 text-ink-900" : "border-white/20 bg-white/10 text-white hover:bg-white/20"}`}
+            >
+              Match {i + 1} — {g.opponent}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Chargement...</p>

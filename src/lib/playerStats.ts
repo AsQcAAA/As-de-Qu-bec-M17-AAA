@@ -167,16 +167,19 @@ export function gamesPlayedFor(
     (g) =>
       g.result &&
       (!categories || categories.includes(g.category)) &&
-      rosterByDate.get(g.game_date)?.has(playerId)
+      (rosterByDate.get(`game:${g.id}`) ?? rosterByDate.get(g.game_date))?.has(playerId)
   );
 }
 
-/** date d'alignement → identifiants des joueurs habillés ce jour-là. */
+/**
+ * Joueurs habillés : par date d'alignement (journée ordinaire) ou, quand la journée compte
+ * plusieurs matchs, par match (clé « game:<id> »).
+ */
 export function buildRosterByDate(
-  lineups: { id: string; lineup_date: string }[],
+  lineups: { id: string; lineup_date: string; game_id?: string | null }[],
   units: { lineup_id: string; unit_label: string; player_ids: string[] }[]
 ): Map<string, Set<string>> {
-  const dateByLineup = new Map(lineups.map((l) => [l.id, l.lineup_date]));
+  const dateByLineup = new Map(lineups.map((l) => [l.id, l.game_id ? `game:${l.game_id}` : l.lineup_date]));
   const map = new Map<string, Set<string>>();
   for (const u of units) {
     if (!u.unit_label.endsWith("(effectif)")) continue;

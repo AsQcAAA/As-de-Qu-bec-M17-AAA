@@ -32,7 +32,7 @@ export default function RemplacantsPage() {
     const [{ data: pls }, { data: gms }, { data: lus }, { data: lunits }] = await Promise.all([
       supabase.from("players").select("*").order("jersey_number"),
       supabase.from("games").select("*").order("game_date"),
-      supabase.from("lineups").select("id, lineup_date"),
+      supabase.from("lineups").select("id, lineup_date, game_id"),
       supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
     ]);
     setPlayers(pls ?? []);

@@ -96,6 +96,8 @@ export interface ScheduleEvent {
 export interface Lineup {
   id: string;
   lineup_date: string;
+  /** Renseigné seulement les jours à plusieurs matchs (un alignement par match). */
+  game_id?: string | null;
   event_id: string | null;
   notes: string | null;
   /** Dernier entraîneur à avoir touché cet alignement — visible à l'entraîneur-chef seulement. */

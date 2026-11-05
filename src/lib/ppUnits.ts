@@ -37,6 +37,8 @@ export interface PpUnit {
   /** « true » : l'in-zone vient de l'alignement du jour (modifié là-bas aussi). */
   fromLineup: boolean;
   unitId?: string;
+  /** Alignement d'où vient l'in-zone (une date de tournoi peut en avoir un par match). */
+  lineupId?: string;
 }
 
 /** Les mêmes joueurs que l'in-zone, posés aux positions de départ de la phase. */
@@ -49,7 +51,7 @@ export function seedPhase(inzone: FormationValue, starts: [number, number][]): F
 export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUnit[]; error: boolean }> {
   const [{ data: us, error }, { data: lus }] = await Promise.all([
     supabase.from("pp_units").select("*"),
-    supabase.from("lineups").select("lineup_date, pp1_map, pp2_map, pp3_map"),
+    supabase.from("lineups").select("id, lineup_date, created_at, pp1_map, pp2_map, pp3_map").order("created_at"),
   ]);
   const map = new Map<string, PpUnit>();
   for (const l of lus ?? []) {
@@ -58,7 +60,7 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
       const markers = (m?.markers ?? []).filter((x) => x.number !== "");
       if (m && markers.length > 0) {
         const key = `${l.lineup_date}|${label}`;
-        map.set(key, { key, date: l.lineup_date as string, label, color: def.color, inzone: { ...m, markers }, breakout: null, faceoff: null, extra: [], fromLineup: true });
+        map.set(key, { key, date: l.lineup_date as string, label, color: def.color, inzone: { ...m, markers }, breakout: null, faceoff: null, extra: [], fromLineup: true, lineupId: l.id as string });
       }
     }
   }
@@ -76,6 +78,7 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
       extra: ((u.extra as PpExtra[] | null) ?? []).filter((x) => x && x.id),
       fromLineup: !!prev,
       unitId: u.id as string,
+      lineupId: prev?.lineupId,
     });
   }
   return { units: [...map.values()], error: !!error };
@@ -84,7 +87,8 @@ export async function loadUnits(supabase: SupabaseClient): Promise<{ units: PpUn
 /** Écrit une phase : l'in-zone d'une unité d'alignement retourne dans l'alignement, le reste dans pp_units. */
 export async function persistPhase(supabase: SupabaseClient, u: PpUnit, phase: PpPhase, value: FormationValue) {
   if (phase === 0 && u.fromLineup) {
-    const { error } = await supabase.from("lineups").update({ [LINEUP_KEY[u.label].col]: value }).eq("lineup_date", u.date);
+    const q = supabase.from("lineups").update({ [LINEUP_KEY[u.label].col]: value });
+    const { error } = await (u.lineupId ? q.eq("id", u.lineupId) : q.eq("lineup_date", u.date));
     if (error) throw error;
     return;
   }

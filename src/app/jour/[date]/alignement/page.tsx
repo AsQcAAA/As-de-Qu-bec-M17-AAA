@@ -1,6 +1,6 @@
 "use client";
 
-import { pickGameOfDay } from "@/lib/dayGame";
+import { findLineup, lineupHref, loadDayGames, selectGame } from "@/lib/dayLineup";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -149,6 +149,9 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
     setUnits(next);
   }
   const [game, setGame] = useState<Game | null>(null);
+  /** Matchs de la journée (plus d'un = jour de tournoi : un alignement par match). */
+  const [dayGames, setDayGames] = useState<Game[]>([]);
+  const gameParam = searchParams.get("game");
   const [replicating, setReplicating] = useState(false);
   // Case en cours de glissement — sert aussi à mettre en évidence les cases
   // d'arrivée valides pendant le déplacement.
@@ -174,12 +177,13 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
    * base. L'ancien `created!` produisait alors un `null` déguisé en Lineup, et
    * la page plantait à la ligne suivante — ce qui gelait toute la navigation.
    */
-  async function ensureLineup(): Promise<Lineup | null> {
-    const { data: existing } = await supabase.from("lineups").select("*").eq("lineup_date", date).limit(1);
-    if (existing && existing[0]) return existing[0];
+  async function ensureLineup(gm: Game | null, count: number): Promise<Lineup | null> {
+    const existing = await findLineup(supabase, date, gm, count);
+    if (existing) return existing;
+    const perGame = !!gm && count > 1;
     const { data: created, error } = await supabase
       .from("lineups")
-      .insert({ lineup_date: date, updated_by: myId })
+      .insert({ lineup_date: date, game_id: perGame ? gm!.id : null, updated_by: myId })
       .select()
       .single();
     if (error) {
@@ -187,6 +191,35 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         "Impossible de créer l'alignement de cette journée. Ta session a probablement expiré — reconnecte-toi."
       );
       return null;
+    }
+    // Nouveau match d'une journée de tournoi : on part de l'alignement du match précédent
+    // (effectif, power plays), à ajuster ensuite.
+    if (perGame) {
+      const { data: others } = await supabase
+        .from("lineups")
+        .select("*")
+        .eq("lineup_date", date)
+        .neq("id", created.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const src = others?.[0];
+      if (src) {
+        const { data: srcUnits } = await supabase.from("lineup_units").select("*").eq("lineup_id", src.id);
+        const copies = (srcUnits ?? [])
+          .filter((u) => u.unit_label.endsWith("(effectif)"))
+          .map((u) => ({
+            lineup_id: created.id,
+            unit_type: u.unit_type,
+            unit_label: u.unit_label,
+            color_group: null,
+            unit_order: u.unit_order,
+            player_ids: u.player_ids,
+          }));
+        if (copies.length > 0) await supabase.from("lineup_units").insert(copies);
+        const patch = { pp1_map: src.pp1_map ?? null, pp2_map: src.pp2_map ?? null, pp3_map: src.pp3_map ?? null, show_pp_tv: src.show_pp_tv ?? false };
+        await supabase.from("lineups").update(patch).eq("id", created.id);
+        return { ...created, ...patch };
+      }
     }
     return created;
   }
@@ -208,17 +241,18 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
 
   async function load() {
     setLoading(true);
-    const [{ data: pls }, { data: gmAll }, { data: abs }, { data: evts }, l] = await Promise.all([
+    const dg = await loadDayGames(supabase, date);
+    const gm = selectGame(dg, gameParam);
+    const [{ data: pls }, { data: abs }, { data: evts }, l] = await Promise.all([
       // On charge tout l'effectif actif (réguliers + remplaçants) ; le tri entre
       // les deux se fait à l'affichage, selon qu'on prépare un match ou une pratique.
       supabase.from("players").select("*").eq("active", true).order("jersey_number"),
-      supabase.from("games").select("*").eq("game_date", date).order("created_at"),
       supabase.from("absences").select("*").eq("absence_date", date),
       supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
-      ensureLineup(),
+      ensureLineup(gm, dg.length),
     ]);
     setPlayers(pls ?? []);
-    const gm = pickGameOfDay(gmAll);
+    setDayGames(dg);
     setGame(gm);
     setAbsences(abs ?? []);
     setEvents(evts ?? []);
@@ -248,7 +282,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [date, gameParam]);
 
   useEffect(() => {
     if (!autoPrint || loading || autoPrinted.current) return;
@@ -499,6 +533,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
       .select("*")
       .lt("lineup_date", date)
       .order("lineup_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(1);
     const prevLineup = previous?.[0];
     if (!prevLineup) {
@@ -628,6 +663,25 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
   return (
     <>
     <div className="space-y-6 print:hidden">
+      {dayGames.length > 1 && (
+        <nav className="flex flex-wrap items-center gap-2" aria-label="Matchs de la journée">
+          <span className="text-xs font-black uppercase tracking-widest text-gold-400">Matchs du jour</span>
+          {dayGames.map((g, i) => {
+            const active = g.id === game?.id;
+            return (
+              <Link
+                key={g.id}
+                replace
+                href={lineupHref(date, g, dayGames.length)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-bold ${active ? "border-gold-400 bg-gold-400 text-ink-900" : "border-white/20 bg-white/10 text-white hover:bg-white/20"}`}
+              >
+                Match {i + 1} — {g.opponent}
+                {g.result ? " ✓" : ""}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       {/* ---- Bandeau d'en-tête ---- */}
       <section className="relative overflow-hidden rounded-2xl border border-gold-400/25 bg-gradient-to-br from-ink-800/90 via-ink-900/90 to-black/90 sm:flex sm:items-start">
         <span

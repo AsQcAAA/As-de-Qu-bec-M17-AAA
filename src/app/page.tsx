@@ -23,6 +23,7 @@ import PostGameUploadsReminder from "@/components/PostGameUploadsReminder";
 import PhysioAlert from "@/components/PhysioAlert";
 import { TOURNAMENT_DATES, TOURNAMENT_SLUG, TOURNAMENT_TITLE } from "@/lib/tournoiStAugustin";
 import { syncTournamentNextGame } from "@/lib/tournoi";
+import { lineupHref } from "@/lib/dayLineup";
 import type { Absence, DailyReport, Game, Injury, Meeting, Player, ScheduleEvent } from "@/lib/types";
 
 const UNJUSTIFIED_ALERT_THRESHOLD = 2;
@@ -408,7 +409,7 @@ export default function DashboardPage() {
           <Link
             // Une fois le résultat connu, l'alignement n'a plus d'intérêt :
             // la bannière mène au résumé du match.
-            href={todayGame.result ? `/resultats/${todayGame.id}` : `/jour/${todayKey}/alignement`}
+            href={todayGame.result ? `/resultats/${todayGame.id}` : lineupHref(todayKey, todayGame, weekGames.filter((g) => g.game_date === todayKey).length)}
             className="group block relative overflow-hidden rounded-3xl border-2 border-gold-400/30 hover:border-gold-400/80 bg-gradient-to-br from-ink-800/80 via-ink-900/85 to-black/90 px-4 py-10 sm:py-14 text-center transition-colors"
           >
             {/* Halo doré derrière le duel + filigrane « Game Day ». */}
@@ -541,7 +542,7 @@ export default function DashboardPage() {
               </button>
             )}
             <Link
-              href={`/jour/${todayKey}/alignement`}
+              href={lineupHref(todayKey, todayGame, weekGames.filter((g) => g.game_date === todayKey).length)}
               className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-gold-400/40 transition-colors p-4 flex flex-col gap-1"
             >
               <span className="text-xs font-bold uppercase tracking-wide text-gold-400">🏒 Alignement du jour</span>

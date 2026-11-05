@@ -169,7 +169,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
       supabase.from("games").select("*").order("game_date", { ascending: false }),
       supabase.from("player_test_results").select("*").eq("player_id", id).order("test_date", { ascending: false }),
       supabase.from("game_events").select("*").eq("player_id", id).eq("event_type", "penalty"),
-      supabase.from("lineups").select("id, lineup_date"),
+      supabase.from("lineups").select("id, lineup_date, game_id"),
       supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
       supabase.from("game_events").select("*").eq("side", "us").eq("event_type", "goal"),
       supabase.from("schedule_events").select("event_date, event_type"),

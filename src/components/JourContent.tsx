@@ -1,6 +1,6 @@
 "use client";
 
-import { pickGameOfDay } from "@/lib/dayGame";
+import { findLineup, lineupHref, selectGame } from "@/lib/dayLineup";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -50,6 +50,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [practiceNotes, setPracticeNotes] = useState("");
   const [notesStatus, setNotesStatus] = useState<"idle" | "saving" | "saved" | string>("idle");
   const [game, setGame] = useState<Game | null>(null);
+  const [gameCount, setGameCount] = useState(0);
   const [reportForm, setReportForm] = useState(emptyReportForm);
   /** Qui a écrit/modifié ce rapport en dernier — affiché à l'entraîneur-chef seulement. */
   const [reportUpdatedBy, setReportUpdatedBy] = useState<string | null>(null);
@@ -59,11 +60,10 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [farandoleIds, setFarandoleIds] = useState<string[]>([]);
 
   async function load() {
-    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gmAll }, { data: report }, { data: abs }, { data: far }] =
+    const [{ data: pls }, { data: evts }, { data: mts }, { data: pnotes }, { data: gmAll }, { data: report }, { data: abs }, { data: far }] =
       await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
-        supabase.from("lineups").select("*").eq("lineup_date", date).limit(1),
         supabase.from("meetings").select("*").eq("meeting_date", date).eq("meeting_type", "individual"),
         supabase.from("practice_notes").select("content").eq("practice_date", date).maybeSingle(),
         supabase.from("games").select("*").eq("game_date", date).order("created_at"),
@@ -83,7 +83,9 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     // distinguer des blessures (case à cocher ci-dessous) et du sans-contact
     // (le joueur est présent, juste sans mise en échec).
     setKnownAbsences(dayAbsences.filter((a) => a.reason && a.reason !== "blesse" && a.reason !== "sans_contact"));
-    const gm = pickGameOfDay(gmAll);
+    const gm = selectGame((gmAll ?? []) as Game[]);
+    const n = (gmAll ?? []).length;
+    setGameCount(n);
     setGame(gm);
     setReportForm(
       report
@@ -96,7 +98,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     );
     setReportUpdatedBy(report?.updated_by ?? null);
 
-    const l = lineups?.[0] ?? null;
+    const l = await findLineup(supabase, date, gm, n);
     setLineup(l);
     if (l) {
       const { data: u } = await supabase.from("lineup_units").select("*").eq("lineup_id", l.id).order("unit_order");
@@ -241,7 +243,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
               ouvrant une journée, y compris plusieurs jours à l'avance.
               Le lien existait déjà, mais enfoui dans la colonne de droite. */}
           {!dayOff && (
-            <Link href={`/jour/${date}/alignement`} className="btn">
+            <Link href={lineupHref(date, game, gameCount)} className="btn">
               🏒 {game ? "Alignement du match" : "Alignement"}
             </Link>
           )}
@@ -259,7 +261,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
               d'alignement du match — ouvre un nouvel onglet qui imprime dès
               que l'alignement est chargé (voir ?print=1 sur cette page). */}
           {game && (
-            <Link href={`/jour/${date}/alignement?print=1`} target="_blank" className="btn-dark">
+            <Link href={lineupHref(date, game, gameCount, "print=1")} target="_blank" className="btn-dark">
               🖨️ Exporter
             </Link>
           )}
@@ -574,7 +576,7 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
             </div>
           )}
 
-          <Link href={`/jour/${date}/alignement`} className={game?.result ? "text-sm text-gold-700 hover:underline" : "btn inline-flex"}>
+          <Link href={lineupHref(date, game, gameCount)} className={game?.result ? "text-sm text-gold-700 hover:underline" : "btn inline-flex"}>
             {game?.result
               ? "Voir l'alignement complet →"
               : `${lineup ? "Modifier l'alignement" : "Créer l'alignement"} rapidement →`}
