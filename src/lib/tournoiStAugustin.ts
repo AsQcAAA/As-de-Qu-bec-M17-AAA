@@ -4,9 +4,8 @@
  * saisis dans la table tournament_results (voir migration 049).
  *
  * Chaque case est soit une équipe (première ronde), soit « gagnant / perdant du match n ».
- * Note : le PDF imprime le match 32 comme « Perdant 22 contre Gagnant 21 » (Gagnant 21
- * y figurerait deux fois, Perdant 21 jamais). Le tableau a été lu comme « Perdant 21
- * contre Perdant 22 », seule lecture cohérente ; à confirmer avec les premiers résultats.
+ * Matchs 31 et 32 (confirmé par l'horaire officiel de la ligue du 5 nov. 2026) :
+ * 31 = Perdant 21 contre Gagnant 22, 32 = Perdant 22 contre Gagnant 21.
  */
 export const TOURNAMENT_SLUG = "st-augustin-2026";
 export const TOURNAMENT_TITLE = "Challenge M17 AAA St-Augustin";
@@ -83,8 +82,8 @@ export const TOURNAMENT_GAMES: TournamentGame[] = [
   { no: 28, date: "2026-11-06", time: "14:40", rink: "CSSAD A", a: { from: 17, kind: "L" }, b: { from: 16, kind: "W" } },
   { no: 29, date: "2026-11-06", time: "16:10", rink: "CSSAD B", a: { from: 18, kind: "L" }, b: { from: 19, kind: "W" } },
   { no: 30, date: "2026-11-06", time: "17:00", rink: "CSSAD A", a: { from: 19, kind: "L" }, b: { from: 18, kind: "W" } },
-  { no: 31, date: "2026-11-06", time: "17:50", rink: "CSSAD B", a: { from: 21, kind: "W" }, b: { from: 22, kind: "W" } },
-  { no: 32, date: "2026-11-06", time: "18:40", rink: "CSSAD A", a: { from: 21, kind: "L" }, b: { from: 22, kind: "L" } },
+  { no: 31, date: "2026-11-06", time: "17:50", rink: "CSSAD B", a: { from: 21, kind: "L" }, b: { from: 22, kind: "W" } },
+  { no: 32, date: "2026-11-06", time: "18:40", rink: "CSSAD A", a: { from: 22, kind: "L" }, b: { from: 21, kind: "W" } },
   { no: 33, date: "2026-11-07", time: "18:40", rink: "CSSAD A", a: { from: 23, kind: "W" }, b: { from: 25, kind: "W" } },
   { no: 34, date: "2026-11-07", time: "16:30", rink: "CSSAD B", a: { from: 24, kind: "W" }, b: { from: 26, kind: "W" } },
   { no: 35, date: "2026-11-07", time: "09:00", rink: "CSSAD A", a: { from: 27, kind: "W" }, b: { from: 29, kind: "W" } },

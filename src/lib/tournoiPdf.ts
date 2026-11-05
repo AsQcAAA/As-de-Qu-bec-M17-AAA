@@ -26,8 +26,51 @@ interface Item {
 const isScore = (s: string) => /^\d{1,2}$/.test(s);
 const isSlotText = (s: string) => !isScore(s) && !/^(CSSAD [AB]|HS-SSF|PTS)$/.test(s) && !/Nov\./.test(s) && !/^#\d+-\d+$/.test(s) && !/^(Demi-Finales|Finale)$/i.test(s);
 
+/**
+ * Format « site de la ligue » : un tableau « # de match · Date · Heure · Lieu · Visiteur ·
+ * Score · Local », numéros 1001 à 10nn (le n° du tableau est donc 1001 → 1).
+ * Les colonnes sont repérées par la position des en-têtes ; les cases non jouées affichent
+ * « Winner / Gagnant 1009 » ou « Loser / Perdant 1004 ».
+ */
+async function parseLeagueTable(doc: Awaited<ReturnType<typeof getDocument>["promise"]>): Promise<ParsedTournamentGame[]> {
+  const out = new Map<number, ParsedTournamentGame>();
+  for (let p = 1; p <= doc.numPages; p++) {
+    const tc = await (await doc.getPage(p)).getTextContent();
+    const items: Item[] = [];
+    for (const it of tc.items as { str: string; transform: number[] }[]) {
+      if (it.str.trim()) items.push({ str: it.str.trim(), x: it.transform[4], y: it.transform[5] });
+    }
+    const hx = (label: string) => items.find((i) => i.str === label)?.x;
+    const xVis = hx("Visiteur");
+    const xScore = hx("Score");
+    const xLocal = hx("Local");
+    if (xVis === undefined || xScore === undefined || xLocal === undefined) continue;
+    const joined = (row: Item[], from: number, to: number) =>
+      row.filter((i) => i.x >= from && i.x < to).sort((a, b) => a.x - b.x).map((i) => i.str).join(" ").replace(/\s+-\s+/g, "-").replace(/\s+\./g, ".").trim();
+    for (const h of items.filter((i) => i.x < 50 && /^10\d\d$/.test(i.str))) {
+      // Une rangée = tout ce qui est à ±7 pt de l'en-tête (les noms longs passent sur deux lignes).
+      const row = items.filter((i) => Math.abs(i.y - h.y) <= 14 && i.y <= h.y + 8 && i.y > h.y - 20);
+      const no = Number(h.str) - 1000;
+      const txtA = joined(row, xVis - 4, xScore - 4);
+      const txtB = joined(row, xLocal - 4, 5000);
+      const sc = joined(row, xScore - 4, xLocal - 4).match(/^(\d{1,2})\s*-\s*(\d{1,2})$/) ?? row.map((i) => i.str).join(" ").match(/\b(\d{1,2}) - (\d{1,2})\b/);
+      const pending = (t: string) => !t || /^(Winner|Loser)\s*\/|^(Gagnant|Perdant) /i.test(t);
+      out.set(no, {
+        no,
+        teamA: pending(txtA) ? null : txtA,
+        teamB: pending(txtB) ? null : txtB,
+        scoreA: sc ? Number(sc[1]) : null,
+        scoreB: sc ? Number(sc[2]) : null,
+      });
+    }
+  }
+  return [...out.values()].sort((a, b) => a.no - b.no);
+}
+
 export async function parseTournamentPdf(bytes: Uint8Array): Promise<ParsedTournamentGame[]> {
   const doc = await getDocument({ data: bytes }).promise;
+  const league = await parseLeagueTable(doc);
+  if (league.length > 0) return league;
   const out = new Map<number, ParsedTournamentGame>();
 
   for (let p = 1; p <= doc.numPages; p++) {

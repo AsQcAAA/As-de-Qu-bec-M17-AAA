@@ -359,7 +359,8 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
                             {r.a} <b>{r.g.scoreA}</b> – <b>{r.g.scoreB}</b> {r.b}
                           </span>
                           {r.mismatch && <span className="text-xs font-bold text-amber-600">équipes à vérifier</span>}
-                          {!r.changed && <span className="text-xs text-slate-400">déjà saisi</span>}
+                          {r.g.scoreA === r.g.scoreB && <span className="text-xs font-bold text-amber-600">égalité : en cours ? ignoré</span>}
+                          {!r.changed && r.g.scoreA !== r.g.scoreB && <span className="text-xs text-slate-400">déjà saisi</span>}
                         </div>
                       ))}
                     </div>
