@@ -66,7 +66,7 @@ export default function RapportsPage() {
               return (
                 <Link
                   key={g.id}
-                  href={`/jour/${g.game_date}/alignement`}
+                  href={`/jour/${g.game_date}/alignement?game=${g.id}`}
                   className="card block hover:border-gold-400 transition-colors space-y-2"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
