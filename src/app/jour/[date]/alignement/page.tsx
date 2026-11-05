@@ -961,7 +961,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
         {(
           <section className="rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm overflow-hidden self-start xl:col-start-2">
             <header className="border-b border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-black uppercase tracking-widest text-red-300">
-              🩹 {isGameDay ? "Blessés et suspendus" : "Blessés et sans contact"}
+              🩹 {isGameDay ? "Blessés et suspendus" : "Blessés, suspendus et sans contact"}
               {absences.length > 0 ? ` (${absences.length})` : ""}
             </header>
             <div className="p-3 space-y-2">
@@ -971,7 +971,7 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                 onChange={(e) => addAbsent(e.target.value)}
               >
                 <option value="">
-                  {isGameDay ? "— Ajouter un joueur qui rate le match —" : "— Ajouter un joueur blessé ou sans contact —"}
+                  {isGameDay ? "— Ajouter un joueur qui rate le match —" : "— Ajouter un joueur blessé, suspendu ou sans contact —"}
                 </option>
                 {players
                   .filter((p) => !p.is_call_up && !absences.some((a) => a.player_id === p.id))

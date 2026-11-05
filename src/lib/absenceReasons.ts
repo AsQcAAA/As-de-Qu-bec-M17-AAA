@@ -34,11 +34,11 @@ export const GAME_MISSED_LABEL: Record<"blesse" | "suspendu", string> = {
   suspendu: "Suspension",
 };
 
-// Les jours de PRATIQUE, trois états intéressent le coach : le joueur qui
-// rate la séance pour blessure, celui qui l'a faite sans contact, et celui
+// Les jours de PRATIQUE, quatre états intéressent le coach : le joueur qui
+// rate la séance pour blessure ou suspension, celui qui l'a faite sans contact, et celui
 // rappelé par le M18 AAA ce jour-là (absent de notre pratique, mais pas une
 // vraie absence).
-export const PRACTICE_STATUS_REASONS: AbsenceReason[] = ["blesse", "sans_contact", "remplacement_m18"];
+export const PRACTICE_STATUS_REASONS: AbsenceReason[] = ["blesse", "suspendu", "sans_contact", "remplacement_m18"];
 
 // Pastille posée sur le chandail : le sans-contact reste dans l'alignement, il
 // faut donc le distinguer d'un œil.
