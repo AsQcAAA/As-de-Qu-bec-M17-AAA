@@ -15,6 +15,7 @@ import { printWithOrientation } from "@/lib/print";
 import { SECOND_YEAR_PLAYERS, isSecondYear } from "@/lib/secondYearPlayers";
 import { OPPONENT_ROSTERS, jerseyOf } from "@/lib/opponentRosters";
 import { titleCase } from "@/lib/players";
+import ScoutLineupEditor, { type ScoutSlots } from "@/components/ScoutLineupEditor";
 import { LEAGUE_GOALIES, LEAGUE_SCORERS, LEADERS_UPDATED } from "@/lib/leagueLeaders";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
 
@@ -70,6 +71,16 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
     setSheet(kind);
     // Laisse React afficher la bonne feuille avant d'ouvrir l'impression.
     setTimeout(() => printWithOrientation("portrait", "8mm"), 150);
+  }
+  /** Alignement attendu de l'adversaire, saisi à la main (enregistré automatiquement). */
+  const [lineup, setLineup] = useState<ScoutSlots>({});
+  const lineupTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function saveLineup(v: ScoutSlots) {
+    setLineup(v);
+    clearTimeout(lineupTimer.current);
+    lineupTimer.current = setTimeout(() => {
+      supabase.from("scout_notes").upsert({ team_slug: teamSlug, lineup: v }, { onConflict: "team_slug" }).then(() => {});
+    }, 600);
   }
   const mapTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -160,6 +171,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         pkbo: (note?.pkbo_map?.note ?? "").trim(),
         pkfo: (note?.pkfo_map?.note ?? "").trim(),
       };
+      setLineup((note?.lineup as ScoutSlots | null | undefined) ?? {});
       setPpMap(note?.pp_map ?? emptyFormation("pp"));
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
@@ -691,6 +703,16 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               );
             })()}
           </div>
+        </section>
+      )}
+
+      {!loading && (
+        <section className="card space-y-3">
+          <div>
+            <h2 className="font-semibold">Alignement attendu — {team.name}</h2>
+            <p className="text-xs text-slate-500">Entre les numéros (le nom vient de l&apos;effectif, ou écris-le). Tout s&apos;enregistre automatiquement.</p>
+          </div>
+          <ScoutLineupEditor teamSlug={teamSlug} value={lineup} onChange={saveLineup} />
         </section>
       )}
 
