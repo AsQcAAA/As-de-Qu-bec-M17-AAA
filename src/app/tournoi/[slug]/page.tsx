@@ -12,7 +12,7 @@ import {
   TOURNAMENT_TITLE,
   TOURNAMENT_VENUE,
 } from "@/lib/tournoiStAugustin";
-import { isOurs, nextOurGame, ourGames, resolveTournament, teamDisplay, type ResolvedGame, type ResolvedSlot, type TournamentResult } from "@/lib/tournoi";
+import { isOurs, nextOurGame, syncTournamentNextGame, ourGames, resolveTournament, teamDisplay, type ResolvedGame, type ResolvedSlot, type TournamentResult } from "@/lib/tournoi";
 import Modal from "@/components/Modal";
 import TournamentBracket from "@/components/TournamentBracket";
 import type { Game } from "@/lib/types";
@@ -141,6 +141,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
     }
     setParsed(null);
     setApplying(false);
+    await syncTournamentNextGame(supabase);
     await load();
   }
 
@@ -166,6 +167,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
         .upsert({ tournament: TOURNAMENT_SLUG, game_no: no, score_a: Number(a), score_b: Number(b), updated_at: new Date().toISOString() }, { onConflict: "tournament,game_no" });
     }
     setEditNo(null);
+    await syncTournamentNextGame(supabase);
     await load();
   }
 

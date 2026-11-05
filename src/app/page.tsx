@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { format, startOfWeek, addDays, isSameDay, isBefore } from "date-fns";
+import { format, parseISO, startOfWeek, addDays, isSameDay, isBefore } from "date-fns";
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { computeMeetingStatuses } from "@/lib/meetings";
@@ -22,6 +22,7 @@ import TeamBuildingPopupContent from "@/components/TeamBuildingPopupContent";
 import PostGameUploadsReminder from "@/components/PostGameUploadsReminder";
 import PhysioAlert from "@/components/PhysioAlert";
 import { TOURNAMENT_DATES, TOURNAMENT_SLUG, TOURNAMENT_TITLE } from "@/lib/tournoiStAugustin";
+import { nextOurGame, resolveTournament, syncTournamentNextGame, teamDisplay, type TournamentResult } from "@/lib/tournoi";
 import type { Absence, DailyReport, Game, Injury, Meeting, Player, ScheduleEvent } from "@/lib/types";
 
 const UNJUSTIFIED_ALERT_THRESHOLD = 2;
@@ -64,6 +65,7 @@ export default function DashboardPage() {
   const [showMeetingsPopup, setShowMeetingsPopup] = useState(false);
   const [weeklyTheme, setWeeklyTheme] = useState<string | null>(null);
   const [playedGames, setPlayedGames] = useState<Game[]>([]);
+  const [tourResults, setTourResults] = useState<TournamentResult[]>([]);
 
   const realWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekStart = isBefore(realWeekStart, SEASON_START) ? startOfWeek(SEASON_START, { weekStartsOn: 1 }) : realWeekStart;
@@ -77,6 +79,12 @@ export default function DashboardPage() {
     const to = format(addDays(weekStart, 6), "yyyy-MM-dd");
     const realWeekFrom = format(realWeekStart, "yyyy-MM-dd");
     const realWeekTo = format(addDays(realWeekStart, 6), "yyyy-MM-dd");
+
+    // Tournoi : le prochain match est créé dès que l'adversaire est connu.
+    const created = TOURNAMENT_DATES.some((d) => d >= from && d <= to) ? await syncTournamentNextGame(supabase) : false;
+    void created;
+    const { data: tres } = await supabase.from("tournament_results").select("game_no, score_a, score_b").eq("tournament", TOURNAMENT_SLUG);
+    setTourResults((tres ?? []) as TournamentResult[]);
 
     const [{ data: evts }, { data: gms }, { data: pls }, { data: meetingsAll }, { data: report }, { data: injuries }, { data: absences }, { data: theme }, { data: played }] =
       await Promise.all([
@@ -243,7 +251,13 @@ export default function DashboardPage() {
     list.push(e);
     eventsByDay.set(e.event_date, list);
   }
-  const gameByDate = new Map(weekGames.map((g) => [g.game_date, g]));
+  // Plusieurs matchs le même jour (tournoi) : le premier match à jouer, sinon le dernier joué.
+  const gameByDate = new Map<string, Game>();
+  for (const g of [...weekGames].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))) {
+    const cur = gameByDate.get(g.game_date);
+    if (!cur || cur.result) gameByDate.set(g.game_date, g);
+  }
+  const tourNext = nextOurGame(resolveTournament(tourResults));
 
   const todayKey = todayStr();
   const todayGame = gameByDate.get(todayKey);
@@ -312,8 +326,10 @@ export default function DashboardPage() {
             // Semaine de tournoi : un seul bloc rouge de jeudi à dimanche, comme au calendrier, avec le premier adversaire.
             if (TOURNAMENT_DATES.includes(key)) {
               if (key !== TOURNAMENT_DATES[0]) return null;
-              const firstGame = gameByDate.get(key);
-              const firstOpp = firstGame ? findTeamByOpponent(firstGame.opponent) : undefined;
+              const nOpp = tourNext?.opponent ? teamDisplay(tourNext.opponent) : null;
+              const nTeam = nOpp ? findTeamByOpponent(nOpp.name) : undefined;
+              const nTime = tourNext ? `${tourNext.game.time.slice(0, 2)}h${tourNext.game.time.slice(3, 5)}` : "";
+              const nDay = tourNext && tourNext.game.date !== todayKey ? `${format(parseISO(tourNext.game.date), "EEEE", { locale: fr })} ` : "";
               return (
                 <Link
                   key={key}
@@ -323,13 +339,13 @@ export default function DashboardPage() {
                 >
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-90">Semaine de tournoi · 5 au 8 novembre</span>
                   <span className="text-lg sm:text-xl font-black leading-tight">{TOURNAMENT_TITLE}</span>
-                  {firstGame && (
+                  {tourNext && (
                     <span className="flex items-center gap-1.5 text-xs font-semibold">
-                      {firstOpp && (
+                      {nTeam && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={firstOpp.logo} alt="" className="h-5 w-5 rounded-full bg-white object-contain p-0.5" />
+                        <img src={nTeam.logo} alt="" className="h-5 w-5 rounded-full bg-white object-contain p-0.5" />
                       )}
-                      Premier match : {firstOpp?.name ?? firstGame.opponent}
+                      Prochain match : {nOpp ? nOpp.name : `adversaire à confirmer (${tourNext.pending ?? "?"})`} · {nDay}{nTime}
                     </span>
                   )}
                   <span className="text-[11px] font-semibold opacity-90">Tableau du tournoi →</span>

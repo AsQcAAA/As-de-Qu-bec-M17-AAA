@@ -1,7 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { OPPONENT_TEAMS } from "@/lib/lheqTeams";
 import {
   OUR_TEAM,
   TOURNAMENT_GAMES,
+  TOURNAMENT_SLUG,
+  TOURNAMENT_TITLE,
   TOURNAMENT_TEAM_SLUG,
   type TournamentGame,
   type TournamentSlot,
@@ -96,4 +99,44 @@ export function nextOurGame(games: ResolvedGame[]) {
   if (!next) return null;
   const opp = isOurs(next.ra) ? next.rb : next.ra;
   return { game: next, opponent: opp.team, waitingOn: opp.waitingOn, pending: opp.pending };
+}
+
+let syncing: Promise<boolean> | null = null;
+
+/**
+ * Dès que l'adversaire de notre prochain match du tournoi est connu, crée le match
+ * (et sa ligne d'horaire) s'ils n'existent pas. Renvoie « true » si quelque chose a été créé.
+ */
+export function syncTournamentNextGame(supabase: SupabaseClient): Promise<boolean> {
+  if (syncing) return syncing;
+  syncing = (async () => {
+    try {
+      const { data: res } = await supabase.from("tournament_results").select("game_no, score_a, score_b").eq("tournament", TOURNAMENT_SLUG);
+      const next = nextOurGame(resolveTournament((res ?? []) as TournamentResult[]));
+      if (!next || !next.opponent) return false;
+      const g = next.game;
+      const opp = teamDisplay(next.opponent).name;
+      const { data: existing } = await supabase.from("games").select("id, opponent").eq("game_date", g.date);
+      if ((existing ?? []).some((x) => x.opponent.toLowerCase() === opp.toLowerCase())) return false;
+      const { error } = await supabase.from("games").insert({
+        game_date: g.date,
+        opponent: opp,
+        location: `${g.rink} — Complexe sportif St-Augustin`,
+        is_home: null,
+        category: "tournoi",
+        notes: `${TOURNAMENT_TITLE} — match #${g.no}`,
+      });
+      if (error) return false;
+      await supabase.from("schedule_events").insert({
+        event_date: g.date,
+        start_time: g.time,
+        event_type: "game",
+        title: `M17 AAA vs ${opp} - ${g.time.slice(0, 2)}h${g.time.slice(3, 5)} - ${g.rink}`,
+      });
+      return true;
+    } finally {
+      setTimeout(() => (syncing = null), 2000);
+    }
+  })();
+  return syncing;
 }

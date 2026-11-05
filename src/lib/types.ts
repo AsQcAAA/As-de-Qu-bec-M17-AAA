@@ -125,6 +125,7 @@ export interface Game {
   location: string | null;
   is_home: boolean | null;
   result: GameResult | null;
+  created_at?: string;
   goals_for: number | null;
   goals_against: number | null;
   external_link: string | null;
