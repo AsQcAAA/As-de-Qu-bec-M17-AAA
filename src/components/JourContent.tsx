@@ -1,5 +1,6 @@
 "use client";
 
+import { pickGameOfDay } from "@/lib/dayGame";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -58,14 +59,14 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   const [farandoleIds, setFarandoleIds] = useState<string[]>([]);
 
   async function load() {
-    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gm }, { data: report }, { data: abs }, { data: far }] =
+    const [{ data: pls }, { data: evts }, { data: lineups }, { data: mts }, { data: pnotes }, { data: gmAll }, { data: report }, { data: abs }, { data: far }] =
       await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
         supabase.from("lineups").select("*").eq("lineup_date", date).limit(1),
         supabase.from("meetings").select("*").eq("meeting_date", date).eq("meeting_type", "individual"),
         supabase.from("practice_notes").select("content").eq("practice_date", date).maybeSingle(),
-        supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
+        supabase.from("games").select("*").eq("game_date", date).order("created_at"),
         supabase.from("daily_reports").select("*").eq("report_date", date).maybeSingle(),
         supabase.from("absences").select("*").eq("absence_date", date),
         supabase.from("farandole_assignments").select("player_ids").eq("assignment_date", date).maybeSingle(),
@@ -82,7 +83,8 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
     // distinguer des blessures (case à cocher ci-dessous) et du sans-contact
     // (le joueur est présent, juste sans mise en échec).
     setKnownAbsences(dayAbsences.filter((a) => a.reason && a.reason !== "blesse" && a.reason !== "sans_contact"));
-    setGame(gm ?? null);
+    const gm = pickGameOfDay(gmAll);
+    setGame(gm);
     setReportForm(
       report
         ? {

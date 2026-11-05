@@ -1,5 +1,6 @@
 "use client";
 
+import { pickGameOfDay } from "@/lib/dayGame";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -92,11 +93,11 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: evts }, { data: lineups }, { data: gm }, { data: mts }, { data: abs }] = await Promise.all([
+      const [{ data: pls }, { data: evts }, { data: lineups }, { data: gmAll }, { data: mts }, { data: abs }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
         supabase.from("lineups").select("*").eq("lineup_date", date).limit(1),
-        supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
+        supabase.from("games").select("*").eq("game_date", date).order("created_at"),
         supabase
           .from("meetings")
           .select("player_id")
@@ -119,7 +120,8 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
       const convoked = new Set((mts ?? []).map((m) => m.player_id));
       setIndividualMeetings((pls ?? []).filter((p) => convoked.has(p.id)));
       setEvents(evts ?? []);
-      setGame(gm ?? null);
+      const gm = pickGameOfDay(gmAll);
+    setGame(gm);
       const l: Lineup | undefined = lineups?.[0];
       const [{ units: ppUnits }, { data: disp }] = await Promise.all([
         loadUnits(supabase),

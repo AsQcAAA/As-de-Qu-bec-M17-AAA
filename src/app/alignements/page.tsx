@@ -1,5 +1,6 @@
 "use client";
 
+import { pickGameOfDay } from "@/lib/dayGame";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -57,13 +58,14 @@ export default function AlignementsPage() {
 
   async function load(d: string) {
     setLoading(true);
-    const [{ data: pls }, { data: lineups }, { data: gm }] = await Promise.all([
+    const [{ data: pls }, { data: lineups }, { data: gmAll }] = await Promise.all([
       supabase.from("players").select("*"),
       supabase.from("lineups").select("*").eq("lineup_date", d).limit(1),
-      supabase.from("games").select("*").eq("game_date", d).maybeSingle(),
+      supabase.from("games").select("*").eq("game_date", d).order("created_at"),
     ]);
     setPlayers(pls ?? []);
-    setGame(gm ?? null);
+    const gm = pickGameOfDay(gmAll);
+    setGame(gm);
     const l = lineups?.[0] ?? null;
     setHasLineup(!!l);
     if (l) {

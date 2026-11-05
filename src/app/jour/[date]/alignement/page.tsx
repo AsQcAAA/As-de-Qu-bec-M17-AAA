@@ -1,5 +1,6 @@
 "use client";
 
+import { pickGameOfDay } from "@/lib/dayGame";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -207,17 +208,18 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
 
   async function load() {
     setLoading(true);
-    const [{ data: pls }, { data: gm }, { data: abs }, { data: evts }, l] = await Promise.all([
+    const [{ data: pls }, { data: gmAll }, { data: abs }, { data: evts }, l] = await Promise.all([
       // On charge tout l'effectif actif (réguliers + remplaçants) ; le tri entre
       // les deux se fait à l'affichage, selon qu'on prépare un match ou une pratique.
       supabase.from("players").select("*").eq("active", true).order("jersey_number"),
-      supabase.from("games").select("*").eq("game_date", date).maybeSingle(),
+      supabase.from("games").select("*").eq("game_date", date).order("created_at"),
       supabase.from("absences").select("*").eq("absence_date", date),
       supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
       ensureLineup(),
     ]);
     setPlayers(pls ?? []);
-    setGame(gm ?? null);
+    const gm = pickGameOfDay(gmAll);
+    setGame(gm);
     setAbsences(abs ?? []);
     setEvents(evts ?? []);
     setLineup(l);
