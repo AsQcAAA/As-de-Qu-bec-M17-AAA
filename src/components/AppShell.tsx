@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Nav from "./Nav";
+import ActivityTracker from "./ActivityTracker";
 
 const NO_SIDEBAR_ROUTES = ["/login", "/definir-mot-de-passe"];
 // Le calendrier profite d'une page plus large pour agrandir les cases.
@@ -41,6 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {hasSidebar && <ActivityTracker />}
       <Nav />
       <main className={hasSidebar ? "md:pl-56 min-h-screen" : "min-h-screen"}>
         <div className={hasSidebar ? `${isWide ? "max-w-[1600px]" : "max-w-6xl"} mx-auto px-4 py-6` : ""}>{children}</div>

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Modal from "@/components/Modal";
+import ActivityRanking from "@/components/ActivityRanking";
 import type { CoachProfile, CoachRole } from "@/lib/types";
 
 const emptyForm = { email: "", full_name: "", role: "assistant" as CoachRole };
@@ -174,6 +175,8 @@ export default function CoachsPage() {
           besoin d'ajouter quelqu'un.
         </p>
       )}
+
+      {isHeadCoach && <ActivityRanking coaches={coaches} />}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
