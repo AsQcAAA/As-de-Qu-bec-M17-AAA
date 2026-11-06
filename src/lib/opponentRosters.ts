@@ -377,6 +377,29 @@ export const OPPONENT_ROSTERS: Record<string, Record<string, string>> = {
     "86": "Xavier Couturier",
     "91": "Zachary Pomerleau Lamothe",
   },
+  // Équipe invitée au Challenge St-Augustin (cahier d'équipe du tournoi).
+  "quebec-noir": {
+    "33": "Alexandre Demers",
+    "31": "Eli Belair",
+    "10": "Alexandre Dufour",
+    "4": "Charles-Antoine Desroches",
+    "23": "Devon Ocean",
+    "3": "Elliot Castonguay",
+    "22": "Gregoire Vouligny",
+    "16": "Jacob Lapointe",
+    "5": "Louis-Philippe Cyr",
+    "20": "Matheo Tremblay",
+    "24": "Mathis Bergeron",
+    "14": "Mathys Caron",
+    "25": "Maxime Riendeau",
+    "18": "Mikko Mondou",
+    "7": "Noah Faucher",
+    "11": "Philippe Barrette",
+    "15": "Samuel Desruisseaux",
+    "12": "Simon Boivin",
+    "17": "Tristan Leduc",
+    "8": "Zack Mandeville",
+  },
 };
 
 function normName(s: string) {
