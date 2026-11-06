@@ -12,7 +12,7 @@ import {
   TOURNAMENT_TITLE,
   TOURNAMENT_VENUE,
 } from "@/lib/tournoiStAugustin";
-import { isOurs, nextOurGame, syncTournamentNextGame, ourGames, resolveTournament, teamDisplay, type ResolvedGame, type ResolvedSlot, type TournamentResult } from "@/lib/tournoi";
+import { isOurs, nextOurGame, orientParsed, syncTournamentNextGame, ourGames, resolveTournament, teamDisplay, type ResolvedGame, type ResolvedSlot, type TournamentResult } from "@/lib/tournoi";
 import Modal from "@/components/Modal";
 import TournamentBracket from "@/components/TournamentBracket";
 import type { Game } from "@/lib/types";
@@ -132,7 +132,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
   async function applyParsed() {
     if (!parsed) return;
     setApplying(true);
-    const rows = parsed
+    const rows = orientParsed(parsed, results)
       .filter((g) => g.scoreA !== null && g.scoreB !== null && g.scoreA !== g.scoreB)
       .map((g) => ({ tournament: TOURNAMENT_SLUG, game_no: g.no, score_a: g.scoreA!, score_b: g.scoreB!, updated_at: new Date().toISOString() }));
     if (rows.length > 0) {
@@ -325,7 +325,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
       </section>
 
       {parsed && (() => {
-        const withScores = parsed.filter((g) => g.scoreA !== null && g.scoreB !== null);
+        const withScores = orientParsed(parsed, results).filter((g) => g.scoreA !== null && g.scoreB !== null);
         const letters = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
         const rows = withScores.map((g) => {
           const known = resolved.find((x) => x.no === g.no);
@@ -361,6 +361,7 @@ export default function TournoiPage({ params }: { params: Promise<{ slug: string
                             {r.a} <b>{r.g.scoreA}</b> – <b>{r.g.scoreB}</b> {r.b}
                           </span>
                           {r.mismatch && <span className="text-xs font-bold text-amber-600">équipes à vérifier</span>}
+                          {r.g.swapped && <span className="text-xs text-slate-500">ordre inversé corrigé</span>}
                           {r.g.scoreA === r.g.scoreB && <span className="text-xs font-bold text-amber-600">égalité : en cours ? ignoré</span>}
                           {!r.changed && r.g.scoreA !== r.g.scoreB && <span className="text-xs text-slate-400">déjà saisi</span>}
                         </div>

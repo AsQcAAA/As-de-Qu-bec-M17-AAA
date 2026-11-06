@@ -140,3 +140,39 @@ export function syncTournamentNextGame(supabase: SupabaseClient): Promise<boolea
   })();
   return syncing;
 }
+
+export interface ParsedLike {
+  no: number;
+  teamA: string | null;
+  teamB: string | null;
+  scoreA: number | null;
+  scoreB: number | null;
+}
+
+const letters = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+const sameTeam = (pdfName: string | null, key: string | null) => !!pdfName && !!key && letters(pdfName).includes(letters(key).slice(0, 5));
+
+/**
+ * Remet les pointages du PDF dans l'ordre des cases du tableau. Le PDF peut placer les équipes
+ * visiteur / local dans l'ordre inverse de notre tableau : on se fie aux noms d'équipes, pas
+ * aux colonnes. Les matchs sont traités dans l'ordre (chaque case ne dépend que de matchs
+ * précédents), en comptant les pointages du PDF lui-même.
+ */
+export function orientParsed(parsed: ParsedLike[], existing: TournamentResult[]): (ParsedLike & { swapped: boolean })[] {
+  const acc = new Map(existing.map((r) => [r.game_no, r]));
+  const out: (ParsedLike & { swapped: boolean })[] = [];
+  for (const g of [...parsed].sort((x, y) => x.no - y.no)) {
+    let cur = { ...g, swapped: false };
+    if (g.scoreA !== null && g.scoreB !== null) {
+      const known = resolveTournament([...acc.values()]).find((x) => x.no === g.no);
+      const a = known?.ra.team ?? null;
+      const b = known?.rb.team ?? null;
+      const straight = sameTeam(g.teamA, a) || sameTeam(g.teamB, b);
+      const flipped = sameTeam(g.teamA, b) || sameTeam(g.teamB, a);
+      if (flipped && !straight) cur = { ...g, teamA: g.teamB, teamB: g.teamA, scoreA: g.scoreB, scoreB: g.scoreA, swapped: true };
+      if (cur.scoreA !== cur.scoreB) acc.set(g.no, { game_no: g.no, score_a: cur.scoreA!, score_b: cur.scoreB! });
+    }
+    out.push(cur);
+  }
+  return out;
+}
