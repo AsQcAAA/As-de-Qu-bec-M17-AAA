@@ -12,6 +12,8 @@ export interface LheqTeam {
   // ID de fiche TPE (portal.tpeteam.com/premium/team/<id>) — absent si l'équipe
   // n'est pas suivie par TPE au niveau M17.
   tpeTeamId?: number;
+  // Équipe invitée (hors ligue) — ex. les équipes Québec du Challenge.
+  guest?: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ export const TEAM_COLOR: Record<string, string> = {
   "seigneurs-mi": "#0f172a",
   "select-du-nord": "#b91c1c",
   "senateurs-out": "#7f1d1d",
+  "quebec-blanc": "#94a3b8",
+  "quebec-noir": "#111827",
 };
 export const DEFAULT_TEAM_COLOR = "#334155";
 
@@ -83,6 +87,17 @@ export const LHEQ_M17_AAA_TEAMS: LheqTeam[] = [
   { slug: "select-du-nord", name: "Sélect du Nord", logo: "/logos/teams/select-du-nord.png", lheqUrl: "https://masculin.lheq.ca/fr/teams/180222", tpeTeamId: 9151 },
   { slug: "senateurs-out", name: "Sénateurs OUT", logo: "/logos/teams/senateurs-out.png", lheqUrl: "https://masculin.lheq.ca/fr/teams/186825" },
 ];
+
+// Équipes invitées au Challenge M17 AAA St-Augustin : pas dans la ligue, donc pas de
+// fiche LHEQ ni TPE. Volontairement hors de OPPONENT_TEAMS pour ne pas fausser
+// findTeamByOpponent (les noms contiennent « Québec »).
+export const GUEST_TEAMS: LheqTeam[] = [
+  { slug: "quebec-blanc", name: "Québec Blanc", logo: "/logos/teams/quebec-blanc.svg", lheqUrl: "", guest: true },
+  { slug: "quebec-noir", name: "Québec Noir", logo: "/logos/teams/quebec-noir.svg", lheqUrl: "", guest: true },
+];
+
+// Toutes les équipes ayant une fiche de pre-scout (ligue + invitées).
+export const PRESCOUT_TEAMS = [...LHEQ_M17_AAA_TEAMS.filter((t) => t.slug !== "as-de-quebec"), ...GUEST_TEAMS];
 
 // Adversaires potentiels pour le pre-scout — on exclut notre propre équipe.
 export const OPPONENT_TEAMS = LHEQ_M17_AAA_TEAMS.filter((t) => t.slug !== "as-de-quebec");

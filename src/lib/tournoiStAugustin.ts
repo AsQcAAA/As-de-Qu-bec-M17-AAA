@@ -47,8 +47,8 @@ export const TOURNAMENT_TEAM_SLUG: Record<string, string | null> = {
   "SENATEURS DE L'OUTAOUAIS": "senateurs-out",
   "SEIGNEURS DES MILLE-ILES": "seigneurs-mi",
   "BLIZZARD SSF": "blizzard-ssf",
-  "ÉQUIPE QUÉBEC BLANC": null,
-  "ÉQUIPE QUÉBEC NOIR": null,
+  "ÉQUIPE QUÉBEC BLANC": "quebec-blanc",
+  "ÉQUIPE QUÉBEC NOIR": "quebec-noir",
 };
 
 export const TOURNAMENT_GAMES: TournamentGame[] = [

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { LHEQ_RANKINGS, OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
+import { LHEQ_RANKINGS, PRESCOUT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { recordsByOpponent, recordLabel } from "@/lib/playerStats";
 import Modal from "@/components/Modal";
 import LeagueScheduleUpdateContent from "@/components/LeagueScheduleUpdateContent";
@@ -38,7 +38,7 @@ export default function PreScoutPage() {
         <div>
           <h1 className="text-2xl font-bold">Pre-Scout</h1>
           <p className="text-slate-500 text-sm">
-            Les 20 équipes M17 AAA de la LHEQ, avec notre fiche contre chacune. Clique une équipe pour noter tes
+            Les 20 équipes M17 AAA de la LHEQ et les équipes invitées au Challenge (Québec Blanc et Noir), avec notre fiche contre chacune. Clique une équipe pour noter tes
             observations et voir sa fiche.
           </p>
         </div>
@@ -59,7 +59,7 @@ export default function PreScoutPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-        {OPPONENT_TEAMS.map((team) => {
+        {PRESCOUT_TEAMS.map((team) => {
           const r = recordBySlug.get(team.slug);
           return (
             <Link

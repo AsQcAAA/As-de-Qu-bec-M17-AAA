@@ -4,7 +4,7 @@ import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { OPPONENT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
+import { PRESCOUT_TEAMS, findTeamByOpponent } from "@/lib/lheqTeams";
 import { RESULT_COLOR, RESULT_LABEL, matchupLabel } from "@/lib/gameResults";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -41,7 +41,7 @@ function matchesOpponent(opponent: string, teamName: string): boolean {
 
 export default function PreScoutTeamPage({ params }: { params: Promise<{ team: string }> }) {
   const { team: teamSlug } = use(params);
-  const team = OPPONENT_TEAMS.find((t) => t.slug === teamSlug);
+  const team = PRESCOUT_TEAMS.find((t) => t.slug === teamSlug);
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -351,7 +351,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                   const own = home ? g.home_score! : g.away_score!;
                   const other = home ? g.away_score! : g.home_score!;
                   const oppSlug = home ? g.away : g.home;
-                  const opp = OPPONENT_TEAMS.find((t) => t.slug === oppSlug) ?? (oppSlug === "as-de-quebec" ? { logo: "/logos/as-de-quebec.png", name: "As de Québec" } : null);
+                  const opp = PRESCOUT_TEAMS.find((t) => t.slug === oppSlug) ?? (oppSlug === "as-de-quebec" ? { logo: "/logos/as-de-quebec.png", name: "As de Québec" } : null);
                   const tag = own > other ? "V" : own < other ? "D" : "N";
                   return (
                     <div
@@ -385,9 +385,9 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <a href={team.lheqUrl} target="_blank" rel="noreferrer" className="btn-dark">
+        {team.lheqUrl && <a href={team.lheqUrl} target="_blank" rel="noreferrer" className="btn-dark">
           Cahier d'équipe LHEQ →
-        </a>
+        </a>}
         {team.tpeTeamId ? (
           <a
             href={`https://portal.tpeteam.com/premium/team/${team.tpeTeamId}`}
@@ -793,9 +793,9 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
               );
               const last = [...played].reverse();
               if (last.length === 0) return null;
-              const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
+              const nameOf = (slug: string) => PRESCOUT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
               const logoOf = (slug: string) =>
-                OPPONENT_TEAMS.find((t) => t.slug === slug)?.logo ?? (slug === "as-de-quebec" ? "/logos/as-de-quebec.png" : null);
+                PRESCOUT_TEAMS.find((t) => t.slug === slug)?.logo ?? (slug === "as-de-quebec" ? "/logos/as-de-quebec.png" : null);
               return (
                 <div className="space-y-1 max-h-[28rem] overflow-y-auto pr-1">
                   {last.map((g) => {
@@ -935,7 +935,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         const theirPp = sheet === "pk";
         const played = leagueGames.filter((g) => g.home_score != null && g.away_score != null && !(g.home_score === 0 && g.away_score === 0));
         const last5 = played.slice(-5).reverse();
-        const nameOf = (slug: string) => OPPONENT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
+        const nameOf = (slug: string) => PRESCOUT_TEAMS.find((t) => t.slug === slug)?.name ?? (slug === "as-de-quebec" ? "As de Québec" : slug);
         const scorers = (LEAGUE_SCORERS[teamSlug] ?? []).slice().sort((a, b) => b.g + b.a - (a.g + a.a));
         const goalies = (LEAGUE_GOALIES[teamSlug] ?? []).slice().sort((a, b) => b.gp - a.gp);
         const secondYear = SECOND_YEAR_PLAYERS[teamSlug] ?? [];
