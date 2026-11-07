@@ -11,20 +11,34 @@ export interface FormationMarker {
   role?: "F" | "D";
   /** Palette du joueur : gaucher (G) ou droitier (D). Dessinée comme un bâton à côté du rond. */
   hand?: "L" | "R";
+  /** Bout de la lame, relatif au rond : la palette se place librement (défaut : selon la main). */
+  sx?: number;
+  sy?: number;
 }
 
-/** Bâton dessiné sous le rond : lame à gauche pour un gaucher, à droite pour un droitier. */
-function Stick({ hand }: { hand: "L" | "R" }) {
-  const k = hand === "L" ? -1 : 1;
+/** Bout de lame par défaut : à gauche pour un gaucher, à droite pour un droitier. */
+const stickTip = (m: { hand?: "L" | "R"; sx?: number; sy?: number }): [number, number] =>
+  m.sx != null && m.sy != null ? [m.sx, m.sy] : [m.hand === "L" ? -15.5 : 15.5, 12.5];
+
+/** Bout de lame pendant le glissement (coordonnées de la glace → relatives, longueur bornée). */
+function liveTip(m: { x: number; y: number }, sd: { x: number; y: number }): [number, number] {
+  const dx = sd.x - m.x;
+  const dy = sd.y - m.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const c = Math.max(12, Math.min(22, len));
+  return [(dx / len) * c, (dy / len) * c];
+}
+
+/** Bâton dessiné à côté du rond : manche vers un coude, puis la lame. Le bout se déplace à volonté. */
+function Stick({ hand, tip }: { hand: "L" | "R"; tip: [number, number] }) {
+  const [tx, ty] = tip;
+  const k = tx < 0 ? -1 : 1;
+  const ex = tx - k * 4.5; // coude : la lame fait 4,5 de long
+  const d = Math.hypot(ex, ty) || 1;
+  const sx = (ex / d) * 6.5;
+  const sy = (ty / d) * 6.5;
   return (
-    <path
-      d={`M ${k * 4.5} 5.5 L ${k * 11} 12.5 L ${k * 15.5} 12.5`}
-      fill="none"
-      stroke="#0d0c0c"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <path d={`M ${sx} ${sy} L ${ex} ${ty} L ${tx} ${ty}`} fill="none" stroke="#0d0c0c" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
       <title>{hand === "L" ? "Gaucher" : "Droitier"}</title>
     </path>
   );
@@ -239,6 +253,7 @@ export default function FormationMap({
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [stickDrag, setStickDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [newNumber, setNewNumber] = useState("");
   const selected = value.markers.find((m) => m.id === selectedId) ?? null;
   // Outils : déplacer les joueurs, ou dessiner une flèche (trait plein) / une passe (pointillé).
@@ -309,6 +324,19 @@ export default function FormationMap({
     setNewNumber("");
   }
 
+  /** Pose le bout de la palette (coordonnées de la glace) relativement à son joueur, longueur bornée. */
+  function commitStick(sd: { id: string; x: number; y: number }) {
+    const m = value.markers.find((x) => x.id === sd.id);
+    if (!m) return;
+    let dx = sd.x - m.x;
+    let dy = sd.y - m.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const c = Math.max(12, Math.min(22, len));
+    dx = (dx / len) * c;
+    dy = (dy / len) * c;
+    update(value.markers.map((x) => (x.id === sd.id ? { ...x, sx: Math.round(dx * 10) / 10, sy: Math.round(dy * 10) / 10 } : x)));
+  }
+
   function applyPreset(i: number) {
     const positions = PRESETS[kind][i].positions;
     const markers = positions.map(([x, y], idx) => ({
@@ -316,7 +344,7 @@ export default function FormationMap({
       number: value.markers[idx]?.number ?? "",
       x,
       y,
-      ...(value.markers[idx]?.hand ? { hand: value.markers[idx].hand } : {}),
+      ...(value.markers[idx]?.hand ? { hand: value.markers[idx].hand, sx: value.markers[idx].sx, sy: value.markers[idx].sy } : {}),
       ...(isRoleKind(kind) ? { role: value.markers[idx]?.role ?? (idx < 2 ? ("F" as const) : ("D" as const)) } : {}),
     }));
     // Les joueurs en trop (au-delà du modèle) restent là où ils sont.
@@ -419,11 +447,12 @@ export default function FormationMap({
                 key={h}
                 type="button"
                 className={`rounded border px-2 py-0.5 font-bold ${selected.hand === h ? "border-gold-500 bg-gold-400 text-ink-900" : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"}`}
-                onClick={() => update(value.markers.map((x) => (x.id === selected.id ? { ...x, hand: selected.hand === h ? undefined : h } : x)))}
+                onClick={() => update(value.markers.map((x) => (x.id === selected.id ? { ...x, hand: selected.hand === h ? undefined : h, sx: undefined, sy: undefined } : x)))}
               >
                 {label}
               </button>
             ))}
+            {selected.hand && <span className="text-slate-400">· glisse le point bleu pour orienter la palette</span>}
           </span>
         )}
       </div>
@@ -484,6 +513,7 @@ export default function FormationMap({
         viewBox={`0 0 ${W} ${H}`}
         className={`w-full ${isFull(kind) ? "max-w-[18rem]" : "max-w-md"} mx-auto touch-none select-none`}
         onPointerMove={(e) => {
+          if (stickDrag) { setStickDrag({ ...stickDrag, ...toSvg(e) }); return; }
           if (bend) { setBend({ ...bend, ...toSvg(e) }); return; }
           if (drawing) {
             const p = toSvg(e);
@@ -494,6 +524,7 @@ export default function FormationMap({
           else if (drag) setDrag({ id: drag.id, ...toSvg(e) });
         }}
         onPointerUp={() => {
+          if (stickDrag) { commitStick(stickDrag); setStickDrag(null); return; }
           if (bend) {
             onChange({ ...value, arrows: arrows.map((a) => ({ ...a })) });
             setBend(null);
@@ -532,6 +563,7 @@ export default function FormationMap({
           setDrag(null);
         }}
         onPointerLeave={() => {
+          if (stickDrag) { commitStick(stickDrag); setStickDrag(null); return; }
           if (bend) {
             onChange({ ...value, arrows: arrows.map((a) => ({ ...a })) });
             setBend(null);
@@ -630,7 +662,28 @@ export default function FormationMap({
                 else update(value.markers.map((x) => (x.id === m.id ? { ...x, role: roleOf(value.markers, x) === "D" ? "F" : "D" } : x)));
               }}
             >
-              {m.hand && <Stick hand={m.hand} />}
+              {m.hand && <Stick hand={m.hand} tip={stickDrag?.id === m.id ? liveTip(m, stickDrag) : stickTip(m)} />}
+              {isSel && m.hand && tool === "move" && (() => {
+                const [hx, hy] = stickDrag?.id === m.id ? liveTip(m, stickDrag) : stickTip(m);
+                return (
+                  <circle
+                    cx={hx}
+                    cy={hy}
+                    r="3.4"
+                    fill="#2563eb"
+                    stroke="#fff"
+                    strokeWidth="1"
+                    className="cursor-move"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      svgRef.current?.setPointerCapture(e.pointerId);
+                      setStickDrag({ id: m.id, x: m.x + hx, y: m.y + hy });
+                    }}
+                  >
+                    <title>Glisse pour orienter la palette</title>
+                  </circle>
+                );
+              })()}
               {isSel && <circle r="10.5" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeDasharray="3 2" />}
               <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#cbd5e1"} stroke="#0d0c0c" strokeWidth="1.3" />
               {editingId === m.id ? (
@@ -685,7 +738,7 @@ export function FormationStatic({ kind, value, names, markerColor }: { kind: Kin
         ))}
         {value.markers.map((m) => (
           <g key={m.id} transform={`translate(${m.x} ${m.y})`}>
-            {m.hand && <Stick hand={m.hand} />}
+            {m.hand && <Stick hand={m.hand} tip={stickTip(m)} />}
             <circle r="7" fill={m.number ? (markerColor ?? "#fdca37") : "#e2e8f0"} stroke="#0d0c0c" strokeWidth="1.3" />
             <text textAnchor="middle" dominantBaseline="central" fontSize={m.number.length > 2 ? 5.8 : 7.5} fontWeight="900" fill="#0d0c0c">
               {m.number || (isRoleKind(kind) ? roleOf(value.markers, m) : "X")}
