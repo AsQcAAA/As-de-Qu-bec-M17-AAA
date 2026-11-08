@@ -57,6 +57,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   const [pkMap, setPkMap] = useState<FormationValue>(() => emptyFormation("pk"));
   const [pp2Map, setPp2Map] = useState<FormationValue>(() => emptyFormation("pp"));
   const [ppBoMap, setPpBoMap] = useState<FormationValue>(() => emptyFormation("bo"));
+  const [ppBo2Map, setPpBo2Map] = useState<FormationValue>(() => emptyFormation("bo"));
   const [foMap, setFoMap] = useState<FormationValue>(() => emptyFormation("fo"));
   const [pkBoMap, setPkBoMap] = useState<FormationValue>(() => emptyFormation("pkbo"));
   const [pkFoMap, setPkFoMap] = useState<FormationValue>(() => emptyFormation("pkfo"));
@@ -90,6 +91,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
     pp: "PP 1",
     pp2: "PP 2",
     ppbo: "PP BO",
+    ppbo2: "PP BO 2",
     fo: "PP FO",
     pk: "PK",
     pkbo: "PK FC",
@@ -117,8 +119,8 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
   }
 
   /** Enregistre une disposition (PP ou PK) peu après le dernier geste. */
-  function saveMap(kind: "pp" | "pp2" | "ppbo" | "fo" | "pk" | "pkbo" | "pkfo", value: FormationValue) {
-    ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, fo: setFoMap, pk: setPkMap, pkbo: setPkBoMap, pkfo: setPkFoMap })[kind](value);
+  function saveMap(kind: "pp" | "pp2" | "ppbo" | "ppbo2" | "fo" | "pk" | "pkbo" | "pkfo", value: FormationValue) {
+    ({ pp: setPpMap, pp2: setPp2Map, ppbo: setPpBoMap, ppbo2: setPpBo2Map, fo: setFoMap, pk: setPkMap, pkbo: setPkBoMap, pkfo: setPkFoMap })[kind](value);
     clearTimeout(mapTimers.current[kind]);
     scheduleLog(kind, value.note.trim());
     mapTimers.current[kind] = setTimeout(() => {
@@ -166,6 +168,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         pp: (note?.pp_map?.note ?? "").trim(),
         pp2: (note?.pp2_map?.note ?? "").trim(),
         ppbo: (note?.ppbo_map?.note ?? "").trim(),
+        ppbo2: (note?.ppbo2_map?.note ?? "").trim(),
         fo: (note?.fo_map?.note ?? "").trim(),
         pk: (note?.pk_map?.note ?? "").trim(),
         pkbo: (note?.pkbo_map?.note ?? "").trim(),
@@ -176,6 +179,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
       setPkMap(note?.pk_map ?? emptyFormation("pk"));
       setPp2Map(note?.pp2_map ?? emptyFormation("pp"));
       setPpBoMap(note?.ppbo_map ?? emptyFormation("bo"));
+      setPpBo2Map(note?.ppbo2_map ?? emptyFormation("bo"));
       setFoMap(note?.fo_map ?? emptyFormation("fo"));
       setPkBoMap(note?.pkbo_map ?? emptyFormation("pkbo"));
       setPkFoMap(note?.pkfo_map ?? emptyFormation("pkfo"));
@@ -672,6 +676,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 { kind: "pp" as const, key: "pp" as const, value: ppMap, title: "PK Pre-Scout", sub: `PP1 — comment ${team.name} se dispose quand elle a l'avantage (zone offensive, but en haut).` },
                 { kind: "pp" as const, key: "pp2" as const, value: pp2Map, title: "PK Pre-Scout", sub: `PP2 — deuxième vague de ${team.name} (zone offensive, but en haut).` },
                 { kind: "bo" as const, key: "ppbo" as const, value: ppBoMap, title: "PK Pre-Scout", sub: `PP BO — sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
+                { kind: "bo" as const, key: "ppbo2" as const, value: ppBo2Map, title: "PK Pre-Scout", sub: `PP BO 2 — deuxième sortie de zone de ${team.name} en avantage numérique (glace complète, leur zone en bas).` },
                 { kind: "fo" as const, key: "fo" as const, value: foMap, title: "PK Pre-Scout", sub: `FO — formation de ${team.name} sur une mise au jeu (zone offensive, but en haut).` },
               ][w];
               return (
@@ -683,7 +688,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     subtitle={cfg.sub}
                     value={cfg.value}
                     onChange={(v) => saveMap(cfg.key, v)}
-                    waveLabels={["PP1", "PP2", "PP BO", "FO"]}
+                    waveLabels={["PP1", "PP2", "PP BO", "PP BO 2", "FO"]}
                     wave={w}
                     onWave={setPpWave}
                   />
@@ -982,6 +987,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                     <h2 className={h}>PP BO — sortie de zone</h2>
                     <FormationStatic kind="bo" value={ppBoMap} />
                   </section>
+                  {(ppBo2Map.markers.length > 0 || (ppBo2Map.arrows ?? []).length > 0 || ppBo2Map.note.trim()) && (
+                    <section>
+                      <h2 className={h}>PP BO 2 — sortie de zone</h2>
+                      <FormationStatic kind="bo" value={ppBo2Map} />
+                    </section>
+                  )}
                   <section>
                     <h2 className={h}>FO — mise au jeu</h2>
                     <FormationStatic kind="fo" value={foMap} />

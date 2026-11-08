@@ -306,6 +306,7 @@ export interface ScoutNote {
   pk_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   pp2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   ppbo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
+  ppbo2_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   fo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   pkbo_map?: { markers: { id: string; number: string; x: number; y: number }[]; note: string } | null;
   lineup?: Record<string, { n: string; name: string }> | null;
