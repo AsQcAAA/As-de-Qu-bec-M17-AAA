@@ -52,6 +52,8 @@ export interface ImportDecision {
   goalsAgainst: number | null;
   lines: ImportLine[];
   goalies: ImportGoalieLine[];
+  /** Joueurs habillés selon la feuille (base du nombre de matchs joués). */
+  dressedPlayerIds: string[];
   penalties: { playerId: string | null; jersey: number | null; code: string; period: string | null; time: string | null }[];
   /** Sommaire complet des deux équipes. */
   events: SheetEvent[];
@@ -267,6 +269,15 @@ export default function GameSheetImport({
       }),
       events,
       specialTeams: parsed.specialTeams,
+      dressedPlayerIds: parsed.isPreGame
+        ? []
+        : [
+        ...new Set([
+          ...parsed.dressed.map((d) => byJersey.get(d.jersey)?.id),
+          ...parsed.dressed.map((d) => matchPlayer(d.name, players)).map((m) => (m?.confidence === "exact" ? m.player.id : undefined)),
+          ...goalieRows.map((g) => g.player?.id),
+        ].filter((x): x is string => !!x)),
+      ],
       goalies: goalieRows
         .filter((g) => g.player)
         .map((g) => ({ playerId: g.player!.id, minutes: g.minutes, goalsAgainst: g.goalsAgainst })),

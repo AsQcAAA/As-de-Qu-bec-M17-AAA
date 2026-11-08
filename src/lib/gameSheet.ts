@@ -93,6 +93,8 @@ export interface ParsedGameSheet {
   result: "W" | "L" | "T" | null;
   /** Joueurs des As habillés ce match, avec buts/passes compilés. */
   skaters: SheetSkaterLine[];
+  /** Tous les joueurs des As inscrits sur la feuille (habillés), pointeurs ou non. */
+  dressed: { jersey: string; name: string }[];
   /** Gardiens des As, avec minutes et buts alloués. */
   goalies: SheetGoalieLine[];
   /** Punitions des As, code officiel conservé tel quel. */
@@ -439,6 +441,7 @@ export function parseGameSheet(fields: Record<string, string>): ParsedGameSheet 
     goalsAgainst: isPreGame ? null : goalsAgainst,
     result,
     skaters,
+    dressed: [...rosterByJersey.entries()].map(([jersey, name]) => ({ jersey, name })),
     goalies,
     penalties,
     events,

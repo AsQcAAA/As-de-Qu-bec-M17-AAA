@@ -362,6 +362,11 @@ export default function GameDetailPage() {
         { onConflict: "player_id,game_id" }
       );
     }
+    // Joueurs habillés selon la feuille : c'est ce qui compte les matchs joués.
+    if (decision.dressedPlayerIds.length > 0) {
+      await supabase.from("game_sheet_players").delete().eq("game_id", gameId);
+      await supabase.from("game_sheet_players").insert(decision.dressedPlayerIds.map((player_id) => ({ game_id: gameId, player_id })));
+    }
     if (decision.lines.length > 0) {
       await supabase.from("player_game_stats").upsert(
         decision.lines.map((l) => ({

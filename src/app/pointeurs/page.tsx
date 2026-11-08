@@ -86,7 +86,7 @@ export default function PointeursPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: gms }, { data: st }, { data: ev }, { data: lus }, { data: lunits }, { data: adv }] = await Promise.all([
+      const [{ data: pls }, { data: gms }, { data: st }, { data: ev }, { data: lus }, { data: lunits }, { data: adv }, { data: sheetPl }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("games").select("*"),
         supabase.from("player_game_stats").select("*"),
@@ -94,12 +94,13 @@ export default function PointeursPage() {
         supabase.from("lineups").select("id, lineup_date, game_id"),
         supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
         supabase.from("player_game_advanced_stats").select("*"),
+        supabase.from("game_sheet_players").select("game_id, player_id"),
       ]);
       setPlayers(pls ?? []);
       setGames(gms ?? []);
       setStats(st ?? []);
       setEvents(ev ?? []);
-      setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? []));
+      setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? [], sheetPl ?? []));
       setAdvancedStats((adv ?? []) as PlayerGameAdvancedStat[]);
       setLoading(false);
     }

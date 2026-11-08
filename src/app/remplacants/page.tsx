@@ -29,15 +29,16 @@ export default function RemplacantsPage() {
   async function load() {
     // Les alignements sont reliés aux matchs par la DATE (le champ lineup_id des matchs n'est pas rempli
     // pour la plupart) : un remplaçant a joué un match joué s'il est dans l'alignement de ce jour-là.
-    const [{ data: pls }, { data: gms }, { data: lus }, { data: lunits }] = await Promise.all([
+    const [{ data: pls }, { data: gms }, { data: lus }, { data: lunits }, { data: sheetPl }] = await Promise.all([
       supabase.from("players").select("*").order("jersey_number"),
       supabase.from("games").select("*").order("game_date"),
       supabase.from("lineups").select("id, lineup_date, game_id"),
       supabase.from("lineup_units").select("lineup_id, unit_label, player_ids"),
+      supabase.from("game_sheet_players").select("game_id, player_id"),
     ]);
     setPlayers(pls ?? []);
     setGames(gms ?? []);
-    setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? []));
+    setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? [], sheetPl ?? []));
     setLoading(false);
   }
 

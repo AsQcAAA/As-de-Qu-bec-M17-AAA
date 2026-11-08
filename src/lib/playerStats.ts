@@ -154,8 +154,8 @@ export function recordLabel(r: { wins: number; losses: number; ties: number }): 
  * Parties réellement jouées par un joueur.
  *
  * On ne peut pas se fier à player_game_stats : ce tableau ne contient que les
- * joueurs ayant récolté un point. Un joueur habillé mais non pointeur affichait
- * donc 0 partie jouée. C'est l'ALIGNEMENT de la journée qui fait foi.
+ * joueurs ayant récolté un point. La FEUILLE DE MATCH importée fait foi (game_sheet_players) ;
+ * à défaut de feuille pour un match, on retombe sur l'alignement de la journée.
  */
 export function gamesPlayedFor(
   playerId: string,
@@ -177,7 +177,8 @@ export function gamesPlayedFor(
  */
 export function buildRosterByDate(
   lineups: { id: string; lineup_date: string; game_id?: string | null }[],
-  units: { lineup_id: string; unit_label: string; player_ids: string[] }[]
+  units: { lineup_id: string; unit_label: string; player_ids: string[] }[],
+  sheetPlayers: { game_id: string; player_id: string }[] = []
 ): Map<string, Set<string>> {
   const dateByLineup = new Map(lineups.map((l) => [l.id, l.game_id ? `game:${l.game_id}` : l.lineup_date]));
   const map = new Map<string, Set<string>>();
@@ -189,5 +190,14 @@ export function buildRosterByDate(
     for (const id of u.player_ids) if (id) set.add(id);
     map.set(date, set);
   }
+  // La feuille de match fait foi : quand elle a été importée pour un match, elle remplace
+  // l'alignement (clé « game:<id> », prioritaire dans gamesPlayedFor).
+  const bySheet = new Map<string, Set<string>>();
+  for (const r of sheetPlayers) {
+    const set = bySheet.get(r.game_id) ?? new Set<string>();
+    set.add(r.player_id);
+    bySheet.set(r.game_id, set);
+  }
+  for (const [gid, set] of bySheet) map.set(`game:${gid}`, set);
   return map;
 }

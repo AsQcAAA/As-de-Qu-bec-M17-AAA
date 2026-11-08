@@ -160,7 +160,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
   const inFilter = (category: GameCategory | undefined) => !!category && activeCategories.includes(category);
 
   async function load() {
-    const [{ data: p }, { data: pls }, { data: mts }, { data: abs }, { data: pgs }, { data: gms }, { data: tests }, { data: pens }, { data: lus }, { data: lunits }, { data: goals }, { data: sched }, { data: inotes }, { data: adv }, { data: ctc }] = await Promise.all([
+    const [{ data: p }, { data: pls }, { data: mts }, { data: abs }, { data: pgs }, { data: gms }, { data: tests }, { data: pens }, { data: lus }, { data: lunits }, { data: goals }, { data: sched }, { data: inotes }, { data: adv }, { data: ctc }, { data: sheetPl }] = await Promise.all([
       supabase.from("players").select("*").eq("id", id).maybeSingle(),
       supabase.from("players").select("*"),
       supabase.from("meetings").select("*").eq("player_id", id).eq("meeting_type", "individual").order("meeting_date", { ascending: false }),
@@ -176,6 +176,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
       supabase.from("injury_notes").select("start_date, injury_type").eq("player_id", id),
       supabase.from("player_game_advanced_stats").select("*").eq("player_id", id),
       supabase.from("player_contacts").select("*").eq("player_id", id).maybeSingle(),
+      supabase.from("game_sheet_players").select("game_id, player_id"),
     ]);
 
     if (!p) {
@@ -193,7 +194,7 @@ export default function JoueurDetailPage({ params }: { params: Promise<{ id: str
     setGames(gms ?? []);
     setTestResults(tests ?? []);
     setPenalties(pens ?? []);
-    setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? []));
+    setRosterByDate(buildRosterByDate(lus ?? [], lunits ?? [], sheetPl ?? []));
     {
       const dateByLineup = new Map((lus ?? []).map((l) => [l.id as string, l.lineup_date as string]));
       const fw = new Map<string, string[]>();
