@@ -191,8 +191,8 @@ export default function CalendrierExportPage() {
               const holiday = label ? holidayLabel(label.title) : null;
               // Pas d'encadrement scolaire les jours de congé ou de pédago :
               // l'école est fermée ces journées-là.
-              const showEncadrement = inMonth && isWeekday && !holiday && !freeWeekend;
               const highlighted = inMonth && (highlights[key] ?? false);
+              const showEncadrement = inMonth && isWeekday && !holiday && !freeWeekend && !highlighted;
               return (
                 <div
                   key={key}

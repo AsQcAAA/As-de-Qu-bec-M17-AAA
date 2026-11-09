@@ -134,7 +134,7 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
     const label = labelEvent(dayEvents);
     const holiday = label ? holidayLabel(label.title) : null;
     const isWeekday = getDay(day) >= 1 && getDay(day) <= 5;
-    const showEncadrement = inMonth && isWeekday && !holiday && !freeWeekend;
+    const showEncadrement = inMonth && isWeekday && !holiday && !freeWeekend && !(highlights[key] ?? false);
     const kind = cellKind(primary, label, game, freeWeekend, inMonth && (highlights[key] ?? false));
 
     const lines: string[] = [];
