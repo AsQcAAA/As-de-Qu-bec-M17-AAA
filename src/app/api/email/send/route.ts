@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -63,7 +65,26 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = `Jean Grignon-Francke <${coachEmail}>`;
-  const attachments = [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }];
+  const attachments: { filename: string; content: string; contentId: string }[] = [
+    { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+  ];
+
+  // Logos des équipes du calendrier : joints en images intégrées (cid), car un
+  // courriel ne peut pas aller chercher /logos/... sur le portail.
+  let extraHtml = body.extraHtml;
+  if (extraHtml) {
+    const names = [...new Set([...extraHtml.matchAll(/src="\/logos\/teams\/([a-z0-9-]+\.png)"/g)].map((m) => m[1]))];
+    for (const name of names) {
+      try {
+        const buf = await readFile(path.join(process.cwd(), "public", "logos", "teams", name));
+        const cid = `logo-${name.replace(/\.png$/, "")}`;
+        attachments.push({ filename: name, content: buf.toString("base64"), contentId: cid });
+        extraHtml = extraHtml.split(`src="/logos/teams/${name}"`).join(`src="cid:${cid}"`);
+      } catch {
+        extraHtml = extraHtml.split(`src="/logos/teams/${name}"`).join(`src="" style="display:none"`);
+      }
+    }
+  }
 
   async function sendOne(to: string[], personalizedMessage: string, subjectLine: string) {
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -72,7 +93,7 @@ export async function POST(req: NextRequest) {
         to,
         replyTo: coachEmail!,
         subject: subjectLine,
-        html: buildEmailHtml(personalizedMessage, body.extraHtml),
+        html: buildEmailHtml(personalizedMessage, extraHtml),
         text: buildEmailText(personalizedMessage),
         attachments,
       });

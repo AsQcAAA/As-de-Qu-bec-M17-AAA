@@ -141,7 +141,12 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
     if (inMonth) {
       if (showEncadrement) lines.push(`<div style="font-size:9px;font-style:italic;color:#475569;">Encadrement Sport-Études</div>`);
       if (primary?.event_type === "game" && game) {
-        const opp = findTeamByOpponent(game.opponent)?.name ?? game.opponent;
+        const team = findTeamByOpponent(game.opponent);
+        const opp = team?.name ?? game.opponent;
+        // Les SVG ne passent pas dans les courriels : seuls les logos PNG sont affichés.
+        if (team?.logo.endsWith(".png")) {
+          lines.push(`<div><img src="${team.logo}" alt="" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border:0;display:inline-block;"></div>`);
+        }
         lines.push(`<div style="font-weight:800;">${game.is_home ? "Domicile" : "Visiteur"}</div>`);
         lines.push(`<div style="font-weight:700;">${escapeHtml(opp)}</div>`);
         if (primary.start_time) lines.push(`<div style="font-weight:700;">${primary.start_time.slice(0, 5)}</div>`);
