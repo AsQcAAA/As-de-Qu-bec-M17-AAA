@@ -78,7 +78,7 @@ export function cellKind(
   return primary ? "event" : "empty";
 }
 
-const KIND_HEX: Record<CellKind, string> = {
+export const KIND_HEX: Record<CellKind, string> = {
   highlight: "#fca5a5",
   freeWeekend: "#bbf7d0",
   gameHome: "#fde68a",

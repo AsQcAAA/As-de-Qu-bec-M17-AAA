@@ -5,6 +5,8 @@ import { addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } f
 import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { buildCalendarEmailHtml } from "@/lib/calendarExport";
+import type { CalendarEmailInput } from "@/lib/calendarExport";
+import { buildCalendarPdf, uint8ToBase64 } from "@/lib/calendarPdf";
 import {
   EMAIL_SIGNATURE_BASE64,
   EMAIL_SIGNATURE_HEIGHT,
@@ -102,6 +104,7 @@ export default function EmailComposer({
   const [includeCalendar, setIncludeCalendar] = useState(calendarDefault);
   const [monthKey, setMonthKey] = useState(format(calendarMonth ?? new Date(), "yyyy-MM"));
   const [calendarHtml, setCalendarHtml] = useState<string | null>(null);
+  const [calendarInput, setCalendarInput] = useState<CalendarEmailInput | null>(null);
   const [customRange, setCustomRange] = useState(false);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
@@ -129,16 +132,16 @@ export default function EmailComposer({
       supabase.from("calendar_day_notes").select("*").gte("day", from).lte("day", to),
     ]).then(([{ data: events }, { data: games }, { data: notes }]) => {
       if (cancelled) return;
-      setCalendarHtml(
-        buildCalendarEmailHtml({
-          month,
-          events: events ?? [],
-          games: games ?? [],
-          dayNotes: Object.fromEntries((notes ?? []).map((x) => [x.day, x.notes ?? ""])),
-          highlights: Object.fromEntries((notes ?? []).map((x) => [x.day, x.highlight ?? false])),
-          ...(useRange ? { rangeStart, rangeEnd } : {}),
-        })
-      );
+      const input: CalendarEmailInput = {
+        month,
+        events: events ?? [],
+        games: games ?? [],
+        dayNotes: Object.fromEntries((notes ?? []).map((x) => [x.day, x.notes ?? ""])),
+        highlights: Object.fromEntries((notes ?? []).map((x) => [x.day, x.highlight ?? false])),
+        ...(useRange ? { rangeStart, rangeEnd } : {}),
+      };
+      setCalendarInput(input);
+      setCalendarHtml(buildCalendarEmailHtml(input));
     });
     return () => {
       cancelled = true;
@@ -154,6 +157,12 @@ export default function EmailComposer({
     setSending(true);
     setResult(null);
     try {
+      let calendarPdf: { base64: string; filename: string } | undefined;
+      if (includeCalendar && calendarInput) {
+        const bytes = await buildCalendarPdf(calendarInput);
+        const tag = calendarInput.rangeStart && calendarInput.rangeEnd ? `${calendarInput.rangeStart}_au_${calendarInput.rangeEnd}` : monthKey;
+        calendarPdf = { base64: uint8ToBase64(bytes), filename: `Calendrier-As-de-Quebec-${tag}.pdf` };
+      }
       const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,6 +171,7 @@ export default function EmailComposer({
           subject,
           message,
           extraHtml,
+          calendarPdf,
           copyToMe,
           testOnly,
           recipientEmails: Object.fromEntries(recipientInfo.map((r) => [r.id, activeEmails(r)])),

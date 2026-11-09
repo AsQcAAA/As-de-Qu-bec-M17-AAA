@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
     subject?: string;
     message?: string;
     extraHtml?: string;
+    /** Le calendrier en PDF (lettre paysage), généré dans le navigateur. */
+    calendarPdf?: { base64: string; filename: string };
     copyToMe?: boolean;
     /** Adresses retenues par joueur — celles que Jean n'a pas retirées. Toujours recoupées avec la base. */
     recipientEmails?: Record<string, string[]>;
@@ -68,6 +70,11 @@ export async function POST(req: NextRequest) {
   const attachments: { filename: string; content: string; contentId: string }[] = [
     { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
   ];
+
+  if (body.calendarPdf?.base64) {
+    const fname = (body.calendarPdf.filename || "Calendrier.pdf").replace(/[^A-Za-z0-9._-]/g, "_");
+    (attachments as { filename: string; content: string; contentId?: string }[]).push({ filename: fname, content: body.calendarPdf.base64 });
+  }
 
   // Logos des équipes du calendrier : joints en images intégrées (cid), car un
   // courriel ne peut pas aller chercher /logos/... sur le portail.
