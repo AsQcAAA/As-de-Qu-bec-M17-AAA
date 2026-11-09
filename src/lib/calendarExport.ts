@@ -94,6 +94,9 @@ export interface CalendarEmailInput {
   games: Game[];
   dayNotes: Record<string, string>;
   highlights: Record<string, boolean>;
+  /** Période personnalisée (yyyy-MM-dd). Absente : le mois complet. */
+  rangeStart?: string;
+  rangeEnd?: string;
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -103,7 +106,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * survivent à Gmail, Outlook et Apple Mail. Mêmes règles que l'export imprimable
  * (activités internes cachées, couleurs, notes du jour).
  */
-export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlights }: CalendarEmailInput): string {
+export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlights, rangeStart, rangeEnd }: CalendarEmailInput): string {
+  const custom = rangeStart && rangeEnd && rangeStart <= rangeEnd;
+  const first = custom ? new Date(`${rangeStart}T12:00:00`) : startOfMonth(month);
+  const last = custom ? new Date(`${rangeEnd}T12:00:00`) : endOfMonth(month);
   const eventsByDay = new Map<string, ScheduleEvent[]>();
   for (const e of events) {
     const list = eventsByDay.get(e.event_date) ?? [];
@@ -112,14 +118,14 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
   }
   const gameByDate = new Map(games.map((g) => [g.game_date, g]));
   const days = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
-    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+    start: startOfWeek(first, { weekStartsOn: 1 }),
+    end: endOfWeek(last, { weekStartsOn: 1 }),
   });
 
   const cells = days.map((day) => {
     const key = format(day, "yyyy-MM-dd");
     const dayEvents = eventsByDay.get(key) ?? [];
-    const inMonth = isSameMonth(day, month);
+    const inMonth = custom ? key >= rangeStart! && key <= rangeEnd! : isSameMonth(day, month);
     const game = gameByDate.get(key);
     const primary = game
       ? (dayEvents.find((e) => e.event_type === "game") ?? ({ event_type: "game" } as ScheduleEvent))
@@ -163,8 +169,12 @@ export function buildCalendarEmailHtml({ month, events, games, dayNotes, highlig
     .map((d) => `<th style="background:#0d0c0c;color:#fdca37;padding:5px 0;font-size:12px;border:1px solid #0d0c0c;">${d}</th>`)
     .join("");
 
+  const title = custom
+    ? `${format(first, "d MMM yyyy", { locale: fr })} au ${format(last, "d MMM yyyy", { locale: fr })}`
+    : cap(format(month, "MMMM yyyy", { locale: fr }));
+
   return `<div style="max-width:720px;">
-<div style="background:#0d0c0c;color:#fdca37;padding:12px 14px;font-size:18px;font-weight:800;border-radius:6px 6px 0 0;">As de Québec M17 AAA — ${cap(format(month, "MMMM yyyy", { locale: fr }))}</div>
+<div style="background:#0d0c0c;color:#fdca37;padding:12px 14px;font-size:18px;font-weight:800;border-radius:6px 6px 0 0;">As de Québec M17 AAA — ${title}</div>
 <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;font-family:Arial,Helvetica,sans-serif;">
 <tr>${head}</tr>
 ${rows.join("\n")}

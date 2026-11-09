@@ -102,6 +102,10 @@ export default function EmailComposer({
   const [includeCalendar, setIncludeCalendar] = useState(calendarDefault);
   const [monthKey, setMonthKey] = useState(format(calendarMonth ?? new Date(), "yyyy-MM"));
   const [calendarHtml, setCalendarHtml] = useState<string | null>(null);
+  const [customRange, setCustomRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const rangeValid = customRange && rangeStart !== "" && rangeEnd !== "" && rangeStart <= rangeEnd;
   const monthOptions = useMemo(() => {
     const base = startOfMonth(new Date());
     const list = [-1, 0, 1, 2, 3].map((d) => addMonths(base, d));
@@ -115,8 +119,9 @@ export default function EmailComposer({
     let cancelled = false;
     setCalendarHtml(null);
     const month = new Date(`${monthKey}-01T12:00:00`);
-    const from = format(startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    const to = format(endOfWeek(endOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const useRange = customRange && rangeStart !== "" && rangeEnd !== "" && rangeStart <= rangeEnd;
+    const from = format(startOfWeek(useRange ? new Date(`${rangeStart}T12:00:00`) : startOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const to = format(endOfWeek(useRange ? new Date(`${rangeEnd}T12:00:00`) : endOfMonth(month), { weekStartsOn: 1 }), "yyyy-MM-dd");
     const supabase = createClient();
     Promise.all([
       supabase.from("schedule_events").select("*").gte("event_date", from).lte("event_date", to),
@@ -131,17 +136,18 @@ export default function EmailComposer({
           games: games ?? [],
           dayNotes: Object.fromEntries((notes ?? []).map((x) => [x.day, x.notes ?? ""])),
           highlights: Object.fromEntries((notes ?? []).map((x) => [x.day, x.highlight ?? false])),
+          ...(useRange ? { rangeStart, rangeEnd } : {}),
         })
       );
     });
     return () => {
       cancelled = true;
     };
-  }, [includeCalendar, monthKey]);
+  }, [includeCalendar, monthKey, customRange, rangeStart, rangeEnd]);
 
   const extraHtml = includeCalendar ? (calendarHtml ?? undefined) : undefined;
   const n = playerIds.length;
-  const calendarReady = !includeCalendar || calendarHtml !== null;
+  const calendarReady = !includeCalendar || (calendarHtml !== null && (!customRange || rangeValid));
   const canSend = addressCount > 0 && subject.trim() !== "" && message.trim() !== "" && calendarReady;
 
   async function send(testOnly = false) {
@@ -239,7 +245,7 @@ export default function EmailComposer({
             <input type="checkbox" checked={includeCalendar} onChange={(e) => setIncludeCalendar(e.target.checked)} />
             📅 Joindre le calendrier du mois
           </label>
-          {includeCalendar && (
+          {includeCalendar && !customRange && (
             <select className="input w-auto text-sm" value={monthKey} onChange={(e) => setMonthKey(e.target.value)}>
               {monthOptions.map((m) => (
                 <option key={format(m, "yyyy-MM")} value={format(m, "yyyy-MM")}>
@@ -248,6 +254,32 @@ export default function EmailComposer({
               ))}
             </select>
           )}
+          {includeCalendar && customRange && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span>Du</span>
+              <input type="date" className="input w-auto text-sm" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
+              <span>au</span>
+              <input type="date" className="input w-auto text-sm" min={rangeStart || undefined} value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
+            </div>
+          )}
+          {includeCalendar && (
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={customRange}
+                onChange={(e) => {
+                  setCustomRange(e.target.checked);
+                  if (e.target.checked && !rangeStart) {
+                    const m = new Date(`${monthKey}-01T12:00:00`);
+                    setRangeStart(format(startOfMonth(m), "yyyy-MM-dd"));
+                    setRangeEnd(format(endOfMonth(m), "yyyy-MM-dd"));
+                  }
+                }}
+              />
+              Dates personnalisées
+            </label>
+          )}
+          {includeCalendar && customRange && !rangeValid && <span className="text-xs text-red-500">Choisis une date de début et une date de fin (début ≤ fin).</span>}
           {!includeCalendar && <span className="text-xs text-slate-500">Optionnel — sans, le courriel ne contient que ton message.</span>}
         </div>
         {includeCalendar && (
