@@ -194,6 +194,11 @@ export function matchPlayerName(
   const exact = players.find((p) => normalizeName(p.full_name) === target);
   if (exact) return { id: exact.id, exact: true };
 
+  // « Blais Alex » pour « Alex Blais » : mêmes mots, autre ordre.
+  const sorted = (n: string) => n.split(" ").filter(Boolean).sort().join(" ");
+  const reordered = players.filter((p) => sorted(normalizeName(p.full_name)) === sorted(target));
+  if (reordered.length === 1) return { id: reordered[0].id, exact: true };
+
   const close = players.filter((p) => editDistance(target, normalizeName(p.full_name), 2) <= 2);
   return close.length === 1 ? { id: close[0].id, exact: false } : null;
 }

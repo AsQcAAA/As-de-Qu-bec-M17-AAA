@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { matchPlayerName } from "@/lib/physio";
 import {
-  extractConvokedPlayerName,
+  extractConvokedPlayerNames,
   extractFrenchDate,
   extractPeriodType,
   isSchoolActivityAbsenceEmail,
@@ -102,41 +102,45 @@ async function handle(req: NextRequest) {
   const email = (await emailRes.json()) as { text: string | null; html: string | null };
   const body = email.text || (email.html ? stripHtml(email.html) : "");
 
-  const playerName = extractConvokedPlayerName(body);
+  const names = extractConvokedPlayerNames(body);
   const date = extractFrenchDate(subject) ?? extractFrenchDate(body);
-  if (!playerName || !date) {
+  if (names.length === 0 || !date) {
     console.error("[absences/inbound-email] Nom ou date introuvable dans le gabarit attendu.", { subject });
     return NextResponse.json({ ok: true, skipped: "gabarit_non_reconnu" });
   }
 
+  // Un courriel peut convoquer plusieurs élèves, dont certains ne sont pas à
+  // nous (autres équipes de l'école) : on ne garde que ceux de l'effectif.
   const service = createServiceClient();
   const { data: players } = await service.from("players").select("id, full_name").eq("active", true);
-  const match = matchPlayerName(playerName, players ?? []);
-  if (!match) {
-    console.error("[absences/inbound-email] Joueur non reconnu dans l'effectif.", { playerName });
-    return NextResponse.json({ ok: true, skipped: "joueur_non_reconnu" });
+  const detail = extractPeriodType(body);
+  const recorded: string[] = [];
+  const already: string[] = [];
+  const unknown: string[] = [];
+  for (const playerName of names) {
+    const match = matchPlayerName(playerName, players ?? []);
+    if (!match) {
+      unknown.push(playerName);
+      continue;
+    }
+    const { data: existing } = await service
+      .from("absences")
+      .select("id")
+      .eq("player_id", match.id)
+      .eq("absence_date", date)
+      .maybeSingle();
+    if (existing) {
+      already.push(playerName);
+      continue;
+    }
+    const { error } = await service.from("absences").insert({ player_id: match.id, absence_date: date, reason: "ecole", detail });
+    if (error) {
+      console.error("[absences/inbound-email] Échec de l'insertion.", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    recorded.push(playerName);
   }
+  if (unknown.length > 0) console.error("[absences/inbound-email] Élèves hors effectif (ignorés).", { unknown });
 
-  const { data: existing } = await service
-    .from("absences")
-    .select("id")
-    .eq("player_id", match.id)
-    .eq("absence_date", date)
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json({ ok: true, skipped: "deja_enregistree" });
-  }
-
-  const { error } = await service.from("absences").insert({
-    player_id: match.id,
-    absence_date: date,
-    reason: "ecole",
-    detail: extractPeriodType(body),
-  });
-  if (error) {
-    console.error("[absences/inbound-email] Échec de l'insertion.", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, player_id: match.id, absence_date: date });
+  return NextResponse.json({ ok: true, absence_date: date, recorded, already, unknown });
 }

@@ -52,6 +52,28 @@ export function extractConvokedPlayerName(text: string): string | null {
 }
 
 /**
+ * Tous les élèves convoqués dans le courriel : « je convoque A (sec. 4), B (sec. 4),
+ * C (sec. 3) à une période... ». Un même courriel peut en nommer plusieurs, et le
+ * gabarit de l'école glisse parfois un « undefined » devant le premier nom.
+ */
+export function extractConvokedPlayerNames(text: string): string[] {
+  const start = text.search(/convoque/i);
+  if (start < 0) return [];
+  const tail = text.slice(start + "convoque".length).replace(/\s+/g, " ");
+  const names: string[] = [];
+  const re = /([A-Za-zÀ-ÿ'’ -]+?)\s*\(\s*sec\.?\s*\d+\s*\)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(tail)) !== null) {
+    const name = m[1]
+      .replace(/^[\s,;-]+/, "")
+      .replace(/^(undefined|null)\s+/i, "")
+      .trim();
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+/**
  * « ...à une période étoilée le 22 septembre... » → « Période étoilée ».
  * Le type de période varie d'une école à l'autre (étoilée, de retenue,
  * dirigée...) — plus précis que la seule raison générique « École ».
