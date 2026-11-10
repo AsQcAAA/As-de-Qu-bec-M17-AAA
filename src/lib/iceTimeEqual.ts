@@ -21,7 +21,7 @@ import type { Game, GameEvent, Player, PlayerGameAdvancedStat } from "@/lib/type
  */
 
 /** Joueurs retirés du tableau (appels en renfort trop peu représentatifs). */
-const HIDDEN_PLAYERS = ["jacob lapointe", "samuel boivin"];
+const HIDDEN_PLAYERS = ["jacob lapointe", "samuel boivin", "william dionne", "raphael delarosbil"];
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 export const isHiddenFromIceTime = (p: Player) => HIDDEN_PLAYERS.includes(norm(p.full_name));
 
