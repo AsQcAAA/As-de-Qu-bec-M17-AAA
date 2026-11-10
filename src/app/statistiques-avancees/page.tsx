@@ -8,7 +8,8 @@ import { lastName } from "@/lib/players";
 import { secondsToToi, sumFaceoffZoneGrids } from "@/lib/tpeReport";
 import FaceoffZoneHeatmap from "@/components/FaceoffZoneHeatmap";
 import GoalieAdvancedSection, { type GoalieStatRow } from "@/components/GoalieAdvancedSection";
-import type { Game, GameCategory, GameDocument, Player, PlayerGameAdvancedStat } from "@/lib/types";
+import { computeIceTimeEqual } from "@/lib/iceTimeEqual";
+import type { Game, GameCategory, GameDocument, GameEvent, Player, PlayerGameAdvancedStat } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<GameCategory, string> = {
   hors_concours: "Hors concours",
@@ -116,6 +117,7 @@ export default function StatistiquesAvanceesPage() {
   const [advancedStats, setAdvancedStats] = useState<PlayerGameAdvancedStat[]>([]);
   /** Buts de la feuille de match — pour le % d'efficacité des tirs (buts ÷ tirs au but du rapport TPE). */
   const [goalRows, setGoalRows] = useState<{ player_id: string; game_id: string; goals: number }[]>([]);
+  const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
   const [reportDocs, setReportDocs] = useState<GameDocument[]>([]);
   const [goalies, setGoalies] = useState<Player[]>([]);
   const [goalieRows, setGoalieRowsState] = useState<GoalieStatRow[]>([]);
@@ -136,7 +138,7 @@ export default function StatistiquesAvanceesPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }, { data: pgs }, { data: gks }, { data: gkRows }] = await Promise.all([
+      const [{ data: pls }, { data: gms }, { data: adv }, { data: docs }, { data: pgs }, { data: gks }, { data: gkRows }, { data: evs }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).neq("position", "G").order("jersey_number"),
         supabase.from("games").select("*"),
         supabase.from("player_game_advanced_stats").select("*"),
@@ -144,7 +146,9 @@ export default function StatistiquesAvanceesPage() {
         supabase.from("player_game_stats").select("player_id, game_id, goals"),
         supabase.from("players").select("*").eq("position", "G").eq("active", true).order("jersey_number"),
         supabase.from("player_game_stats").select("player_id, game_id, toi_minutes, goals_against"),
+        supabase.from("game_events").select("*").in("event_type", ["goal", "penalty"]),
       ]);
+      setGameEvents((evs ?? []) as GameEvent[]);
       setGoalies(gks ?? []);
       setGoalieRowsState((gkRows ?? []) as GoalieStatRow[]);
       setPlayers(pls ?? []);
@@ -268,6 +272,12 @@ export default function StatistiquesAvanceesPage() {
       maxXgD: maxXg(defense),
     };
   }, [filteredStats, players, showCallUps, xgMode, goalsByKey]);
+
+  // ---- Temps de glace vs temps égal, sur les mêmes matchs que le filtre. ----
+  const iceTime = useMemo(
+    () => computeIceTimeEqual(filteredGames, advancedStats, gameEvents, players.filter((p) => showCallUps || !p.is_call_up)),
+    [filteredGames, advancedStats, gameEvents, players, showCallUps]
+  );
 
   // ---- Carte de chaleur collective des mises au jeu — reproduit le
   // diagramme « Face-Offs by zones » du rapport, cumulé sur les matchs
@@ -462,6 +472,66 @@ export default function StatistiquesAvanceesPage() {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* Temps de glace comparé à une répartition égale entre les patineurs. */}
+          <section className="card space-y-2">
+            <h2 className="font-semibold">Temps de glace vs temps égal</h2>
+            <p className="text-xs text-slate-500">
+              Compilé sur les matchs cochés ci-dessus. Le temps égal est la part de chaque patineur si tous se partageaient la glace
+              également : 5 joueurs en temps normal et en avantage numérique, 4 (ou 3) en désavantage. Punitions A = 2 min (terminée si
+              l&apos;adversaire marque), B = 5 min. Une valeur positive = plus de glace que la part égale.
+            </p>
+            {iceTime.rows.length === 0 || iceTime.equalAvg === null ? (
+              <p className="text-sm text-slate-500">Aucune donnée de temps de glace pour ce filtre.</p>
+            ) : (
+              <>
+                <p className="text-sm">
+                  Temps de glace égal moyen : <strong>{secondsToToi(iceTime.equalAvg)}</strong> par match
+                  <span className="text-slate-500"> ({iceTime.games} match(s))</span>
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-separate border-spacing-0">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                        <th className="py-1.5 pr-3">Joueur</th>
+                        <th className="py-1.5 px-3 text-center">PJ</th>
+                        <th className="py-1.5 px-3 text-center">TOI moy.</th>
+                        <th className="py-1.5 px-3 text-center">TOI égal</th>
+                        <th className="py-1.5 px-3 text-center">Écart / match</th>
+                        <th className="py-1.5 px-3 text-center">Écart cumulé</th>
+                        <th className="py-1.5 px-3 text-center">Écart %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {iceTime.rows.map((r) => {
+                        const tone = r.diff > 0 ? "text-emerald-600" : r.diff < 0 ? "text-red-500" : "text-slate-600";
+                        const signed = (sec: number) => `${sec > 0 ? "+" : sec < 0 ? "−" : ""}${secondsToToi(Math.abs(sec))}`;
+                        return (
+                          <tr key={r.player.id} className="border-b border-slate-100 last:border-0">
+                            <td className="py-1.5 pr-3 font-medium whitespace-nowrap">
+                              <Link href={`/joueurs/${r.player.id}`} className="hover:text-gold-700 hover:underline">
+                                #{r.player.jersey_number ?? "?"} {lastName(r.player.full_name)}
+                              </Link>
+                              <span className="ml-1 text-xs text-slate-400">{r.player.position}</span>
+                            </td>
+                            <td className="py-1.5 px-3 text-center text-slate-500">{r.games}</td>
+                            <td className="py-1.5 px-3 text-center text-slate-600">{secondsToToi(r.toi)}</td>
+                            <td className="py-1.5 px-3 text-center text-slate-600">{secondsToToi(r.equal)}</td>
+                            <td className={`py-1.5 px-3 text-center font-bold tabular-nums ${tone}`}>{signed(r.diff)}</td>
+                            <td className={`py-1.5 px-3 text-center tabular-nums ${tone}`}>{signed(r.diffTotal)}</td>
+                            <td className={`py-1.5 px-3 text-center tabular-nums ${tone}`}>
+                              {r.pct > 0 ? "+" : r.pct < 0 ? "−" : ""}
+                              {Math.abs(r.pct).toFixed(1)} %
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </section>
 
           {/* Gardiens : juste sous les défenseurs. */}
