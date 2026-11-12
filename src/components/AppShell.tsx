@@ -24,7 +24,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // Les pages de diffusion sont castées sur la télé du vestiaire : ni menu, ni
   // marges, ni fond photo — l'écran ne doit montrer que l'horaire.
-  const isCast = pathname.startsWith("/diffusion");
+  const isCast = pathname.startsWith("/diffusion") || pathname.startsWith("/rendez-vous");
   const hasSidebar = !isCast && !NO_SIDEBAR_ROUTES.includes(pathname);
   const isWide = WIDE_ROUTES.includes(pathname);
   const lastIndex = useRef(-1);
