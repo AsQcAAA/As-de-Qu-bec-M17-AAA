@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = `Jean Grignon-Francke <${coachEmail}>`;
-  const attachments = [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }];
+  const attachments = [{ filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }];
 
   async function sendOne(to: string[], msg: string, extraHtml: string, subj: string) {
     for (let attempt = 0; attempt < 4; attempt++) {

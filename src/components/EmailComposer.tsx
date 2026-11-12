@@ -306,7 +306,7 @@ export default function EmailComposer({
         <div className="label">Signature (ajoutée automatiquement)</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`data:image/jpeg;base64,${EMAIL_SIGNATURE_BASE64}`}
+          src={`data:image/png;base64,${EMAIL_SIGNATURE_BASE64}`}
           width={EMAIL_SIGNATURE_WIDTH}
           height={EMAIL_SIGNATURE_HEIGHT}
           alt="Signature de Jean Grignon-Francke"

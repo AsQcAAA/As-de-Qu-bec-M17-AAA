@@ -61,7 +61,7 @@ export async function sendCoachMeetingInvite(meetingId: string, cancel: boolean)
     html: buildEmailHtml(message),
     text: buildEmailText(message),
     attachments: [
-      { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+      { filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
       { filename: "invitation.ics", content: Buffer.from(ics).toString("base64"), contentType: `text/calendar; charset=utf-8; method=${cancel ? "CANCEL" : "REQUEST"}` },
     ],
   });

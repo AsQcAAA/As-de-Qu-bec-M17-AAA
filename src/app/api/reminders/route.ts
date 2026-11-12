@@ -201,7 +201,7 @@ async function sendTestsFicheTest(supabase: ReturnType<typeof createServiceClien
     subject: `[TEST] Tes résultats aux tests physiques — ${fiche.sessionLabel} — As de Québec M17 AAA`,
     html: buildEmailHtml(message, ficheHtml(player.full_name, fiche)),
     text: buildEmailText(message),
-    attachments: [{ filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],
+    attachments: [{ filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],
   });
   return { ok: !error, error: error?.message ?? null, player: player.full_name, rows: fiche.rows.length };
 }
@@ -235,7 +235,7 @@ async function sendCoachInviteTest() {
     html: buildEmailHtml(message),
     text: buildEmailText(message),
     attachments: [
-      { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+      { filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
       { filename: "invitation.ics", content: Buffer.from(ics).toString("base64"), contentType: "text/calendar; charset=utf-8; method=REQUEST" },
     ],
   });

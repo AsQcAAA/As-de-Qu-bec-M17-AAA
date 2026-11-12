@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = `Jean Grignon-Francke <${coachEmail}>`;
   const attachments: { filename: string; content: string; contentId: string }[] = [
-    { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+    { filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
   ];
 
   if (body.calendarPdf?.base64) {

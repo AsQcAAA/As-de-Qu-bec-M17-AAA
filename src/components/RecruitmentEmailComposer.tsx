@@ -187,7 +187,7 @@ export default function RecruitmentEmailComposer({ players }: { players: Player[
         <div className="rounded-lg border border-slate-200 p-2">
           <div className="text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1">Ta signature (ajoutée automatiquement)</div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`data:image/jpeg;base64,${EMAIL_SIGNATURE_BASE64}`} alt="Signature" className="max-w-full h-auto" />
+          <img src={`data:image/png;base64,${EMAIL_SIGNATURE_BASE64}`} alt="Signature" className="max-w-full h-auto" />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={copyToMe} onChange={(e) => setCopyToMe(e.target.checked)} />

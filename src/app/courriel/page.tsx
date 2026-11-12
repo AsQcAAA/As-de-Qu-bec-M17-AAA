@@ -45,7 +45,11 @@ export default function CourrielPage() {
           {OPTIONS.map((o) => (
             <button
               key={o.mode}
-              onClick={() => setMode(o.mode)}
+              onClick={() => {
+                // Rencontres bulletins : toute l'équipe régulière est présélectionnée (un seul clic pour tout envoyer).
+                if (o.mode === "bulletin") setSelected(new Set(players.filter((p) => !p.is_call_up).map((p) => p.id)));
+                setMode(o.mode);
+              }}
               className="text-left rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-gold-400/50 transition-colors p-6 space-y-2"
             >
               <div className="text-3xl">{o.icon}</div>
@@ -84,6 +88,15 @@ export default function CourrielPage() {
         <>
           <section className="card space-y-3">
             <h2 className="font-semibold">1. Destinataires</h2>
+            {mode === "bulletin" && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setSelected(new Set(players.filter((p) => !p.is_call_up).map((p) => p.id)))}
+              >
+                📨 Envoyer à tous (équipe régulière)
+              </button>
+            )}
             <RecipientPicker players={players} contacts={contacts} selected={selected} onChange={setSelected} />
           </section>
 

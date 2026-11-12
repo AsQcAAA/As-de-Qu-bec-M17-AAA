@@ -1,5 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import { createServiceClient } from "@/lib/supabase/server";
+import { EMAIL_SIGNATURE_BASE64, EMAIL_SIGNATURE_CID } from "@/lib/emailSignature";
+import { buildEmailHtml, buildEmailText } from "@/lib/emailTemplate";
+
+/** Avertit Jean par courriel d'une réservation ou d'une annulation. Un échec d'envoi ne bloque jamais la famille. */
+async function notifyCoach(kind: "booked" | "cancelled", playerName: string, slot: { slot_date: string; start_time: string; location: string | null } | null) {
+  try {
+    const to = process.env.COACH_EMAIL;
+    if (!process.env.RESEND_API_KEY || !to || !slot) return;
+    const when = `${format(parseISO(slot.slot_date), "EEEE d MMMM", { locale: fr })} à ${slot.start_time.slice(0, 5).replace(":", "h")}`;
+    const verb = kind === "booked" ? "réservée" : "annulée";
+    const text = `Rencontre bulletin ${verb} : ${playerName}\n\n${when}${slot.location ? ` · ${slot.location}` : ""}\n\n${kind === "booked" ? "L'évènement a été ajouté à votre calendrier." : "L'évènement a été retiré de votre calendrier et le créneau est de nouveau libre."}`;
+    await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from: `Rencontres bulletins <${to}>`,
+      to,
+      subject: `Rencontre bulletin ${verb} — ${playerName} — ${when}`,
+      html: buildEmailHtml(text),
+      text: buildEmailText(text),
+      attachments: [{ filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID }],
+    });
+  } catch (e) {
+    console.error("[rendez-vous] notification échouée", e);
+  }
+}
 
 /**
  * Réservation publique des rencontres bulletins. Chaque joueur a un lien
@@ -58,6 +84,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .in("audience", ctx.audiences)
     .is("player_id", null)
     .select("id");
+  if (taken && taken.length > 0) {
+    const { data: slot } = await ctx.db.from("bulletin_slots").select("slot_date, start_time, location").eq("id", slotId).maybeSingle();
+    await notifyCoach("booked", ctx.name, slot);
+  }
   if (!taken || taken.length === 0) {
     // Créneau pris entre-temps : on redonne son ancien créneau au joueur si possible.
     if (previous) await ctx.db.from("bulletin_slots").update({ player_id: ctx.playerId, booked_at: new Date().toISOString() }).eq("id", previous.id).is("player_id", null);
@@ -70,6 +100,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { token } = await params;
   const ctx = await playerFor(token);
   if (!ctx) return NextResponse.json({ error: "Lien invalide." }, { status: 404 });
+  const { data: mine } = await ctx.db.from("bulletin_slots").select("slot_date, start_time, location").eq("player_id", ctx.playerId).maybeSingle();
   await ctx.db.from("bulletin_slots").update({ player_id: null, booked_at: null }).eq("player_id", ctx.playerId);
+  if (mine) await notifyCoach("cancelled", ctx.name, mine);
   return NextResponse.json({ ok: true });
 }

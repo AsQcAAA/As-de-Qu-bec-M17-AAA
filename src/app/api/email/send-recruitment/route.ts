@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const attachments = [
-    { filename: "signature.jpg", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
+    { filename: "signature.png", content: EMAIL_SIGNATURE_BASE64, contentId: EMAIL_SIGNATURE_CID },
     ...files.map((a) => ({ filename: a.filename!.replace(/[\\/:*?"<>|]/g, "-"), content: a.contentBase64! })),
   ];
 
