@@ -6,7 +6,7 @@ import { fr } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import type { Player } from "@/lib/types";
 
-interface Slot { id: string; slot_date: string; start_time: string; duration_min: number; location: string | null; player_id: string | null }
+interface Slot { id: string; slot_date: string; start_time: string; duration_min: number; location: string | null; player_id: string | null; audience: "all" | "skaters" | "goalies" }
 
 const hm = (t: string) => t.slice(0, 5).replace(":", "h");
 const dayLabel = (d: string) => format(parseISO(d), "EEEE d MMMM", { locale: fr });
@@ -16,7 +16,7 @@ export default function BulletinsPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [tokens, setTokens] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ date: format(new Date(), "yyyy-MM-dd"), start: "15:00", end: "17:00", duration: 15, location: "" });
+  const [form, setForm] = useState({ date: format(new Date(), "yyyy-MM-dd"), start: "15:00", end: "17:00", duration: 15, location: "", audience: "all" as Slot["audience"] });
   const [copied, setCopied] = useState("");
 
   const load = useCallback(async () => {
@@ -43,7 +43,7 @@ export default function BulletinsPage() {
     let t = parseISO(`${form.date}T${form.start}:00`);
     const end = parseISO(`${form.date}T${form.end}:00`);
     while (addMinutes(t, form.duration) <= end) {
-      rows.push({ slot_date: form.date, start_time: format(t, "HH:mm:ss"), duration_min: form.duration, location: form.location.trim() || null });
+      rows.push({ slot_date: form.date, start_time: format(t, "HH:mm:ss"), duration_min: form.duration, location: form.location.trim() || null, audience: form.audience });
       t = addMinutes(t, form.duration);
     }
     if (rows.length === 0) return;
@@ -82,6 +82,13 @@ export default function BulletinsPage() {
           <label className="text-sm">Fin<br /><input type="time" className="input" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
           <label className="text-sm">Durée (min)<br /><input type="number" min={5} step={5} className="input w-24" value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) || 15 })} /></label>
           <label className="text-sm">Lieu (optionnel)<br /><input className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></label>
+          <label className="text-sm">Pour<br />
+            <select className="input" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value as Slot["audience"] })}>
+              <option value="all">Tous</option>
+              <option value="skaters">Patineurs seulement</option>
+              <option value="goalies">Gardiens seulement</option>
+            </select>
+          </label>
           <button onClick={generate} className="btn">Créer les créneaux</button>
         </div>
       </section>
@@ -96,6 +103,7 @@ export default function BulletinsPage() {
               {list.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 py-1">
                   <span className="w-14 font-mono">{hm(s.start_time)}</span>
+                  {s.audience !== "all" && <span className="text-xs rounded bg-white/10 px-1.5">{s.audience === "goalies" ? "gardiens" : "patineurs"}</span>}
                   <span className={s.player_id ? "font-semibold" : "opacity-50"}>{s.player_id ? nameOf.get(s.player_id) ?? "Joueur" : "libre"}</span>
                   <span className="ml-auto flex gap-3">
                     {s.player_id && <button className="underline opacity-70" onClick={() => release(s.id)}>Libérer</button>}

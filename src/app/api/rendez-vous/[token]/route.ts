@@ -11,11 +11,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function playerFor(token: string) {
   if (!UUID.test(token)) return null;
   const db = createServiceClient();
-  const { data } = await db.from("bulletin_links").select("player_id, players(full_name)").eq("token", token).maybeSingle();
+  const { data } = await db.from("bulletin_links").select("player_id, players(full_name, position)").eq("token", token).maybeSingle();
   if (!data) return null;
-  const p = data.players as unknown as { full_name: string } | { full_name: string }[] | null;
-  const name = Array.isArray(p) ? p[0]?.full_name : p?.full_name;
-  return { db, playerId: data.player_id as string, name: name ?? "" };
+  const raw = data.players as unknown as { full_name: string; position: string } | { full_name: string; position: string }[] | null;
+  const p = Array.isArray(raw) ? raw[0] : raw;
+  // Les gardiens ont leurs propres plages ; les patineurs ne voient pas celles des gardiens.
+  const audiences = p?.position === "G" ? ["all", "goalies"] : ["all", "skaters"];
+  return { db, playerId: data.player_id as string, name: p?.full_name ?? "", audiences };
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
@@ -26,6 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     .from("bulletin_slots")
     .select("id, slot_date, start_time, duration_min, location, player_id")
     .or(`player_id.is.null,player_id.eq.${ctx.playerId}`)
+    .in("audience", ctx.audiences)
     .order("slot_date")
     .order("start_time");
   const mine = (slots ?? []).find((s) => s.player_id === ctx.playerId) ?? null;
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .from("bulletin_slots")
     .update({ player_id: ctx.playerId, booked_at: new Date().toISOString() })
     .eq("id", slotId)
+    .in("audience", ctx.audiences)
     .is("player_id", null)
     .select("id");
   if (!taken || taken.length === 0) {
