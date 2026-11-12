@@ -63,6 +63,21 @@ export async function POST(req: NextRequest) {
     service.from("players").select("id, full_name").in("id", playerIds),
     service.from("player_contacts").select("player_id, emails").in("player_id", playerIds),
   ]);
+  // Lien personnel de réservation ({lien}) : un jeton par joueur, créé au besoin.
+  const origin = new URL(req.url).origin;
+  const tokenById = new Map<string, string>();
+  if (message.includes("{lien}") || subject.includes("{lien}")) {
+    const ids = [...new Set([...(players ?? []).map((p) => p.id as string)])];
+    const { data: existing } = await service.from("bulletin_links").select("player_id, token").in("player_id", ids);
+    for (const l of existing ?? []) tokenById.set(l.player_id, l.token);
+    const missing = ids.filter((id) => !tokenById.has(id)).map((id) => ({ player_id: id }));
+    if (missing.length) {
+      await service.from("bulletin_links").insert(missing);
+      const { data: again } = await service.from("bulletin_links").select("player_id, token").in("player_id", ids);
+      for (const l of again ?? []) tokenById.set(l.player_id, l.token);
+    }
+  }
+  const linkFor = (id?: string) => (id && tokenById.get(id) ? `${origin}/rendez-vous/${tokenById.get(id)}` : "[lien de réservation]");
   const emailsById = new Map((contacts ?? []).map((c) => [c.player_id as string, (c.emails ?? []) as string[]]));
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -117,7 +132,7 @@ export async function POST(req: NextRequest) {
   // Essai : un seul courriel, à Jean seulement, exactement comme le recevraient les familles.
   if (body.testOnly) {
     const sample = (players ?? [])[0]?.full_name.trim().split(/\s+/)[0] ?? "[prénom du joueur]";
-    const err = await sendOne([coachEmail], message.replaceAll("{joueur}", sample), `[TEST] ${subject.replaceAll("{joueur}", sample)}`);
+    const err = await sendOne([coachEmail], message.replaceAll("{joueur}", sample).replaceAll("{lien}", linkFor((players ?? [])[0]?.id)), `[TEST] ${subject.replaceAll("{joueur}", sample)}`);
     if (err) return NextResponse.json({ ok: false, sent: [], skipped: [], failed: [{ name: "Essai", error: err }] });
     return NextResponse.json({ ok: true, sent: ["Toi (essai)"], skipped: [], failed: [] });
   }
@@ -137,7 +152,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
     const firstName = player.full_name.trim().split(/\s+/)[0];
-    const personalized = message.replaceAll("{joueur}", firstName);
+    const personalized = message.replaceAll("{joueur}", firstName).replaceAll("{lien}", linkFor(player.id));
     const err = await sendOne(to, personalized, subject.replaceAll("{joueur}", firstName));
     if (err) failed.push({ name: player.full_name, error: err });
     else sent.push(`${player.full_name} (${to.join(", ")})`);
@@ -146,7 +161,7 @@ export async function POST(req: NextRequest) {
 
   // Une seule copie récapitulative pour Jean (pas une par famille).
   if (body.copyToMe && sent.length > 0) {
-    const recap = `${message.replaceAll("{joueur}", "[prénom du joueur]")}\n\n— Copie d'envoi —\nEnvoyé à ${sent.length} destinataire(s) : ${sent.join(", ")}.`;
+    const recap = `${message.replaceAll("{joueur}", "[prénom du joueur]").replaceAll("{lien}", "[lien personnel]")}\n\n— Copie d'envoi —\nEnvoyé à ${sent.length} destinataire(s) : ${sent.join(", ")}.`;
     await sendOne([coachEmail], recap, `[Copie] ${subject.replaceAll("{joueur}", "[prénom du joueur]")}`);
   }
 

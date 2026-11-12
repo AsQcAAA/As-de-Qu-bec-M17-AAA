@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (!taken || taken.length === 0) {
     // Créneau pris entre-temps : on redonne son ancien créneau au joueur si possible.
     if (previous) await ctx.db.from("bulletin_slots").update({ player_id: ctx.playerId, booked_at: new Date().toISOString() }).eq("id", previous.id).is("player_id", null);
-    return NextResponse.json({ error: "Ce créneau vient d'être pris. Choisis-en un autre." }, { status: 409 });
+    return NextResponse.json({ error: "Ce créneau vient d'être pris. Veuillez en choisir un autre." }, { status: 409 });
   }
   return NextResponse.json({ ok: true });
 }

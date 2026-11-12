@@ -49,24 +49,24 @@ export default function RendezVousPage({ params }: { params: Promise<{ token: st
       <div className="max-w-xl mx-auto">
         <h1 className="text-2xl font-bold text-[#fdca37]">As de Québec M17 AAA</h1>
         <p className="text-sm text-white/70 mb-6">Rencontre bulletin · 15 minutes</p>
-        {invalid && <p className="rounded-lg bg-red-500/20 p-4">Ce lien n&apos;est pas valide. Demande ton lien à l&apos;entraîneur.</p>}
+        {invalid && <p className="rounded-lg bg-red-500/20 p-4">Ce lien n&apos;est pas valide. Veuillez contacter l&apos;entraîneur.</p>}
         {!invalid && !data && <p className="text-white/60">Chargement…</p>}
         {data && (
           <>
-            <p className="mb-4">Salut {data.name.split(" ")[0]} !</p>
+            <p className="mb-4">Rencontre bulletin de {data.name.split(" ")[0]}</p>
             {data.mine ? (
               <div className="rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-4 mb-6">
-                <p className="text-sm text-emerald-200">Ton rendez-vous est confirmé</p>
+                <p className="text-sm text-emerald-200">Rendez-vous confirmé</p>
                 <p className="text-lg font-semibold">{dayLabel(data.mine.slot_date)}</p>
                 <p className="text-lg">{hm(data.mine.start_time)} à {endOf(data.mine)}{data.mine.location ? ` · ${data.mine.location}` : ""}</p>
-                <button onClick={cancel} disabled={busy} className="mt-3 text-sm underline text-white/80">Annuler ce rendez-vous</button>
+                <button onClick={cancel} disabled={busy} className="mt-3 text-sm underline text-white/80">Annuler ou changer ce rendez-vous</button>
               </div>
             ) : (
-              <p className="mb-4 text-white/80">Choisis l&apos;heure qui te convient pour ta rencontre bulletin.</p>
+              <p className="mb-4 text-white/80">Choisissez la plage de 15 minutes qui vous convient.</p>
             )}
             {msg && <p className="rounded-lg bg-amber-500/20 p-3 mb-4 text-sm">{msg}</p>}
             {days.size === 0 && !data.mine && <p className="text-white/60">Aucun créneau disponible pour le moment.</p>}
-            {data.mine && days.size > 0 && <p className="text-sm text-white/60 mb-2">Changer pour un autre créneau :</p>}
+            {data.mine && days.size > 0 && <p className="text-sm text-white/60 mb-2">Pour changer, choisissez un autre créneau :</p>}
             {[...days].map(([d, slots]) => (
               <div key={d} className="mb-5">
                 <h2 className="font-semibold mb-2">{dayLabel(d)}</h2>

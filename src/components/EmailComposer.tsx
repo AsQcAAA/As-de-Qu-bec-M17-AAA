@@ -245,7 +245,7 @@ export default function EmailComposer({
         />
         <p className="text-[11px] text-slate-500 mt-1">
           Astuce : écris <code className="bg-slate-100 px-1 rounded">{"{joueur}"}</code> pour insérer automatiquement le
-          prénom du joueur dans chaque courriel (ex. « Bonjour, voici le suivi de {"{joueur}"} »).
+          prénom du joueur dans chaque courriel (ex. « Bonjour, voici le suivi de {"{joueur}"} »). Écris <code className="bg-slate-100 px-1 rounded">{"{lien}"}</code> pour y mettre le lien personnel de réservation d&apos;une rencontre bulletin.
         </p>
       </div>
 

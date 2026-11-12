@@ -72,7 +72,7 @@ export default function BulletinsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Rencontres bulletins</h1>
-      <p className="text-sm opacity-70">Crée des plages de créneaux, puis envoie à chaque joueur son lien personnel. Il choisit son heure ; il ne voit jamais les autres joueurs.</p>
+      <p className="text-sm opacity-70">Crée des plages de créneaux, puis puis envoyez le courriel aux familles (onglet « Envoyer un courriel » → Rencontres bulletins) : chaque famille reçoit son lien personnel et ne voit jamais les autres joueurs.</p>
 
       <section className="card p-4 space-y-3">
         <h2 className="font-semibold">Ajouter des créneaux</h2>
@@ -122,7 +122,7 @@ export default function BulletinsPage() {
               <li key={p.id} className="flex items-center gap-3 py-1.5 flex-wrap">
                 <span className="w-44">{p.full_name}</span>
                 <span className={s ? "text-emerald-400" : "text-amber-400"}>{s ? `${format(parseISO(s.slot_date), "d MMM", { locale: fr })} · ${hm(s.start_time)}` : "à réserver"}</span>
-                <button className="ml-auto underline" onClick={() => copy(`Salut ${p.full_name.split(" ")[0]}, choisis l'heure de ta rencontre bulletin (15 min) ici : ${link(p)}`, p.id)}>
+                <button className="ml-auto underline" onClick={() => copy(`Bonjour, réservez la rencontre bulletin de ${p.full_name.split(" ")[0]} (15 min) ici : ${link(p)}`, p.id)}>
                   {copied === p.id ? "Copié ✓" : "Copier le message"}
                 </button>
               </li>

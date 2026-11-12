@@ -8,7 +8,7 @@ export function escapeHtml(s: string): string {
 export function textToHtml(text: string): string {
   return escapeHtml(text.trim())
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px 0;">${p.replace(/\n/g, "<br>")}</p>`)
+    .map((p) => `<p style="margin:0 0 14px 0;">${p.replace(/\n/g, "<br>").replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" style="color:#0b5cad;">${u}</a>`)}</p>`)
     .join("");
 }
 

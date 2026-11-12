@@ -9,11 +9,12 @@ import RecruitmentEmailComposer from "@/components/RecruitmentEmailComposer";
 import { useCoachDirectory } from "@/lib/useCoach";
 import { usePlayerContacts } from "@/lib/usePlayerContacts";
 
-type Mode = "write" | "calendar" | "recruit";
+type Mode = "write" | "calendar" | "bulletin" | "recruit";
 
 const OPTIONS: { mode: Mode; icon: string; title: string; text: string }[] = [
   { mode: "write", icon: "✉️", title: "Écrire un courriel", text: "Un message personnalisé aux familles des joueurs choisis." },
   { mode: "calendar", icon: "📅", title: "Envoyer le calendrier mensuel", text: "Le calendrier du mois, joint au courriel, aux familles choisies." },
+  { mode: "bulletin", icon: "🗓️", title: "Rencontres bulletins", text: "Chaque famille reçoit son lien pour réserver sa plage de 15 minutes." },
   { mode: "recruit", icon: "📄", title: "Envoyer une fiche de recrutement", text: "Les fiches en PDF de joueurs de ton choix, à un recruteur." },
 ];
 
@@ -40,7 +41,7 @@ export default function CourrielPage() {
           <h1 className="text-2xl font-bold">Envoyer un courriel</h1>
           <p className="text-slate-400 text-sm">Que veux-tu envoyer ?</p>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {OPTIONS.map((o) => (
             <button
               key={o.mode}
@@ -95,6 +96,12 @@ export default function CourrielPage() {
                 defaultMessage={"Bonjour,\n\nVoici le calendrier du mois pour {joueur}.\n\n"}
                 calendarDefault
                 calendarMonth={month}
+              />
+            ) : mode === "bulletin" ? (
+              <EmailComposer
+                playerIds={[...selected]}
+                defaultSubject="Rencontre bulletin de {joueur} — réservez votre plage de 15 minutes"
+                defaultMessage={"Bonjour,\n\nNous tiendrons bientôt les rencontres bulletins (15 minutes par joueur). Pour {joueur}, veuillez réserver la plage horaire qui vous convient en cliquant sur le lien personnel ci-dessous :\n\n{lien}\n\nVous pouvez modifier ou annuler votre rendez-vous à tout moment avec ce même lien. Ce lien est propre à {joueur} : merci de ne pas le partager.\n\nMerci et à bientôt !"}
               />
             ) : (
               <EmailComposer playerIds={[...selected]} />
