@@ -6,8 +6,9 @@ export const maxDuration = 300;
 /**
  * Relais de téléchargement : récupère le fichier sur le CDN de Facebook et le
  * renvoie avec « Content-Disposition: attachment » pour que le navigateur
- * (iPhone compris) l'enregistre au lieu de l'ouvrir. Protégé par la connexion
- * (src/proxy.ts) et limité aux hôtes fbcdn.net pour ne pas servir de proxy ouvert.
+ * (iPhone compris) l'enregistre au lieu de l'ouvrir. Public (outil ouvert à
+ * tous, voir PUBLIC_PATHS dans src/proxy.ts) mais limité aux hôtes fbcdn.net
+ * pour ne pas servir de proxy ouvert vers n'importe quel site.
  */
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("url");

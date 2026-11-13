@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { usePathname } from "next/navigation";
 import Nav from "./Nav";
 import ActivityTracker from "./ActivityTracker";
@@ -8,6 +9,9 @@ import ActivityTracker from "./ActivityTracker";
 const NO_SIDEBAR_ROUTES = ["/login", "/definir-mot-de-passe"];
 // Le calendrier profite d'une page plus large pour agrandir les cases.
 const WIDE_ROUTES = ["/calendrier"];
+// Outils publics : accessibles sans connexion. Le menu n'apparaît que pour le
+// personnel connecté ; un visiteur voit la page seule.
+const PUBLIC_TOOL_ROUTES = ["/video-facebook"];
 
 // Photos floues d'équipe en rotation — une est tirée au hasard (différente de
 // la précédente) à chaque changement de page, pour que le fond varie en
@@ -25,7 +29,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Les pages de diffusion sont castées sur la télé du vestiaire : ni menu, ni
   // marges, ni fond photo — l'écran ne doit montrer que l'horaire.
   const isCast = pathname.startsWith("/diffusion") || pathname.startsWith("/rendez-vous");
-  const hasSidebar = !isCast && !NO_SIDEBAR_ROUTES.includes(pathname);
+  const isPublicTool = PUBLIC_TOOL_ROUTES.some((p) => pathname.startsWith(p));
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isPublicTool || signedIn !== null) return;
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setSignedIn(!!data.user), () => setSignedIn(false));
+  }, [isPublicTool, signedIn]);
+  const hasSidebar = !isCast && !NO_SIDEBAR_ROUTES.includes(pathname) && !(isPublicTool && !signedIn);
   const isWide = WIDE_ROUTES.includes(pathname);
   const lastIndex = useRef(-1);
 
@@ -39,6 +51,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   if (isCast) return <main className="min-h-screen bg-ink-900">{children}</main>;
+
+  if (isPublicTool && !signedIn) {
+    // Visiteur (ou vérification en cours) : page seule, sans menu du personnel.
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-6xl mx-auto px-4 py-6">{children}</div>
+      </main>
+    );
+  }
 
   return (
     <>
