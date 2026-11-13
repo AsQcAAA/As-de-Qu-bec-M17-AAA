@@ -28,6 +28,7 @@ const TABS = [
   { href: "/team-building", label: "Team Building" },
   { href: "/medical", label: "Médical" },
   { href: "/remplacants", label: "Remplaçants" },
+  { href: "/video-facebook", label: "Vidéo Facebook" },
   { href: "/coachs", label: "Utilisateurs" },
 ];
 
