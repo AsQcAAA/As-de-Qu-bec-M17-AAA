@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { extractFacebookVideos, extractTitle, safeFileName, type FoundVideo } from "@/lib/facebookVideo";
 import { directDownload } from "@/lib/directDownload";
+import { buildBookmarklet } from "@/lib/bookmarklet";
 
 type DlState = { status: "running" | "saved" | "fallback"; loaded: number; total: number | null };
 
@@ -21,9 +22,41 @@ export default function VideoFacebookPage() {
   const [submitted, setSubmitted] = useState("");
   const [showDash, setShowDash] = useState(false);
   const [dl, setDl] = useState<Record<string, DlState>>({});
+  const [fromBookmark, setFromBookmark] = useState<string | null>(null); // titre de la page Facebook
+  const [bookmarklet, setBookmarklet] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [method, setMethod] = useState<"favori" | "source">("favori");
+  const bookmarkLink = useRef<HTMLAnchorElement>(null);
+
+  // Le lien « javascript: » est posé hors de React (qui bloque ce type de lien).
+  useEffect(() => {
+    const code = buildBookmarklet(window.location.origin);
+    setBookmarklet(code);
+    bookmarkLink.current?.setAttribute("href", code);
+  }, []);
+
+  // Arrivée depuis le favori : les liens trouvés sont dans l'adresse (#fb=…).
+  useEffect(() => {
+    const m = /^#fb=(.+)$/.exec(window.location.hash);
+    if (!m) return;
+    try {
+      const { t, d } = JSON.parse(decodeURIComponent(m[1])) as { t?: string; d?: string };
+      setFromBookmark((t ?? "").replace(/^\(\d+\)\s*/, "").replace(/\s*\|\s*Facebook\s*$/i, "").trim() || "Facebook");
+      setSubmitted(d ?? "");
+    } catch {}
+    history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  async function copyBookmarklet() {
+    try {
+      await navigator.clipboard.writeText(bookmarklet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {}
+  }
 
   const videos = useMemo(() => (submitted ? extractFacebookVideos(submitted) : []), [submitted]);
-  const title = useMemo(() => (submitted ? extractTitle(submitted) : null), [submitted]);
+  const title = useMemo(() => (fromBookmark && fromBookmark !== "Facebook" ? fromBookmark : submitted ? extractTitle(submitted) : null), [submitted, fromBookmark]);
   const complete = videos.filter((v) => v.kind === "complete");
   const dash = videos.filter((v) => v.kind !== "complete");
   const baseName = safeFileName(title ?? `video-facebook-${new Date().toISOString().slice(0, 10)}`);
@@ -54,9 +87,10 @@ export default function VideoFacebookPage() {
     });
   }
 
-  function VideoRow({ v, i }: { v: FoundVideo; i: number }) {
+  // Fonction de rendu (et non composant) : le lecteur vidéo n'est pas recréé à chaque mise à jour de la progression.
+  function renderRow(v: FoundVideo, i: number) {
     return (
-      <div className="card space-y-3">
+      <div key={v.url} className="card space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <span className="font-semibold">{v.quality}</span>
@@ -109,62 +143,120 @@ export default function VideoFacebookPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold">Vidéo Facebook</h1>
-        <p className="text-slate-500 text-sm">Télécharger une vidéo d&apos;un groupe Facebook privé à partir du code source de la page.</p>
+        <p className="text-slate-500 text-sm">Télécharger une vidéo d&apos;un groupe Facebook privé dont vous êtes membre. Gratuit, sans limite.</p>
       </div>
 
-      <details className="card text-sm" open={!submitted}>
-        <summary className="font-semibold cursor-pointer">Comment faire</summary>
-        <ol className="list-decimal pl-5 mt-2 space-y-1 text-slate-600">
-          <li>Sur ordinateur, connecté à Facebook, ouvrez la vidéo du groupe (idéalement sa page à elle, en cliquant sur la date de la publication).</li>
-          <li>
-            Affichez le code source : <b>Ctrl + U</b> (Windows) ou <b>⌥ ⌘ U</b> (Mac). Sur Safari, activez d&apos;abord « Afficher les fonctionnalités pour les
-            développeurs web » dans Réglages › Avancées.
-          </li>
-          <li>
-            Tout sélectionner (<b>Ctrl/⌘ + A</b>), copier (<b>Ctrl/⌘ + C</b>) et coller ci-dessous. Ou bien enregistrez la page (Ctrl/⌘ + S) et choisissez le fichier
-            .html.
-          </li>
-          <li>
-            Cliquez « Trouver la vidéo », puis « Télécharger ». La vidéo va directement de Facebook à votre appareil (aucune limite). Sur Chrome ou Edge, choisissez
-            où l&apos;enregistrer. Les liens expirent après quelques heures : recopiez le code source au besoin.
-          </li>
-        </ol>
-      </details>
-
-      <div className="card space-y-3">
-        <label className="label">Code source de la page</label>
-        <textarea
-          className="input font-mono text-xs h-48"
-          placeholder="Collez ici le code source (view-source) de la page Facebook…"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-        />
-        <div className="flex flex-wrap gap-2 items-center">
-          <button className="btn" onClick={() => setSubmitted(source)} disabled={!source.trim()}>
-            Trouver la vidéo
-          </button>
-          <label className="btn-secondary cursor-pointer">
-            Choisir un fichier .html
-            <input type="file" accept=".html,.htm,.txt,text/html,text/plain" className="hidden" onChange={onFile} />
-          </label>
-          {source && (
-            <button
-              className="text-sm text-slate-500 underline"
-              onClick={() => {
-                setSource("");
-                setSubmitted("");
-              }}
-            >
-              Effacer
+      {!submitted && (
+        <>
+          <div className="flex gap-2">
+            <button className={method === "favori" ? "btn" : "btn-secondary"} onClick={() => setMethod("favori")}>
+              Avec le favori (iPhone ou ordinateur)
             </button>
+            <button className={method === "source" ? "btn" : "btn-secondary"} onClick={() => setMethod("source")}>
+              Avec le code source (ordinateur)
+            </button>
+          </div>
+
+          {method === "favori" ? (
+            <div className="card text-sm space-y-4">
+              <div>
+                <h2 className="font-semibold text-base">1. Installer le favori (une seule fois)</h2>
+                <p className="text-slate-600 mt-1">
+                  <b>Ordinateur :</b> glissez ce bouton dans votre barre de favoris →{" "}
+                  <a ref={bookmarkLink} className="btn-dark cursor-grab" onClick={(e) => e.preventDefault()} title="Glissez-moi dans la barre de favoris">
+                    Vidéo M17
+                  </a>
+                </p>
+                <div className="text-slate-600 mt-3">
+                  <b>iPhone (Safari) :</b>
+                  <ol className="list-decimal pl-5 mt-1 space-y-1">
+                    <li>
+                      <button className="btn-secondary !py-1" onClick={copyBookmarklet} disabled={!bookmarklet}>
+                        {copied ? "Code copié ✓" : "Copier le code du favori"}
+                      </button>
+                    </li>
+                    <li>Sur cette page, touchez Partager › « Ajouter un signet ». Nommez-le « Vidéo M17 » et enregistrez.</li>
+                    <li>Ouvrez les signets (icône livre), touchez « Modifier », puis le signet « Vidéo M17 ».</li>
+                    <li>Effacez l&apos;adresse et collez le code copié. Touchez « OK ».</li>
+                  </ol>
+                </div>
+              </div>
+              <div>
+                <h2 className="font-semibold text-base">2. Télécharger une vidéo</h2>
+                <ol className="list-decimal pl-5 mt-1 space-y-1 text-slate-600">
+                  <li>
+                    Dans le <b>navigateur</b> (Safari, Chrome… pas l&apos;app Facebook), connecté à Facebook, ouvrez la vidéo du groupe : touchez la date de la
+                    publication pour l&apos;avoir seule à l&apos;écran.
+                  </li>
+                  <li>Touchez le favori « Vidéo M17 ». Cet outil s&apos;ouvre avec la vidéo trouvée, prête à télécharger.</li>
+                </ol>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="card text-sm">
+                <ol className="list-decimal pl-5 space-y-1 text-slate-600">
+                  <li>Sur ordinateur, connecté à Facebook, ouvrez la vidéo du groupe (cliquez sur la date de la publication).</li>
+                  <li>
+                    Affichez le code source : <b>Ctrl + U</b> (Windows) ou <b>⌥ ⌘ U</b> (Mac). Sur Safari Mac, activez d&apos;abord « Afficher les fonctionnalités
+                    pour les développeurs web » dans Réglages › Avancées.
+                  </li>
+                  <li>
+                    Tout sélectionner (<b>Ctrl/⌘ + A</b>), copier (<b>Ctrl/⌘ + C</b>), coller ci-dessous et cliquer « Trouver la vidéo ».
+                  </li>
+                </ol>
+              </div>
+
+              <div className="card space-y-3">
+                <label className="label">Code source de la page</label>
+                <textarea
+                  className="input font-mono text-xs h-48"
+                  placeholder="Collez ici le code source de la page Facebook…"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                />
+                <button className="btn" onClick={() => setSubmitted(source)} disabled={!source.trim()}>
+                  Trouver la vidéo
+                </button>
+                <p className="text-xs text-slate-500 pt-2 border-t">
+                  Le collage est trop lent ? Enregistrez plutôt la page Facebook (Ctrl/⌘ + S) et{" "}
+                  <label className="underline cursor-pointer">
+                    importez le fichier enregistré
+                    <input type="file" accept=".html,.htm,.txt,text/html,text/plain" className="hidden" onChange={onFile} />
+                  </label>
+                  .
+                </p>
+              </div>
+            </>
           )}
+        </>
+      )}
+
+      {submitted && (
+        <div className="flex items-center justify-between gap-2 flex-wrap text-sm">
+          <p className="text-slate-500">
+            La vidéo va directement de Facebook à votre appareil. Les liens expirent après quelques heures.
+          </p>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setSource("");
+              setSubmitted("");
+              setFromBookmark(null);
+              setDl({});
+            }}
+          >
+            Nouvelle vidéo
+          </button>
         </div>
-      </div>
+      )}
 
       {submitted && videos.length === 0 && (
         <div className="card text-sm text-red-700">
-          Aucune vidéo trouvée. Vérifiez que vous avez copié <b>tout</b> le code source (Ctrl/⌘ + U, pas « Inspecter ») de la page de la vidéo, en étant connecté au
-          compte membre du groupe.
+          Aucune vidéo trouvée.{" "}
+          {fromBookmark
+            ? "Ouvrez la vidéo seule (touchez la date de la publication), rechargez la page Facebook, puis touchez de nouveau le favori."
+            : "Vérifiez que vous avez copié tout le code source (Ctrl/⌘ + U, pas « Inspecter ») de la page de la vidéo, en étant connecté au compte membre du groupe."}
         </div>
       )}
 
@@ -174,9 +266,7 @@ export default function VideoFacebookPage() {
             {title ? `« ${title} »` : "Vidéo trouvée"}
             {complete.length > 2 && <span className="text-sm font-normal text-slate-500"> · {complete.length} fichiers (plusieurs vidéos sur la page)</span>}
           </h2>
-          {complete.map((v, i) => (
-            <VideoRow key={v.url} v={v} i={i} />
-          ))}
+          {complete.map((v, i) => renderRow(v, i))}
         </div>
       )}
 
@@ -191,7 +281,7 @@ export default function VideoFacebookPage() {
               Seules des pistes séparées ont été trouvées : l&apos;image et le son sont dans deux fichiers distincts.
             </p>
           )}
-          {(showDash || complete.length === 0) && dash.map((v, i) => <VideoRow key={v.url} v={v} i={i} />)}
+          {(showDash || complete.length === 0) && dash.map((v, i) => renderRow(v, i))}
         </div>
       )}
     </div>

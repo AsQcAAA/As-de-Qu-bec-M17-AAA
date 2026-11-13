@@ -124,6 +124,13 @@ export function extractFacebookVideos(input: string): FoundVideo[] {
     }
   }
 
+  // 4. Tout autre lien MP4 de Facebook (version mobile, balise <video>, etc.).
+  const anyRe = /https?:(?:\\?\/){2}[^"'\s<>]*?fbcdn\.net[^"'\s<>]*?\.mp4[^"'\s<>]*/g;
+  for (const m of text.matchAll(anyRe)) {
+    const raw = m[0].replace(/\\+$/, "");
+    push({ url: decodeHtmlEntities(decodeJsonString(raw)), quality: "MP4", kind: "complete", height: null, source: "mp4" });
+  }
+
   const kindOrder: Record<VideoKind, number> = { complete: 0, video_only: 1, audio_only: 2 };
   return found.sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind] || (b.height ?? 0) - (a.height ?? 0));
 }
