@@ -2,6 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { extractFacebookVideos, extractTitle, safeFileName, type FoundVideo } from "@/lib/facebookVideo";
+import { directDownload } from "@/lib/directDownload";
+
+type DlState = { status: "running" | "saved" | "fallback"; loaded: number; total: number | null };
+
+function mb(n: number) {
+  return `${(n / 1024 / 1024).toFixed(n > 100 * 1024 * 1024 ? 0 : 1)} Mo`;
+}
 
 const KIND_LABEL: Record<FoundVideo["kind"], string> = {
   complete: "Image + son",
@@ -13,6 +20,7 @@ export default function VideoFacebookPage() {
   const [source, setSource] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [showDash, setShowDash] = useState(false);
+  const [dl, setDl] = useState<Record<string, DlState>>({});
 
   const videos = useMemo(() => (submitted ? extractFacebookVideos(submitted) : []), [submitted]);
   const title = useMemo(() => (submitted ? extractTitle(submitted) : null), [submitted]);
@@ -28,10 +36,22 @@ export default function VideoFacebookPage() {
     setSubmitted(txt);
   }
 
-  function downloadHref(v: FoundVideo, i: number) {
+  function fileName(v: FoundVideo, i: number) {
     const suffix = v.kind === "complete" ? v.quality : `${v.quality}-${v.kind === "audio_only" ? "son" : "image"}`;
-    const nom = `${baseName}-${suffix}${i ? `-${i + 1}` : ""}`;
-    return `/api/video-facebook/telecharger?url=${encodeURIComponent(v.url)}&nom=${encodeURIComponent(nom)}`;
+    return `${baseName}-${suffix}${i ? `-${i + 1}` : ""}.${v.kind === "audio_only" ? "m4a" : "mp4"}`;
+  }
+
+  async function download(v: FoundVideo, i: number) {
+    setDl((d) => ({ ...d, [v.url]: { status: "running", loaded: 0, total: null } }));
+    const result = await directDownload(v.url, fileName(v, i), (loaded, total) =>
+      setDl((d) => ({ ...d, [v.url]: { status: "running", loaded, total } })),
+    );
+    setDl((d) => {
+      const next = { ...d };
+      if (result === "cancelled") delete next[v.url];
+      else next[v.url] = { ...(d[v.url] ?? { loaded: 0, total: null }), status: result };
+      return next;
+    });
   }
 
   function VideoRow({ v, i }: { v: FoundVideo; i: number }) {
@@ -43,14 +63,39 @@ export default function VideoFacebookPage() {
             <span className="text-sm text-slate-500"> · {KIND_LABEL[v.kind]}</span>
           </div>
           <div className="flex gap-2">
-            <a className="btn" href={downloadHref(v, i)}>
-              Télécharger
-            </a>
+            <button className="btn" onClick={() => download(v, i)} disabled={dl[v.url]?.status === "running"}>
+              {dl[v.url]?.status === "running" ? "En cours…" : "Télécharger"}
+            </button>
             <a className="btn-secondary" href={v.url} target="_blank" rel="noreferrer noopener" referrerPolicy="no-referrer">
               Ouvrir
             </a>
           </div>
         </div>
+        {dl[v.url] && (
+          <div className="text-sm">
+            {dl[v.url].status === "running" && (
+              <div className="space-y-1">
+                <div className="h-2 rounded bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full bg-gold-500 transition-all"
+                    style={{ width: dl[v.url].total ? `${Math.round((dl[v.url].loaded / dl[v.url].total!) * 100)}%` : "30%" }}
+                  />
+                </div>
+                <p className="text-slate-500">
+                  {mb(dl[v.url].loaded)}
+                  {dl[v.url].total ? ` / ${mb(dl[v.url].total!)}` : ""} — gardez la page ouverte.
+                </p>
+              </div>
+            )}
+            {dl[v.url].status === "saved" && <p className="text-green-700">Vidéo enregistrée ({mb(dl[v.url].loaded)}).</p>}
+            {dl[v.url].status === "fallback" && (
+              <p className="text-slate-600">
+                La vidéo a été ouverte dans un nouvel onglet. Si elle joue au lieu de se télécharger : clic droit › « Enregistrer la vidéo sous… » (ordinateur)
+                ou bouton Partager › « Enregistrer la vidéo » (iPhone).
+              </p>
+            )}
+          </div>
+        )}
         {v.kind !== "audio_only" ? (
           <video src={v.url} controls preload="metadata" playsInline className="w-full max-h-72 rounded-md bg-black" />
         ) : (
@@ -79,7 +124,10 @@ export default function VideoFacebookPage() {
             Tout sélectionner (<b>Ctrl/⌘ + A</b>), copier (<b>Ctrl/⌘ + C</b>) et coller ci-dessous. Ou bien enregistrez la page (Ctrl/⌘ + S) et choisissez le fichier
             .html.
           </li>
-          <li>Cliquez « Trouver la vidéo », puis « Télécharger ». Les liens expirent après quelques heures : recopiez le code source au besoin.</li>
+          <li>
+            Cliquez « Trouver la vidéo », puis « Télécharger ». La vidéo va directement de Facebook à votre appareil (aucune limite). Sur Chrome ou Edge, choisissez
+            où l&apos;enregistrer. Les liens expirent après quelques heures : recopiez le code source au besoin.
+          </li>
         </ol>
       </details>
 
