@@ -23,16 +23,12 @@ export default function VideoFacebookPage() {
   const [showDash, setShowDash] = useState(false);
   const [dl, setDl] = useState<Record<string, DlState>>({});
   const [fromBookmark, setFromBookmark] = useState<string | null>(null); // titre de la page Facebook
-  const [bookmarklet, setBookmarklet] = useState("");
-  const [copied, setCopied] = useState(false);
   const [method, setMethod] = useState<"favori" | "source">("favori");
   const bookmarkLink = useRef<HTMLAnchorElement>(null);
 
   // Le lien « javascript: » est posé hors de React (qui bloque ce type de lien).
   useEffect(() => {
-    const code = buildBookmarklet(window.location.origin);
-    setBookmarklet(code);
-    bookmarkLink.current?.setAttribute("href", code);
+    bookmarkLink.current?.setAttribute("href", buildBookmarklet(window.location.origin));
   }, []);
 
   // Arrivée depuis le favori : les liens trouvés sont dans l'adresse (#fb=…).
@@ -46,14 +42,6 @@ export default function VideoFacebookPage() {
     } catch {}
     history.replaceState(null, "", window.location.pathname);
   }, []);
-
-  async function copyBookmarklet() {
-    try {
-      await navigator.clipboard.writeText(bookmarklet);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    } catch {}
-  }
 
   const videos = useMemo(() => (submitted ? extractFacebookVideos(submitted) : []), [submitted]);
   const title = useMemo(() => (fromBookmark && fromBookmark !== "Facebook" ? fromBookmark : submitted ? extractTitle(submitted) : null), [submitted, fromBookmark]);
@@ -150,7 +138,7 @@ export default function VideoFacebookPage() {
         <>
           <div className="flex gap-2">
             <button className={method === "favori" ? "btn" : "btn-secondary"} onClick={() => setMethod("favori")}>
-              Avec le favori (iPhone ou ordinateur)
+              Avec le favori (ordinateur)
             </button>
             <button className={method === "source" ? "btn" : "btn-secondary"} onClick={() => setMethod("source")}>
               Avec le code source (ordinateur)
@@ -162,33 +150,20 @@ export default function VideoFacebookPage() {
               <div>
                 <h2 className="font-semibold text-base">1. Installer le favori (une seule fois)</h2>
                 <p className="text-slate-600 mt-1">
-                  <b>Ordinateur :</b> glissez ce bouton dans votre barre de favoris →{" "}
+                  Glissez ce bouton dans votre barre de favoris →{" "}
                   <a ref={bookmarkLink} className="btn-dark cursor-grab" onClick={(e) => e.preventDefault()} title="Glissez-moi dans la barre de favoris">
                     Vidéo M17
                   </a>
                 </p>
-                <div className="text-slate-600 mt-3">
-                  <b>iPhone (Safari) :</b>
-                  <ol className="list-decimal pl-5 mt-1 space-y-1">
-                    <li>
-                      <button className="btn-secondary !py-1" onClick={copyBookmarklet} disabled={!bookmarklet}>
-                        {copied ? "Code copié ✓" : "Copier le code du favori"}
-                      </button>
-                    </li>
-                    <li>Sur cette page, touchez Partager › « Ajouter un signet ». Nommez-le « Vidéo M17 » et enregistrez.</li>
-                    <li>Ouvrez les signets (icône livre), touchez « Modifier », puis le signet « Vidéo M17 ».</li>
-                    <li>Effacez l&apos;adresse et collez le code copié. Touchez « OK ».</li>
-                  </ol>
-                </div>
               </div>
               <div>
                 <h2 className="font-semibold text-base">2. Télécharger une vidéo</h2>
                 <ol className="list-decimal pl-5 mt-1 space-y-1 text-slate-600">
                   <li>
-                    Dans le <b>navigateur</b> (Safari, Chrome… pas l&apos;app Facebook), connecté à Facebook, ouvrez la vidéo du groupe : touchez la date de la
-                    publication pour l&apos;avoir seule à l&apos;écran.
+                    Dans votre navigateur, connecté à Facebook, ouvrez la vidéo du groupe : cliquez sur la date de la publication pour l&apos;avoir
+                    seule à l&apos;écran.
                   </li>
-                  <li>Touchez le favori « Vidéo M17 ». Cet outil s&apos;ouvre avec la vidéo trouvée, prête à télécharger.</li>
+                  <li>Cliquez sur le favori « Vidéo M17 ». Cet outil s&apos;ouvre avec la vidéo trouvée, prête à télécharger.</li>
                 </ol>
               </div>
             </div>
@@ -255,7 +230,7 @@ export default function VideoFacebookPage() {
         <div className="card text-sm text-red-700">
           Aucune vidéo trouvée.{" "}
           {fromBookmark
-            ? "Ouvrez la vidéo seule (touchez la date de la publication), rechargez la page Facebook, puis touchez de nouveau le favori."
+            ? "Ouvrez la vidéo seule (cliquez sur la date de la publication), rechargez la page Facebook, puis cliquez de nouveau sur le favori."
             : "Vérifiez que vous avez copié tout le code source (Ctrl/⌘ + U, pas « Inspecter ») de la page de la vidéo, en étant connecté au compte membre du groupe."}
         </div>
       )}
