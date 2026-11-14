@@ -7,6 +7,11 @@ import { buildBookmarklet } from "@/lib/bookmarklet";
 
 type DlState = { status: "running" | "saved" | "fallback"; loaded: number; total: number | null };
 
+/** « 720p », « 1080p »… : le petit côté de l'image, comme sur YouTube (vaut aussi pour une vidéo verticale). */
+function resolutionLabel(d: { w: number; h: number }) {
+  return `${Math.min(d.w, d.h)}p`;
+}
+
 function mb(n: number) {
   return `${(n / 1024 / 1024).toFixed(n > 100 * 1024 * 1024 ? 0 : 1)} Mo`;
 }
@@ -22,6 +27,8 @@ export default function VideoFacebookPage() {
   const [submitted, setSubmitted] = useState("");
   const [showDash, setShowDash] = useState(false);
   const [dl, setDl] = useState<Record<string, DlState>>({});
+  /** Résolution réelle de chaque fichier, lue dans la vidéo elle-même (Facebook ne la donne pas toujours). */
+  const [dims, setDims] = useState<Record<string, { w: number; h: number }>>({});
   const [fromBookmark, setFromBookmark] = useState<string | null>(null); // titre de la page Facebook
   const [method, setMethod] = useState<"favori" | "source">("favori");
   const bookmarkLink = useRef<HTMLAnchorElement>(null);
@@ -45,8 +52,12 @@ export default function VideoFacebookPage() {
 
   const videos = useMemo(() => (submitted ? extractFacebookVideos(submitted) : []), [submitted]);
   const title = useMemo(() => (fromBookmark && fromBookmark !== "Facebook" ? fromBookmark : submitted ? extractTitle(submitted) : null), [submitted, fromBookmark]);
-  const complete = videos.filter((v) => v.kind === "complete");
-  const dash = videos.filter((v) => v.kind !== "complete");
+  // Meilleure qualité en premier : résolution réelle si elle est connue, sinon celle annoncée par Facebook.
+  const sizeOf = (v: FoundVideo) => (dims[v.url] ? Math.min(dims[v.url].w, dims[v.url].h) : (v.height ?? 0));
+  const byQuality = (a: FoundVideo, b: FoundVideo) => sizeOf(b) - sizeOf(a);
+  const complete = videos.filter((v) => v.kind === "complete").sort(byQuality);
+  const dash = videos.filter((v) => v.kind !== "complete").sort((a, b) => Number(a.kind === "audio_only") - Number(b.kind === "audio_only") || byQuality(a, b));
+  const qualityOf = (v: FoundVideo) => (dims[v.url] ? resolutionLabel(dims[v.url]) : v.kind === "audio_only" ? "Son" : /^\d+p$/.test(v.quality) ? v.quality : "Qualité en lecture…");
   const baseName = safeFileName(title ?? `video-facebook-${new Date().toISOString().slice(0, 10)}`);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,7 +69,8 @@ export default function VideoFacebookPage() {
   }
 
   function fileName(v: FoundVideo, i: number) {
-    const suffix = v.kind === "complete" ? v.quality : `${v.quality}-${v.kind === "audio_only" ? "son" : "image"}`;
+    const q = qualityOf(v).replace("Qualité en lecture…", v.quality);
+    const suffix = v.kind === "complete" ? q : `${q}-${v.kind === "audio_only" ? "son" : "image"}`;
     return `${baseName}-${suffix}${i ? `-${i + 1}` : ""}.${v.kind === "audio_only" ? "m4a" : "mp4"}`;
   }
 
@@ -76,13 +88,14 @@ export default function VideoFacebookPage() {
   }
 
   // Fonction de rendu (et non composant) : le lecteur vidéo n'est pas recréé à chaque mise à jour de la progression.
-  function renderRow(v: FoundVideo, i: number) {
+  function renderRow(v: FoundVideo, i: number, best = false) {
     return (
       <div key={v.url} className="card space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <span className="font-semibold">{v.quality}</span>
+            <span className="font-semibold">{qualityOf(v)}</span>
             <span className="text-sm text-slate-500"> · {KIND_LABEL[v.kind]}</span>
+            {best && <span className="ml-2 badge bg-green-100 text-green-800">Meilleure qualité</span>}
           </div>
           <div className="flex gap-2">
             <button className="btn" onClick={() => download(v, i)} disabled={dl[v.url]?.status === "running"}>
@@ -119,7 +132,17 @@ export default function VideoFacebookPage() {
           </div>
         )}
         {v.kind !== "audio_only" ? (
-          <video src={v.url} controls preload="metadata" playsInline className="w-full max-h-72 rounded-md bg-black" />
+          <video
+            src={v.url}
+            controls
+            preload="metadata"
+            playsInline
+            className="w-full max-h-72 rounded-md bg-black"
+            onLoadedMetadata={(e) => {
+              const { videoWidth: w, videoHeight: h } = e.currentTarget;
+              if (w && h) setDims((d) => (d[v.url]?.w === w && d[v.url]?.h === h ? d : { ...d, [v.url]: { w, h } }));
+            }}
+          />
         ) : (
           <audio src={v.url} controls preload="none" className="w-full" />
         )}
@@ -241,7 +264,7 @@ export default function VideoFacebookPage() {
             {title ? `« ${title} »` : "Vidéo trouvée"}
             {complete.length > 2 && <span className="text-sm font-normal text-slate-500"> · {complete.length} fichiers (plusieurs vidéos sur la page)</span>}
           </h2>
-          {complete.map((v, i) => renderRow(v, i))}
+          {complete.map((v, i) => renderRow(v, i, i === 0 && complete.length > 1))}
         </div>
       )}
 
