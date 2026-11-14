@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { extractFacebookVideos, extractTitle, safeFileName, type FoundVideo } from "@/lib/facebookVideo";
 import { directDownload } from "@/lib/directDownload";
 import { mergeDash, openSink } from "@/lib/dashMerge";
-import { buildBookmarklet } from "@/lib/bookmarklet";
 
 type DlState = { status: "running" | "saved" | "fallback" | "error"; loaded: number; total: number | null; message?: string };
 
@@ -31,13 +30,6 @@ export default function VideoFacebookPage() {
   /** Résolution réelle de chaque fichier, lue dans la vidéo elle-même (Facebook ne la donne pas toujours). */
   const [dims, setDims] = useState<Record<string, { w: number; h: number }>>({});
   const [fromBookmark, setFromBookmark] = useState<string | null>(null); // titre de la page Facebook
-  const [method, setMethod] = useState<"favori" | "source">("favori");
-  const bookmarkLink = useRef<HTMLAnchorElement>(null);
-
-  // Le lien « javascript: » est posé hors de React (qui bloque ce type de lien).
-  useEffect(() => {
-    bookmarkLink.current?.setAttribute("href", buildBookmarklet(window.location.origin));
-  }, []);
 
   // Arrivée depuis le favori : les liens trouvés sont dans l'adresse (#fb=…).
   useEffect(() => {
@@ -233,42 +225,6 @@ export default function VideoFacebookPage() {
 
       {!submitted && (
         <>
-          <div className="flex gap-2">
-            <button className={method === "favori" ? "btn" : "btn-secondary"} onClick={() => setMethod("favori")}>
-              Avec le favori (ordinateur)
-            </button>
-            <button className={method === "source" ? "btn" : "btn-secondary"} onClick={() => setMethod("source")}>
-              Avec le code source (ordinateur)
-            </button>
-          </div>
-
-          {method === "favori" ? (
-            <div className="card text-sm space-y-4">
-              <div>
-                <h2 className="font-semibold text-base">1. Installer le favori (une seule fois)</h2>
-                <p className="text-slate-600 mt-1">
-                  Glissez ce bouton dans votre barre de favoris →{" "}
-                  <a ref={bookmarkLink} className="btn-dark cursor-grab" onClick={(e) => e.preventDefault()} title="Glissez-moi dans la barre de favoris">
-                    Vidéo M17
-                  </a>
-                </p>
-              </div>
-              <div>
-                <h2 className="font-semibold text-base">2. Télécharger une vidéo</h2>
-                <ol className="list-decimal pl-5 mt-1 space-y-1 text-slate-600">
-                  <li>
-                    Dans votre navigateur, connecté à Facebook, ouvrez la vidéo du groupe : cliquez sur la date de la publication pour l&apos;avoir
-                    seule à l&apos;écran.
-                  </li>
-                  <li>
-                    Lancez la lecture quelques secondes en <b>HD</b> (roue dentée du lecteur › qualité la plus haute) : c&apos;est ce qui permet de
-                    récupérer la meilleure qualité.
-                  </li>
-                  <li>Cliquez sur le favori « Vidéo M17 ». Cet outil s&apos;ouvre avec la vidéo trouvée, prête à télécharger.</li>
-                </ol>
-              </div>
-            </div>
-          ) : (
             <>
               <div className="card text-sm">
                 <ol className="list-decimal pl-5 space-y-1 text-slate-600">
@@ -304,7 +260,6 @@ export default function VideoFacebookPage() {
                 </p>
               </div>
             </>
-          )}
         </>
       )}
 
