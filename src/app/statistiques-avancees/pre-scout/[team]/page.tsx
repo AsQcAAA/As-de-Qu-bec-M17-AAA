@@ -18,6 +18,10 @@ import { titleCase } from "@/lib/players";
 import ScoutLineupEditor, { type ScoutSlots } from "@/components/ScoutLineupEditor";
 import { LEAGUE_GOALIES, LEAGUE_SCORERS, LEADERS_UPDATED } from "@/lib/leagueLeaders";
 import type { Game, GameEvent, ScoutNote } from "@/lib/types";
+import { secondsToToi } from "@/lib/tpeReport";
+
+/** Au-delà de 30 min dans un match, c'est un gardien (le rapport TPE ne donne pas la position). */
+const GOALIE_TOI_SECONDS = 1800;
 
 const emptyForm = { wins: "", losses: "", otl_losses: "", last5: "", notes: "" };
 
@@ -139,6 +143,11 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
     { name: string; jersey: number | null; goals: number; assists: number; points: number }[]
   >([]);
 
+  // Temps de glace moyen de leurs joueurs dans nos matchs contre eux (rapport TPE, migration 066).
+  const [theirToi, setTheirToi] = useState<
+    { jersey: number; name: string; gp: number; avgToi: number; shots: number; plusMinus: number; goalie: boolean }[]
+  >([]);
+
   useEffect(() => {
     if (!team) return;
     const teamName = team.name;
@@ -232,6 +241,43 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
         bump(e.player_name, e.jersey_number, "goals");
         bump(e.assist1_name, e.assist1_jersey, "assists");
         bump(e.assist2_name, e.assist2_jersey, "assists");
+      }
+      if (ourGamesVsThem.size > 0) {
+        const { data: opp } = await supabase
+          .from("opponent_player_game_stats")
+          .select("game_id, jersey, sheet_name, toi_seconds, shots_on_goal, plus_minus")
+          .in("game_id", [...ourGamesVsThem]);
+        const dateOf = new Map((allGames ?? []).map((g) => [g.id, g.game_date as string]));
+        const byJersey = new Map<number, { jersey: number; name: string; lastDate: string; toi: number[]; shots: number; plusMinus: number; goalie: boolean }>();
+        for (const r of (opp ?? []) as { game_id: string; jersey: number; sheet_name: string; toi_seconds: number | null; shots_on_goal: number | null; plus_minus: number | null }[]) {
+          if (!r.toi_seconds) continue; // pas embarqué sur la glace ce match-là
+          const d = dateOf.get(r.game_id) ?? "";
+          const cur = byJersey.get(r.jersey) ?? { jersey: r.jersey, name: r.sheet_name, lastDate: d, toi: [], shots: 0, plusMinus: 0, goalie: false };
+          if (d >= cur.lastDate) {
+            cur.name = r.sheet_name;
+            cur.lastDate = d;
+          }
+          cur.toi.push(r.toi_seconds);
+          if (r.toi_seconds > GOALIE_TOI_SECONDS) cur.goalie = true;
+          cur.shots += r.shots_on_goal ?? 0;
+          cur.plusMinus += r.plus_minus ?? 0;
+          byJersey.set(r.jersey, cur);
+        }
+        setTheirToi(
+          [...byJersey.values()]
+            .map((p) => ({
+              jersey: p.jersey,
+              name: titleCase(OPPONENT_ROSTERS[teamSlug]?.[String(p.jersey)] ?? p.name),
+              gp: p.toi.length,
+              avgToi: Math.round(p.toi.reduce((a, b) => a + b, 0) / p.toi.length),
+              shots: p.shots,
+              plusMinus: p.plusMinus,
+              goalie: p.goalie,
+            }))
+            .sort((a, b) => Number(a.goalie) - Number(b.goalie) || b.avgToi - a.avgToi)
+        );
+      } else {
+        setTheirToi([]);
       }
       setTheirScorers(
         [...tally.values()]
@@ -840,6 +886,54 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 </div>
               );
             })()}
+          </section>
+
+          {/* Temps de glace moyen de leurs joueurs contre NOUS — rapport TPE de chaque match. */}
+          <section className="card space-y-3">
+            <h2 className="font-semibold">Temps de glace moyen contre nous</h2>
+            {theirToi.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Aucun rapport de statistiques avancées contre cette équipe. Le temps de glace de leurs joueurs
+                apparaît après le téléversement du rapport TPE d&apos;un match.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b">
+                      <th className="py-2 pr-4 w-12">#</th>
+                      <th className="py-2 pr-4">Joueur</th>
+                      <th className="py-2 pr-4 w-14">MJ</th>
+                      <th className="py-2 pr-4 w-20">TOI moy.</th>
+                      <th className="py-2 pr-4 w-14" title="Tirs au but (total contre nous)">Tirs</th>
+                      <th className="py-2 pr-4 w-14" title="Plus/moins (total contre nous)">+/-</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {theirToi.map((p) => (
+                      <tr key={p.jersey} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-bold">{p.jersey}</td>
+                        <td className="py-2 pr-4">
+                          {p.name}
+                          {p.goalie && <span className="ml-2 badge bg-slate-100 text-slate-700">G</span>}
+                          {isSecondYear(teamSlug, p.name) && (
+                            <span className="ml-2 badge bg-gold-100 text-gold-800" title="Joueur de 2e année">2e année</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">{p.gp}</td>
+                        <td className="py-2 pr-4 font-bold tabular-nums">{secondsToToi(p.avgToi)}</td>
+                        <td className="py-2 pr-4">{p.goalie ? "-" : p.shots}</td>
+                        <td className="py-2 pr-4">{p.goalie ? "-" : p.plusMinus > 0 ? `+${p.plusMinus}` : p.plusMinus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs text-slate-500 mt-2">
+                  Matchs contre nous (hors matchs préparatoires), d&apos;après le rapport TPE. Pour les gardiens,
+                  les tirs et le +/- ne s&apos;appliquent pas.
+                </p>
+              </div>
+            )}
           </section>
 
           {/* Leurs pointeurs contre NOUS — compilé depuis les feuilles de match,

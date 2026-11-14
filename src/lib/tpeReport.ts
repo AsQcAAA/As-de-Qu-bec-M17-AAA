@@ -91,6 +91,8 @@ export interface ParsedAdvancedReport {
   ourTeamName: string | null;
   opponentName: string | null;
   players: TpePlayerLine[];
+  /** Joueurs de l'équipe adverse (même tableau « Player stats ») — conservés pour le pre-scout. */
+  opponentPlayers: TpePlayerLine[];
   shots: TpeShotsBreakdown | null;
   faceoffs: TpeFaceoffBreakdown | null;
   faceoffZones: TpeFaceoffZoneGrid | null;

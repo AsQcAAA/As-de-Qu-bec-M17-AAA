@@ -282,6 +282,7 @@ export async function parseTpeReportPdf(bytes: Uint8Array): Promise<ParsedAdvanc
   let ourTeamName: string | null = null;
   let opponentName: string | null = null;
   let players: TpePlayerLine[] = [];
+  let opponentPlayers: TpePlayerLine[] = [];
   let shots: TpeShotsBreakdown | null = null;
   let faceoffs: TpeFaceoffBreakdown | null = null;
   let faceoffZones: TpeFaceoffZoneGrid | null = null;
@@ -311,6 +312,7 @@ export async function parseTpeReportPdf(bytes: Uint8Array): Promise<ParsedAdvanc
           players = rows;
         } else {
           opponentName = name;
+          opponentPlayers = rows;
         }
       }
     }
@@ -414,5 +416,5 @@ export async function parseTpeReportPdf(bytes: Uint8Array): Promise<ParsedAdvanc
   if (!shots) warnings.push("Tableau « Shots and goals scored » introuvable ou illisible.");
   if (!faceoffs) warnings.push("Tableau « Face-Offs » introuvable ou illisible.");
 
-  return { ourTeamName, opponentName, players, shots, faceoffs, faceoffZones, teamXgUs, teamXgOpponent, warnings };
+  return { ourTeamName, opponentName, players, opponentPlayers, shots, faceoffs, faceoffZones, teamXgUs, teamXgOpponent, warnings };
 }

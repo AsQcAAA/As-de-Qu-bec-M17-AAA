@@ -455,6 +455,25 @@ export default function GameDetailPage() {
         { onConflict: "player_id,game_id" }
       );
     }
+    // Joueurs adverses : on remplace la liste du match (le rapport fait foi),
+    // pour le temps de glace moyen contre nous dans le pre-scout.
+    if (decision.opponentPlayers.length > 0) {
+      await supabase.from("opponent_player_game_stats").delete().eq("game_id", gameId);
+      await supabase.from("opponent_player_game_stats").insert(
+        decision.opponentPlayers.map((l) => ({
+          game_id: gameId,
+          team_name: decision.opponentName,
+          jersey: l.jersey,
+          sheet_name: l.sheetName,
+          toi_seconds: l.toiSeconds,
+          shots_on_goal: l.shotsOnGoal,
+          plus_minus: l.plusMinus,
+          faceoffs_won: l.faceoffsWon,
+          faceoffs_lost: l.faceoffsLost,
+          xg: l.xg,
+        }))
+      );
+    }
     setApplyingAdvanced(false);
     setParsedAdvanced(null);
     load();

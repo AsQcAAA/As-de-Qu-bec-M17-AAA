@@ -38,6 +38,9 @@ export interface AdvancedStatsDecision {
   faceoffZones: TpeFaceoffZoneGrid | null;
   teamXgUs: number | null;
   teamXgOpponent: number | null;
+  /** Joueurs adverses du rapport (temps de glace, tirs, +/-…) — pour le pre-scout. */
+  opponentPlayers: ParsedAdvancedReport["opponentPlayers"];
+  opponentName: string | null;
 }
 
 /**
@@ -124,6 +127,8 @@ export default function AdvancedStatsImport({
       faceoffZones: parsed.faceoffZones,
       teamXgUs: parsed.teamXgUs,
       teamXgOpponent: parsed.teamXgOpponent,
+      opponentPlayers: parsed.opponentPlayers ?? [],
+      opponentName: parsed.opponentName,
     };
   }
 
