@@ -94,12 +94,24 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   const pending = useRef<Record<string, () => Promise<unknown>>>({});
   const [saveError, setSaveError] = useState(false);
 
+  /**
+   * File d'enregistrement : un seul envoi à la fois. Sans elle, deux envois
+   * proches pouvaient arriver dans le désordre (réseau lent) et l'ancien état
+   * écrasait le plus récent — le jeu « revenait en arrière » au rechargement.
+   */
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  function enqueue(run: () => Promise<unknown>) {
+    const p = queue.current.then(run, run);
+    queue.current = p.catch(() => undefined);
+    return p;
+  }
+
   function schedule(k: string, run: () => Promise<unknown>, delay = 400) {
     clearTimeout(timers.current[k]);
     pending.current[k] = run;
     timers.current[k] = setTimeout(() => {
       delete pending.current[k];
-      run().catch(() => setSaveError(true));
+      enqueue(run).then(() => setSaveError(false), () => setSaveError(true));
     }, delay);
   }
 
@@ -108,7 +120,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
       clearTimeout(timers.current[k]);
       const run = pending.current[k];
       delete pending.current[k];
-      run().catch(() => undefined);
+      enqueue(run).catch(() => undefined);
     }
   }
 
@@ -142,7 +154,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     if (immediate) {
       clearTimeout(timers.current.extra);
       delete pending.current.extra;
-      persistExtra(supabase, next, extra).catch(() => setSaveError(true));
+      enqueue(() => persistExtra(supabase, next, extra)).catch(() => setSaveError(true));
     } else schedule("extra", () => persistExtra(supabase, next, extra));
   }
 
@@ -193,8 +205,8 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     const rest = unit.extra.filter((x) => x.id !== first.id);
     const next = { ...unit, extra: rest, ...(phase === 0 ? { inzone: first.map } : phase === 1 ? { breakout: first.map } : { faceoff: first.map }) };
     setUnit(next);
-    persistPhase(supabase, next, phase, first.map).catch(() => setSaveError(true));
-    persistExtra(supabase, next, rest).catch(() => setSaveError(true));
+    enqueue(() => persistPhase(supabase, next, phase, first.map)).catch(() => setSaveError(true));
+    enqueue(() => persistExtra(supabase, next, rest)).catch(() => setSaveError(true));
   }
 
   const usedIn = allGames.filter((g) => (g.pp_units ?? []).some((l) => l.date === date && l.label === label));
