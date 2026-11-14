@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { extractFacebookVideos, extractTitle, safeFileName, type FoundVideo } from "@/lib/facebookVideo";
 import { directDownload } from "@/lib/directDownload";
+import { mergeDash, openSink } from "@/lib/dashMerge";
 import { buildBookmarklet } from "@/lib/bookmarklet";
 
-type DlState = { status: "running" | "saved" | "fallback"; loaded: number; total: number | null };
+type DlState = { status: "running" | "saved" | "fallback" | "error"; loaded: number; total: number | null; message?: string };
 
 /** « 720p », « 1080p »… : le petit côté de l'image, comme sur YouTube (vaut aussi pour une vidéo verticale). */
 function resolutionLabel(d: { w: number; h: number }) {
@@ -57,6 +58,11 @@ export default function VideoFacebookPage() {
   const byQuality = (a: FoundVideo, b: FoundVideo) => sizeOf(b) - sizeOf(a);
   const complete = videos.filter((v) => v.kind === "complete").sort(byQuality);
   const dash = videos.filter((v) => v.kind !== "complete").sort((a, b) => Number(a.kind === "audio_only") - Number(b.kind === "audio_only") || byQuality(a, b));
+  // Meilleure qualité possible : la meilleure piste image DASH + le son, réunis dans le navigateur,
+  // dès qu'elle dépasse le meilleur fichier « image + son » fourni tel quel par Facebook.
+  const bestVideo = dash.find((v) => v.kind === "video_only");
+  const bestAudio = dash.find((v) => v.kind === "audio_only");
+  const hd = bestVideo && bestAudio && sizeOf(bestVideo) > (complete[0] ? sizeOf(complete[0]) : 0) ? { video: bestVideo, audio: bestAudio } : null;
   const qualityOf = (v: FoundVideo) => (dims[v.url] ? resolutionLabel(dims[v.url]) : v.kind === "audio_only" ? "Son" : /^\d+p$/.test(v.quality) ? v.quality : "Qualité en lecture…");
   const baseName = safeFileName(title ?? `video-facebook-${new Date().toISOString().slice(0, 10)}`);
 
@@ -85,6 +91,74 @@ export default function VideoFacebookPage() {
       else next[v.url] = { ...(d[v.url] ?? { loaded: 0, total: null }), status: result };
       return next;
     });
+  }
+
+  async function downloadHd(video: FoundVideo, audio: FoundVideo) {
+    const key = `hd:${video.url}`;
+    const sink = await openSink(`${baseName}-${qualityOf(video).replace("Qualité en lecture…", "HD")}.mp4`);
+    if (sink === "cancelled") return;
+    setDl((d) => ({ ...d, [key]: { status: "running", loaded: 0, total: null } }));
+    try {
+      await mergeDash(video.url, audio.url, sink, (loaded, total) => setDl((d) => ({ ...d, [key]: { status: "running", loaded, total } })));
+      setDl((d) => ({ ...d, [key]: { ...d[key], status: "saved" } }));
+    } catch (e) {
+      setDl((d) => ({ ...d, [key]: { ...d[key], status: "error", message: (e as Error)?.message } }));
+    }
+  }
+
+  function renderHd(video: FoundVideo, audio: FoundVideo) {
+    const st = dl[`hd:${video.url}`];
+    return (
+      <div className="card space-y-3 ring-2 ring-gold-400">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <span className="font-semibold">{qualityOf(video)}</span>
+            <span className="text-sm text-slate-500"> · Image + son</span>
+            <span className="ml-2 badge bg-green-100 text-green-800">Meilleure qualité</span>
+          </div>
+          <button className="btn" onClick={() => downloadHd(video, audio)} disabled={st?.status === "running"}>
+            {st?.status === "running" ? "En cours…" : "Télécharger"}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Facebook garde l&apos;image HD et le son dans deux fichiers : ils sont réunis ici, dans votre navigateur, en un seul MP4.
+        </p>
+        {st && (
+          <div className="text-sm">
+            {st.status === "running" && (
+              <div className="space-y-1">
+                <div className="h-2 rounded bg-slate-200 overflow-hidden">
+                  <div className="h-full bg-gold-500 transition-all" style={{ width: st.total ? `${Math.round((st.loaded / st.total) * 100)}%` : "30%" }} />
+                </div>
+                <p className="text-slate-500">
+                  {mb(st.loaded)}
+                  {st.total ? ` / ${mb(st.total)}` : ""} — gardez la page ouverte.
+                </p>
+              </div>
+            )}
+            {st.status === "saved" && <p className="text-green-700">Vidéo HD enregistrée ({mb(st.loaded)}).</p>}
+            {st.status === "error" && (
+              <p className="text-red-700">
+                L&apos;assemblage a échoué{st.message ? ` (${st.message})` : ""}. Prenez le fichier « image + son » ci-dessous, ou réessayez avec un lien
+                récent (les liens Facebook expirent après quelques heures).
+              </p>
+            )}
+          </div>
+        )}
+        <video
+          src={video.url}
+          controls
+          muted
+          preload="metadata"
+          playsInline
+          className="w-full max-h-72 rounded-md bg-black"
+          onLoadedMetadata={(e) => {
+            const { videoWidth: w, videoHeight: h } = e.currentTarget;
+            if (w && h) setDims((d) => (d[video.url]?.w === w && d[video.url]?.h === h ? d : { ...d, [video.url]: { w, h } }));
+          }}
+        />
+      </div>
+    );
   }
 
   // Fonction de rendu (et non composant) : le lecteur vidéo n'est pas recréé à chaque mise à jour de la progression.
@@ -186,6 +260,10 @@ export default function VideoFacebookPage() {
                     Dans votre navigateur, connecté à Facebook, ouvrez la vidéo du groupe : cliquez sur la date de la publication pour l&apos;avoir
                     seule à l&apos;écran.
                   </li>
+                  <li>
+                    Lancez la lecture quelques secondes en <b>HD</b> (roue dentée du lecteur › qualité la plus haute) : c&apos;est ce qui permet de
+                    récupérer la meilleure qualité.
+                  </li>
                   <li>Cliquez sur le favori « Vidéo M17 ». Cet outil s&apos;ouvre avec la vidéo trouvée, prête à télécharger.</li>
                 </ol>
               </div>
@@ -258,13 +336,14 @@ export default function VideoFacebookPage() {
         </div>
       )}
 
-      {complete.length > 0 && (
+      {(complete.length > 0 || hd) && (
         <div className="space-y-3">
           <h2 className="font-semibold">
             {title ? `« ${title} »` : "Vidéo trouvée"}
             {complete.length > 2 && <span className="text-sm font-normal text-slate-500"> · {complete.length} fichiers (plusieurs vidéos sur la page)</span>}
           </h2>
-          {complete.map((v, i) => renderRow(v, i, i === 0 && complete.length > 1))}
+          {hd && renderHd(hd.video, hd.audio)}
+          {complete.map((v, i) => renderRow(v, i, !hd && i === 0 && complete.length > 1))}
         </div>
       )}
 
