@@ -616,7 +616,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
           <section className="card space-y-2">
             <h2 className="font-semibold">Meilleurs pointeurs</h2>
             {(LEAGUE_SCORERS[teamSlug] ?? []).length === 0 ? (
-              <p className="text-sm text-slate-500">Aucun joueur de cette équipe dans le haut du classement des pointeurs.</p>
+              <p className="text-sm text-slate-500">Aucun pointeur pour cette équipe.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -651,7 +651,7 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                 </tbody>
               </table>
             )}
-            <p className="text-xs text-slate-500">Classement de la ligue au {LEADERS_UPDATED} — seuls les joueurs du haut du classement sont listés.</p>
+            <p className="text-xs text-slate-500">Stats de la ligue au {LEADERS_UPDATED} — les 12 meilleurs pointeurs de l&apos;équipe.</p>
           </section>
 
           <section className="card space-y-2">
