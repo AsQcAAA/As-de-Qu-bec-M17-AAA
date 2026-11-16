@@ -51,7 +51,13 @@ export interface OnePagerData {
   leagueGoalies: GoalieLine[];
   theirScorersVsUs: { name: string; n: number | null; g: number; a: number }[];
   notes: { label: string; text: string }[];
+  /** Dispositions PP / PK déjà dessinées dans le pre-scout (glace + joueurs + flèches). */
+  maps: { label: string; kind: MapKind; value: FormationValue }[];
+  /** Nom de famille par numéro (effectif de l'adversaire), pour les dispositions. */
+  rosterLastNames: Record<string, string>;
 }
+
+export type MapKind = "pp" | "pk" | "bo" | "fo" | "pkbo" | "pkfo";
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 
@@ -166,15 +172,25 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     .sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g)
     .slice(0, 6);
 
-  const mapNote = (m: FormationValue | null | undefined) => (m?.note ?? "").trim();
-  const notes = [
-    { label: "Notes", text: (note?.notes ?? "").trim() },
-    { label: "PP 1", text: mapNote(note?.pp_map) },
-    { label: "PP 2", text: mapNote(note?.pp2_map) },
-    { label: "PP BO", text: mapNote(note?.ppbo_map) },
-    { label: "PK", text: mapNote(note?.pk_map) },
-    { label: "PK FC", text: mapNote(note?.pkbo_map) },
-  ].filter((x) => x.text);
+  // Une disposition est « dessinée » dès qu'elle a un numéro, une flèche ou une note :
+  // les ronds vides placés d'office par la page ne comptent pas.
+  const drawn = (m: FormationValue | null | undefined): m is FormationValue =>
+    !!m && (m.markers.some((x) => x.number) || (m.arrows?.length ?? 0) > 0 || !!m.note?.trim());
+  const candidates: { label: string; kind: MapKind; value: FormationValue | null | undefined }[] = [
+    { label: "PP 1", kind: "pp", value: note?.pp_map },
+    { label: "PP 2", kind: "pp", value: note?.pp2_map },
+    { label: "PP BO", kind: "bo", value: note?.ppbo_map },
+    { label: "PP BO 2", kind: "bo", value: note?.ppbo2_map },
+    { label: "PP FO", kind: "fo", value: note?.fo_map },
+    { label: "PK", kind: "pk", value: note?.pk_map },
+    { label: "PK FC", kind: "pkbo", value: note?.pkbo_map },
+    { label: "PK FO", kind: "pkfo", value: note?.pkfo_map },
+  ];
+  const maps = candidates.filter((c) => drawn(c.value)).map((c) => ({ label: c.label, kind: c.kind, value: c.value as FormationValue }));
+  const notes = [{ label: "Notes", text: (note?.notes ?? "").trim() }].filter((x) => x.text);
+  const rosterLastNames = Object.fromEntries(
+    Object.entries(roster).map(([n, full]) => [n, titleCase(full).split(/\s+/).slice(-1)[0] ?? ""])
+  );
 
   const time = (sched?.[0]?.start_time as string | undefined)?.slice(0, 5).replace(":", "h") ?? null;
   const day = format(parseISO(game.game_date), "EEEE d MMMM yyyy", { locale: fr });
@@ -200,5 +216,7 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     leagueGoalies: [...(LEAGUE_GOALIES[slug] ?? [])].sort((a, b) => b.gp - a.gp),
     theirScorersVsUs,
     notes,
+    maps,
+    rosterLastNames,
   };
 }
