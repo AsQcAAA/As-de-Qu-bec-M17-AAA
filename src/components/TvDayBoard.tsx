@@ -93,15 +93,10 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: evts }, { data: gmAll }, { data: mts }, { data: abs }] = await Promise.all([
+      const [{ data: pls }, { data: evts }, { data: gmAll }, { data: abs }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
         supabase.from("games").select("*").eq("game_date", date).order("created_at"),
-        supabase
-          .from("meetings")
-          .select("player_id")
-          .eq("meeting_date", date)
-          .eq("meeting_type", "individual"),
         supabase.from("absences").select("player_id, reason").eq("absence_date", date),
       ]);
       setPlayers(pls ?? []);
@@ -116,9 +111,11 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
             .map((a) => [a.player_id, "Sans contact"])
         )
       );
-      const convoked = new Set((mts ?? []).map((m) => m.player_id));
-      setIndividualMeetings((pls ?? []).filter((p) => convoked.has(p.id)));
-      setEvents(evts ?? []);
+      // Les meetings individuels (convocations, rencontres bulletins avec les
+      // parents) relèvent du staff : ils ne figurent pas dans l'horaire diffusé
+      // aux joueurs. Ils restent visibles dans la page du jour.
+      setIndividualMeetings([]);
+      setEvents((evts ?? []).filter((e) => e.event_type !== "individual_meeting"));
       const gm = selectGame((gmAll ?? []) as Game[]);
     setGame(gm);
       const l: Lineup | undefined = (await findLineup(supabase, date, gm, (gmAll ?? []).length)) ?? undefined;
