@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toPng } from "html-to-image";
 import { createClient } from "@/lib/supabase/client";
-import { EVENT_TYPE_LABEL, showsLocation } from "@/lib/eventTypes";
+import { EVENT_TYPE_LABEL, isBulletinMeeting, showsLocation } from "@/lib/eventTypes";
 import { FormationStatic, type FormationValue } from "@/components/FormationMap";
 import { PP_COLORS } from "@/components/PowerPlayLineups";
 import { PP_COLOR_LABEL, loadUnits, type PpUnit } from "@/lib/ppUnits";
@@ -93,10 +93,15 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
 
   useEffect(() => {
     async function load() {
-      const [{ data: pls }, { data: evts }, { data: gmAll }, { data: abs }] = await Promise.all([
+      const [{ data: pls }, { data: evts }, { data: gmAll }, { data: mts }, { data: abs }] = await Promise.all([
         supabase.from("players").select("*").eq("active", true).order("jersey_number"),
         supabase.from("schedule_events").select("*").eq("event_date", date).order("start_time"),
         supabase.from("games").select("*").eq("game_date", date).order("created_at"),
+        supabase
+          .from("meetings")
+          .select("player_id")
+          .eq("meeting_date", date)
+          .eq("meeting_type", "individual"),
         supabase.from("absences").select("player_id, reason").eq("absence_date", date),
       ]);
       setPlayers(pls ?? []);
@@ -111,11 +116,11 @@ export default function TvDayBoard({ date, cast = false }: { date: string; cast?
             .map((a) => [a.player_id, "Sans contact"])
         )
       );
-      // Les meetings individuels (convocations, rencontres bulletins avec les
-      // parents) relèvent du staff : ils ne figurent pas dans l'horaire diffusé
-      // aux joueurs. Ils restent visibles dans la page du jour.
-      setIndividualMeetings([]);
-      setEvents((evts ?? []).filter((e) => e.event_type !== "individual_meeting"));
+      const convoked = new Set((mts ?? []).map((m) => m.player_id));
+      setIndividualMeetings((pls ?? []).filter((p) => convoked.has(p.id)));
+      // Les rencontres bulletins (parents) ne sont pas diffusées aux joueurs ;
+      // les convocations individuelles, elles, restent avec les noms.
+      setEvents((evts ?? []).filter((e) => !isBulletinMeeting(e)));
       const gm = selectGame((gmAll ?? []) as Game[]);
     setGame(gm);
       const l: Lineup | undefined = (await findLineup(supabase, date, gm, (gmAll ?? []).length)) ?? undefined;

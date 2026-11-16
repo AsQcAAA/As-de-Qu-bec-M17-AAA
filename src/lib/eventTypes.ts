@@ -61,3 +61,12 @@ export const MEETING_TYPES: EventType[] = ["team_meeting", "pp_meeting", "indivi
 export function showsLocation(type: EventType) {
   return MEETING_TYPES.includes(type);
 }
+
+/**
+ * Rencontre bulletin réservée par les parents (créée par le trigger
+ * bulletin_sync_calendar) : un meeting du staff avec la famille, à ne jamais
+ * diffuser aux joueurs — contrairement aux convocations individuelles.
+ */
+export function isBulletinMeeting(e: { event_type: string; title: string | null }): boolean {
+  return e.event_type === "individual_meeting" && /^rencontre bulletin/i.test((e.title ?? "").trim());
+}
