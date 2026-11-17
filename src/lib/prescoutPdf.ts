@@ -392,9 +392,9 @@ export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): 
       col.forEach((p, i) => {
         const y = ry - i * 10;
         if (i % 2 === 0) page.drawRectangle({ x: x0 - 2, y: y - 2.5, width: colW + 2, height: 10, color: SOFT });
-        const lbl = fit(bold, `#${p.n} ${p.name.split(/\s+/).slice(1).join(" ") || p.name}`, 7, colW - 56);
+        const lbl = fit(bold, `#${p.n} ${p.name.split(/\s+/).slice(1).join(" ") || p.name}`, 7, colW - 38);
         text(page, lbl, x0, y, 7, bold, TEXT);
-        text(page, `${p.gp} MJ`, x0 + colW - 44, y, 6, reg, MUTED);
+        text(page, `${p.gp} MJ`, x0 + colW - 36, y, 5.5, reg, MUTED);
         const t = safe(p.toi);
         text(page, t, x0 + colW - bold.widthOfTextAtSize(t, 7.5), y, 7.5, bold, INK);
       });
