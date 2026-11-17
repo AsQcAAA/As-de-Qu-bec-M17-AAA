@@ -52,6 +52,8 @@ export interface OnePagerData {
   scorers: ScorerLine[];
   leagueGoalies: GoalieLine[];
   theirScorersVsUs: { name: string; n: number | null; g: number; a: number }[];
+  /** Temps de glace moyen de leurs patineurs dans nos matchs contre eux (rapport TPE), du plus utilisé au moins utilisé. */
+  toiVsUs: { n: number; name: string; gp: number; toi: string }[];
   notes: { label: string; text: string }[];
   /** Dispositions PP / PK déjà dessinées dans le pre-scout (glace + joueurs + flèches). */
   maps: { label: string; kind: MapKind; value: FormationValue }[];
@@ -110,8 +112,8 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
   // Temps de glace et points contre nous, par numéro.
   const playedIds = played.map((g) => g.id);
   const { data: opp } = playedIds.length
-    ? await supabase.from("opponent_player_game_stats").select("jersey, toi_seconds").in("game_id", playedIds)
-    : { data: [] as { jersey: number; toi_seconds: number | null }[] };
+    ? await supabase.from("opponent_player_game_stats").select("jersey, sheet_name, toi_seconds").in("game_id", playedIds)
+    : { data: [] as { jersey: number; sheet_name: string; toi_seconds: number | null }[] };
   const toi = new Map<number, number[]>();
   for (const r of opp ?? []) if (r.toi_seconds) toi.set(r.jersey, [...(toi.get(r.jersey) ?? []), r.toi_seconds]);
 
@@ -185,6 +187,17 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     };
   });
 
+  // Au-delà de 30 min dans un match, c'est un gardien : exclu du tableau des patineurs.
+  const sheetName = new Map((opp ?? []).map((r) => [r.jersey as number, r.sheet_name as string]));
+  const toiVsUs = [...toi.entries()]
+    .filter(([, t]) => !t.some((x) => x > 1800))
+    .map(([n, t]) => {
+      const avg = Math.round(t.reduce((a, b) => a + b, 0) / t.length);
+      return { n, name: titleCase(roster[String(n)] ?? sheetName.get(n) ?? `N° ${n}`), gp: t.length, avg, toi: secondsToToi(avg) };
+    })
+    .sort((a, b) => b.avg - a.avg)
+    .map(({ avg: _avg, ...rest }) => rest);
+
   const theirScorersVsUs = [...ptsByJersey.entries()]
     .map(([n, v]) => ({ n, name: titleCase(roster[String(n)] ?? v.name ?? `N° ${n}`), g: v.g, a: v.a }))
     .sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g)
@@ -234,6 +247,7 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     scorers: [...scorers].sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g).slice(0, 8),
     leagueGoalies: [...(LEAGUE_GOALIES[slug] ?? [])].sort((a, b) => b.gp - a.gp),
     theirScorersVsUs,
+    toiVsUs,
     notes,
     maps,
     rosterLastNames,

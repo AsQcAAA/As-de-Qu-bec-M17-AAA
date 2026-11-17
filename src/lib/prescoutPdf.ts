@@ -261,7 +261,7 @@ export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): 
     text(page, p.pos, x + 4, yy - 7, 5.5, bold, MUTED);
     text(page, p.n, x + 4, yy - 19, 11, bold, INK);
     text(page, fit(bold, p.name, 7.5, w - 26), x + 23, yy - 8, 7.5, bold, TEXT);
-    const bits = [p.season ? p.season : null, p.toiVsUs ? `TG ${p.toiVsUs}` : null].filter(Boolean).join(" · ");
+    const bits = [p.season ? p.season : null, p.toiVsUs ? `TOI ${p.toiVsUs}` : null].filter(Boolean).join(" · ");
     if (bits) text(page, fit(reg, bits, 6, w - 26), x + 23, yy - 17, 6, reg, MUTED);
     if (p.ptsVsUs > 0) text(page, fit(bold, `${p.ptsVsUs} pt${p.ptsVsUs > 1 ? "s" : ""} contre nous`, 6, w - 26), x + 23, yy - 25, 6, bold, RED);
   };
@@ -285,7 +285,7 @@ export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): 
       d.goalies.forEach((p, i) => card(p, M + i * (cw2 + 4), ly, cw2));
       ly -= 35;
     }
-    text(page, "Saison : PJ · buts-passes = points (ligue). TG : temps de glace moyen dans nos matchs contre eux.", M, ly - 2, 6, reg, MUTED);
+    text(page, "Saison : PJ · buts-passes = points (ligue). TOI : temps de glace moyen dans nos matchs contre eux.", M, ly - 2, 6, reg, MUTED);
     ly -= 16;
   }
 
@@ -380,6 +380,29 @@ export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): 
   let ny = ly - 2;
   let pg = page;
   const mapsRight = M + leftW;
+
+  // TOI moyen contre nous : tous leurs patineurs vus dans nos matchs (rapport TPE).
+  if (d.toiVsUs.length) {
+    const rows = d.toiVsUs.slice(0, 18);
+    ry = section("TOI moyen contre nous", rightX, ry, rightW);
+    const colW = (rightW - 10) / 2;
+    const half = Math.ceil(rows.length / 2);
+    [rows.slice(0, half), rows.slice(half)].forEach((col, ci) => {
+      const x0 = rightX + ci * (colW + 10);
+      col.forEach((p, i) => {
+        const y = ry - i * 10;
+        if (i % 2 === 0) page.drawRectangle({ x: x0 - 2, y: y - 2.5, width: colW + 2, height: 10, color: SOFT });
+        const lbl = fit(bold, `#${p.n} ${p.name.split(/\s+/).slice(1).join(" ") || p.name}`, 7, colW - 56);
+        text(page, lbl, x0, y, 7, bold, TEXT);
+        text(page, `${p.gp} MJ`, x0 + colW - 44, y, 6, reg, MUTED);
+        const t = safe(p.toi);
+        text(page, t, x0 + colW - bold.widthOfTextAtSize(t, 7.5), y, 7.5, bold, INK);
+      });
+    });
+    ry -= half * 10 + 4;
+    text(page, "Patineurs, du plus utilisé au moins utilisé. MJ = matchs contre nous.", rightX, ry, 6, reg, MUTED);
+    ry -= 12;
+  }
 
   // ---- Dispositions PP / PK déjà dessinées ----
   if (d.maps.length) {
