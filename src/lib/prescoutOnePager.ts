@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { LHEQ_M17_AAA_TEAMS, findTeamByOpponent, type LheqTeam } from "./lheqTeams";
-import { OPPONENT_ROSTERS } from "./opponentRosters";
+import { OPPONENT_ROSTERS, jerseyOf } from "./opponentRosters";
 import { titleCase } from "./players";
 import { TEAM_STATS, TEAM_STATS_UPDATED, type TeamStats } from "./leagueTeamStats";
 import { LEAGUE_GOALIES, LEAGUE_SCORERS, type GoalieLine, type ScorerLine } from "./leagueLeaders";
@@ -49,8 +49,8 @@ export interface OnePagerData {
   forwards: LineupPlayer[][];
   defense: LineupPlayer[][];
   goalies: LineupPlayer[];
-  scorers: ScorerLine[];
-  leagueGoalies: GoalieLine[];
+  scorers: (ScorerLine & { n: string | null })[];
+  leagueGoalies: (GoalieLine & { n: string | null })[];
   theirScorersVsUs: { name: string; n: number | null; g: number; a: number }[];
   /** Temps de glace moyen de leurs patineurs dans nos matchs contre eux (rapport TPE), du plus utilisé au moins utilisé. */
   toiVsUs: { n: number; name: string; gp: number; toi: string }[];
@@ -244,8 +244,11 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     forwards,
     defense,
     goalies,
-    scorers: [...scorers].sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g).slice(0, 8),
-    leagueGoalies: [...(LEAGUE_GOALIES[slug] ?? [])].sort((a, b) => b.gp - a.gp),
+    scorers: [...scorers]
+      .sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g)
+      .slice(0, 8)
+      .map((p) => ({ ...p, n: jerseyOf(slug, p.name) })),
+    leagueGoalies: [...(LEAGUE_GOALIES[slug] ?? [])].sort((a, b) => b.gp - a.gp).map((g) => ({ ...g, n: jerseyOf(slug, g.name) })),
     theirScorersVsUs,
     toiVsUs,
     notes,

@@ -317,13 +317,13 @@ export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): 
   table(
     "Meilleurs pointeurs",
     ["Joueur", "PJ", "B", "A", "PTS"],
-    d.scorers.map((p) => [p.name, String(p.gp), String(p.g), String(p.a), String(p.g + p.a)]),
+    d.scorers.map((p) => [`${p.n ? `#${p.n} ` : ""}${p.name}`, String(p.gp), String(p.g), String(p.a), String(p.g + p.a)]),
     [nameW, 22, 22, 22, 22]
   );
   table(
     "Gardiens",
     ["Gardien", "PJ", "Fiche", "MOY"],
-    d.leagueGoalies.map((g) => [g.name, String(g.gp), g.w != null ? `${g.w}-${g.l}-${g.otl}` : "—", g.gaa != null ? g.gaa.toFixed(2) : "—"]),
+    d.leagueGoalies.map((g) => [`${g.n ? `#${g.n} ` : ""}${g.name}`, String(g.gp), g.w != null ? `${g.w}-${g.l}-${g.otl}` : "—", g.gaa != null ? g.gaa.toFixed(2) : "—"]),
     [rightW - 22 - 44 - 30, 22, 44, 30]
   );
   // Leurs 5 derniers matchs : le logo de l'adversaire plutôt que son nom.
