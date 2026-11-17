@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import { findTeamByOpponent, type LheqTeam } from "./lheqTeams";
+import { LHEQ_M17_AAA_TEAMS, findTeamByOpponent, type LheqTeam } from "./lheqTeams";
 import { OPPONENT_ROSTERS } from "./opponentRosters";
 import { titleCase } from "./players";
 import { TEAM_STATS, TEAM_STATS_UPDATED, type TeamStats } from "./leagueTeamStats";
@@ -41,6 +41,8 @@ export interface OnePagerData {
   usStats: TeamStats | null;
   statsUpdated: string;
   last5: string | null;
+  /** Leurs 5 derniers matchs de la ligue, du plus récent au plus ancien. */
+  last5Games: { date: string; opponent: string; result: string }[];
   history: { date: string; label: string }[];
   lineupSource: "attendu" | "dernier match" | null;
   lineupDate: string | null;
@@ -167,6 +169,19 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
         .join("-")
     : null;
 
+  const teamName = (sl: string) => LHEQ_M17_AAA_TEAMS.find((t) => t.slug === sl)?.name ?? sl;
+  const last5Games = [...done].reverse().map((g) => {
+    const home = g.home === slug;
+    const mine = home ? g.home_score : g.away_score;
+    const theirs = home ? g.away_score : g.home_score;
+    const opp = home ? g.away : g.home;
+    return {
+      date: format(parseISO(g.game_date), "d MMM", { locale: fr }),
+      opponent: `${home ? "vs" : "@"} ${opp === "as-de-quebec" ? "As de Québec" : teamName(opp)}`,
+      result: `${mine > theirs ? "V" : "D"} ${mine}-${theirs}`,
+    };
+  });
+
   const theirScorersVsUs = [...ptsByJersey.entries()]
     .map(([n, v]) => ({ n, name: titleCase(roster[String(n)] ?? v.name ?? `N° ${n}`), g: v.g, a: v.a }))
     .sort((a, b) => b.g + b.a - (a.g + a.a) || b.g - a.g)
@@ -206,6 +221,7 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     usStats: TEAM_STATS["as-de-quebec"] ?? null,
     statsUpdated: TEAM_STATS_UPDATED,
     last5,
+    last5Games,
     history,
     lineupSource,
     lineupDate,

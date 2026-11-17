@@ -324,6 +324,12 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
     [rightW - 22 - 44 - 30, 22, 44, 30]
   );
   table(
+    "Leurs 5 derniers matchs",
+    ["Date", "Adversaire", "Résultat"],
+    d.last5Games.map((g) => [g.date, g.opponent, g.result]),
+    [40, rightW - 40 - 50, 50]
+  );
+  table(
     "Contre nous cette saison",
     ["Date", "Résultat"],
     d.history.map((h) => [h.date, h.label]),
@@ -336,13 +342,15 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
     [rightW - 66, 22, 22, 22]
   );
 
-  let ny = Math.min(ly, ry) - 2;
+  // Les dispositions se placent sous l'alignement (colonne de gauche) ; les notes ensuite, pleine largeur.
+  let ny = ly - 2;
   let pg = page;
+  const mapsRight = M + leftW;
 
   // ---- Dispositions PP / PK déjà dessinées ----
   if (d.maps.length) {
-    const halfW = 112;
-    const fullW = 66;
+    const halfW = 104;
+    const fullW = 56;
     const gap = 12;
     const slotH = (k: MapKind) => (isFullKind(k) ? 400 * (fullW / 170) : 178 * (halfW / 170));
     const rowH = Math.max(...d.maps.map((m) => slotH(m.kind))) + 40;
@@ -352,14 +360,14 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
       ny = H - M;
     }
     pg.drawText(safe("DISPOSITIONS PP / PK"), { x: M, y: ny, size: 8.5, font: bold, color: INK });
-    pg.drawRectangle({ x: M, y: ny - 4, width: W - 2 * M, height: 1.2, color: GOLD });
+    pg.drawRectangle({ x: M, y: ny - 4, width: leftW, height: 1.2, color: GOLD });
     ny -= 16;
     let x = M;
     let rowTop = ny;
     let rowMax = 0;
     for (const m of d.maps) {
       const w = isFullKind(m.kind) ? fullW : halfW;
-      if (x + w > W - M) {
+      if (x + w > (pg === page ? mapsRight : W - M)) {
         rowTop -= rowMax + 14;
         x = M;
         rowMax = 0;
@@ -380,6 +388,7 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
     }
     ny = rowTop - rowMax - 14;
   }
+  if (pg === page) ny = Math.min(ny, ry - 2);
 
   // ---- Notes (pleine largeur) ----
   if (d.notes.length) {
