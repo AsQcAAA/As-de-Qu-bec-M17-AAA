@@ -53,7 +53,7 @@ export interface OnePagerData {
   leagueGoalies: (GoalieLine & { n: string | null })[];
   theirScorersVsUs: { name: string; n: number | null; g: number; a: number }[];
   /** Temps de glace moyen de leurs patineurs dans nos matchs contre eux (rapport TPE), du plus utilisé au moins utilisé. */
-  toiVsUs: { n: number; name: string; gp: number; toi: string }[];
+  toiVsUs: { n: number; name: string; gp: number; toi: string; pos: "F" | "D" | null }[];
   notes: { label: string; text: string }[];
   /** Dispositions PP / PK déjà dessinées dans le pre-scout (glace + joueurs + flèches). */
   maps: { label: string; kind: MapKind; value: FormationValue }[];
@@ -94,10 +94,23 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
   let slots: Slots = (note?.lineup as Slots | null) ?? {};
   let lineupSource: OnePagerData["lineupSource"] = Object.values(slots).some((s) => s?.n) ? "attendu" : null;
   let lineupDate: string | null = null;
+  const { data: gls } = played.length
+    ? await supabase.from("game_opponent_lineups").select("game_id, slots").in("game_id", played.map((g) => g.id))
+    : { data: [] as { game_id: string; slots: Slots }[] };
+  const byGame = new Map((gls ?? []).map((r) => [r.game_id as string, r.slots as Slots]));
+  // Position de chaque numéro : alignement attendu d'abord, sinon le plus récent des matchs contre eux.
+  const posByJersey = new Map<string, "F" | "D">();
+  const learn = (sl: Slots | undefined) => {
+    for (const [key, v] of Object.entries(sl ?? {})) {
+      const n = v?.n?.trim();
+      if (!n || posByJersey.has(n)) continue;
+      if (key.startsWith("F")) posByJersey.set(n, "F");
+      else if (key.startsWith("D")) posByJersey.set(n, "D");
+    }
+  };
+  learn((note?.lineup as Slots | null) ?? undefined);
+  for (const g of [...played].reverse()) learn(byGame.get(g.id));
   if (!lineupSource && played.length > 0) {
-    const ids = played.map((g) => g.id);
-    const { data: gls } = await supabase.from("game_opponent_lineups").select("game_id, slots").in("game_id", ids);
-    const byGame = new Map((gls ?? []).map((r) => [r.game_id as string, r.slots as Slots]));
     for (const g of [...played].reverse()) {
       const s = byGame.get(g.id);
       if (s && Object.values(s).some((x) => x?.n)) {
@@ -193,7 +206,7 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     .filter(([, t]) => !t.some((x) => x > 1800))
     .map(([n, t]) => {
       const avg = Math.round(t.reduce((a, b) => a + b, 0) / t.length);
-      return { n, name: titleCase(roster[String(n)] ?? sheetName.get(n) ?? `N° ${n}`), gp: t.length, avg, toi: secondsToToi(avg) };
+      return { n, name: titleCase(roster[String(n)] ?? sheetName.get(n) ?? `N° ${n}`), gp: t.length, avg, toi: secondsToToi(avg), pos: posByJersey.get(String(n)) ?? null };
     })
     .sort((a, b) => b.avg - a.avg)
     .map(({ avg: _avg, ...rest }) => rest);
