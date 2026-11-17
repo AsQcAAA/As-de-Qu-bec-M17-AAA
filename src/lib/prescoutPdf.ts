@@ -169,7 +169,10 @@ function drawFormation(page: PDFPage, bold: PDFFont, kind: MapKind, v: Formation
   return h;
 }
 
-export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
+/** Charge un logo (chemin public, ex. « /logos/teams/piche.png ») ; null si introuvable. */
+export type LogoLoader = (path: string) => Promise<Uint8Array | null>;
+
+export async function buildPrescoutPdf(d: OnePagerData, loadLogo?: LogoLoader): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(safe(d.title));
   doc.setAuthor("As de Québec M17 AAA");
@@ -211,7 +214,7 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
       ["AN", `${s.ppPct} %`, s.pp],
       ["DN", `${s.pkPct} %`, s.pk],
       ["Pén. / match", s.pimPerGame, `${s.pim} min`],
-      ["5 derniers", d.last5 ?? "—", "récent à droite"],
+      ["5 derniers", d.last5 ?? "—", "récent à gauche"],
     ];
     const tw = (W - 2 * M - 7 * 5) / 8;
     tiles.forEach(([label, value, sub], i) => {
@@ -323,12 +326,43 @@ export async function buildPrescoutPdf(d: OnePagerData): Promise<Uint8Array> {
     d.leagueGoalies.map((g) => [g.name, String(g.gp), g.w != null ? `${g.w}-${g.l}-${g.otl}` : "—", g.gaa != null ? g.gaa.toFixed(2) : "—"]),
     [rightW - 22 - 44 - 30, 22, 44, 30]
   );
-  table(
-    "Leurs 5 derniers matchs",
-    ["Date", "Adversaire", "Résultat"],
-    d.last5Games.map((g) => [g.date, g.opponent, g.result]),
-    [40, rightW - 40 - 50, 50]
-  );
+  // Leurs 5 derniers matchs : le logo de l'adversaire plutôt que son nom.
+  ry = section("Leurs 5 derniers matchs", rightX, ry, rightW);
+  if (d.last5Games.length === 0) {
+    text(page, "Aucun match.", rightX, ry, 7.5, reg, MUTED);
+    ry -= 18;
+  } else {
+    const logoCache = new Map<string, Awaited<ReturnType<typeof doc.embedPng>> | null>();
+    const embed = async (path: string | null) => {
+      if (!path || !loadLogo || !/\.png$/i.test(path)) return null;
+      if (!logoCache.has(path)) {
+        const bytes = await loadLogo(path).catch(() => null);
+        logoCache.set(path, bytes ? await doc.embedPng(bytes).catch(() => null) : null);
+      }
+      return logoCache.get(path) ?? null;
+    };
+    const cw = rightW / d.last5Games.length;
+    for (let i = 0; i < d.last5Games.length; i++) {
+      const g = d.last5Games[i];
+      const cx = rightX + i * cw + cw / 2;
+      const img = await embed(g.logo);
+      const box = 26;
+      if (img) {
+        const k = Math.min(box / img.width, box / img.height);
+        page.drawImage(img, { x: cx - (img.width * k) / 2, y: ry - box + (box - img.height * k) / 2 + 2, width: img.width * k, height: img.height * k });
+      } else {
+        const t = fit(bold, g.opponent, 6.5, cw - 4);
+        text(page, t, cx - bold.widthOfTextAtSize(t, 6.5) / 2, ry - 14, 6.5, bold, TEXT);
+      }
+      const res = safe(g.result);
+      const win = res.startsWith("V");
+      text(page, res, cx - bold.widthOfTextAtSize(res, 8.5) / 2, ry - box - 9, 8.5, bold, win ? rgb(0.1, 0.5, 0.2) : RED);
+      const sub = safe(`${g.side} · ${g.date}`);
+      text(page, sub, cx - reg.widthOfTextAtSize(sub, 6.5) / 2, ry - box - 18, 6.5, reg, MUTED);
+    }
+    text(page, "Le plus récent à gauche. vs = à domicile, @ = à l'extérieur.", rightX, ry - 54, 6, reg, MUTED);
+    ry -= 54 + 14;
+  }
   table(
     "Contre nous cette saison",
     ["Date", "Résultat"],

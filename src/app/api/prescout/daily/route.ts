@@ -52,7 +52,11 @@ export async function GET(req: NextRequest) {
       skipped.push(id);
       continue;
     }
-    const pdf = await buildPrescoutPdf(d);
+    const origin = new URL(req.url).origin;
+    const pdf = await buildPrescoutPdf(d, async (path) => {
+      const r = await fetch(`${origin}${path}`);
+      return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+    });
     const intro = `Voici le pre-scout des ${d.team.name} pour le match de demain (${d.when.toLowerCase()}, ${d.where}).`;
     const { error } = await resend.emails.send({
       from: `Pre-scout As de Québec <${process.env.COACH_EMAIL}>`,

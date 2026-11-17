@@ -42,7 +42,7 @@ export interface OnePagerData {
   statsUpdated: string;
   last5: string | null;
   /** Leurs 5 derniers matchs de la ligue, du plus récent au plus ancien. */
-  last5Games: { date: string; opponent: string; result: string }[];
+  last5Games: { date: string; side: "vs" | "@"; opponent: string; logo: string | null; result: string }[];
   history: { date: string; label: string }[];
   lineupSource: "attendu" | "dernier match" | null;
   lineupDate: string | null;
@@ -160,7 +160,8 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
   // 5 derniers matchs de la ligue (calendrier importé le lundi).
   const done = (lg ?? []).filter((g) => g.home_score != null && g.away_score != null).slice(-5);
   const last5 = done.length
-    ? done
+    ? [...done]
+        .reverse()
         .map((g) => {
           const mine = g.home === slug ? g.home_score : g.away_score;
           const theirs = g.home === slug ? g.away_score : g.home_score;
@@ -169,7 +170,7 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
         .join("-")
     : null;
 
-  const teamName = (sl: string) => LHEQ_M17_AAA_TEAMS.find((t) => t.slug === sl)?.name ?? sl;
+  const teamOf = (sl: string) => LHEQ_M17_AAA_TEAMS.find((t) => t.slug === sl);
   const last5Games = [...done].reverse().map((g) => {
     const home = g.home === slug;
     const mine = home ? g.home_score : g.away_score;
@@ -177,7 +178,9 @@ export async function buildOnePagerData(supabase: SupabaseClient, gameId: string
     const opp = home ? g.away : g.home;
     return {
       date: format(parseISO(g.game_date), "d MMM", { locale: fr }),
-      opponent: `${home ? "vs" : "@"} ${opp === "as-de-quebec" ? "As de Québec" : teamName(opp)}`,
+      side: (home ? "vs" : "@") as "vs" | "@",
+      opponent: teamOf(opp)?.name ?? opp,
+      logo: teamOf(opp)?.logo ?? null,
       result: `${mine > theirs ? "V" : "D"} ${mine}-${theirs}`,
     };
   });
