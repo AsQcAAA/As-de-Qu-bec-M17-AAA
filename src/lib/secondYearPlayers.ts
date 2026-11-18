@@ -94,7 +94,6 @@ export const SECOND_YEAR_PLAYERS: Record<string, SecondYearPlayer[]> = {
   "grenadiers-lsl": [sk("Philippe Charron", 31, 4, 1)],
   "gaulois-ric": [sk("Zachary D'Aquila", 15, 0, 3)],
   "dynamiques-ccl": [
-    sk("Félix Theriault", 32, 4, 14, "ex-Conquérants"),
     known("Olivier Dumas", "16 ans"),
     gk("Charles Mathieu", 17, "12-4-1", 1.93),
   ],
