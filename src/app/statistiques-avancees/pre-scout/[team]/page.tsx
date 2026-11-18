@@ -553,8 +553,12 @@ export default function PreScoutTeamPage({ params }: { params: Promise<{ team: s
                           {p.name}
                           {p.note && <span className="text-xs text-slate-500"> ({p.note})</span>}
                         </td>
-                        <td className="py-1.5 pr-4">{p.gp}</td>
-                        {p.goalie ? (
+                        <td className="py-1.5 pr-4">{p.gp ?? "—"}</td>
+                        {p.gp == null ? (
+                          <td className="py-1.5 pr-4 text-slate-400" colSpan={3}>
+                            —
+                          </td>
+                        ) : p.goalie ? (
                           <td className="py-1.5 pr-4 font-semibold" colSpan={3}>
                             Fiche {p.record} · Moy. {p.gaa?.toFixed(2)}
                           </td>

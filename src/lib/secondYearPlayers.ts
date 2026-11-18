@@ -7,7 +7,8 @@ export interface SecondYearPlayer {
   name: string;
   /** Précision : « ex-Conquérants », « homonyme possible »… */
   note?: string;
-  gp: number;
+  /** Absent quand on sait seulement que le joueur est de 2e année (stats 2025-26 inconnues). */
+  gp?: number;
   /** Patineurs */
   g?: number;
   a?: number;
@@ -18,6 +19,8 @@ export interface SecondYearPlayer {
 }
 
 const sk = (name: string, gp: number, g: number, a: number, note?: string): SecondYearPlayer => ({ name, gp, g, a, note });
+/** 2e année connu (âge), sans statistiques de la saison passée. */
+const known = (name: string, note?: string): SecondYearPlayer => ({ name, note });
 const gk = (name: string, gp: number, record: string, gaa: number, note?: string): SecondYearPlayer => ({
   name,
   gp,
@@ -92,6 +95,7 @@ export const SECOND_YEAR_PLAYERS: Record<string, SecondYearPlayer[]> = {
   "gaulois-ric": [sk("Zachary D'Aquila", 15, 0, 3)],
   "dynamiques-ccl": [
     sk("Félix Theriault", 32, 4, 14, "ex-Conquérants"),
+    known("Olivier Dumas", "16 ans"),
     gk("Charles Mathieu", 17, "12-4-1", 1.93),
   ],
   "seigneurs-mi": [sk("Théodore Chayer", 28, 6, 1, "ex-Conquérants")],
