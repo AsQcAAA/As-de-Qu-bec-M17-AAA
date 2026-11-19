@@ -7,6 +7,7 @@ import { lastName } from "@/lib/players";
 import Modal from "@/components/Modal";
 import TestsEmailModal from "@/components/TestsEmailModal";
 import { useCoachDirectory } from "@/lib/useCoach";
+import { computeFiche, ficheHtml } from "@/lib/testsFiche";
 import type { Player, PlayerTestResult } from "@/lib/types";
 
 /** Note marquant un résultat obtenu par un joueur blessé — affiché par un emoji dans le tableau. */
@@ -61,7 +62,8 @@ export default function TestsPhysiquesPage() {
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: "__name", desc: false });
   // « rank » : couleurs vert / rouge selon la place dans l'équipe ; « evolution » :
   // résultat de la séance + celui de la séance précédente entre parenthèses et une flèche.
-  const [viewMode, setViewMode] = useState<"rank" | "evolution">("rank");
+  const [viewMode, setViewMode] = useState<"rank" | "evolution" | "fiche">("rank");
+  const [ficheId, setFicheId] = useState<string>("");
   const previousSession = useMemo(() => {
     const i = sessionDates.indexOf(session);
     return i > 0 ? sessionDates[i - 1] : null;
@@ -128,6 +130,19 @@ export default function TestsPhysiquesPage() {
     return { rows, scale };
   }, [results, session, nameById, testColumnsOfSession, sort]);
 
+  // Fiche individuelle : la même que celle envoyée par courriel aux joueurs.
+  const team = useMemo(() => players.filter((p) => p.active && !p.is_call_up), [players]);
+  const roster = useMemo(() => new Set(team.map((p) => p.id)), [team]);
+  const ficheCandidates = useMemo(
+    () =>
+      team
+        .filter((p) => computeFiche(p.id, session, results, roster).rows.length > 0)
+        .sort((a, b) => (a.jersey_number ?? 99) - (b.jersey_number ?? 99)),
+    [team, session, results, roster]
+  );
+  const fichePlayer = ficheCandidates.find((p) => p.id === ficheId) ?? ficheCandidates[0];
+  const fiche = viewMode === "fiche" && fichePlayer ? ficheHtml(fichePlayer.full_name, computeFiche(fichePlayer.id, session, results, roster)) : "";
+
   function toggleSort(key: string) {
     setSort((cur) => (cur.key === key ? { key, desc: !cur.desc } : { key, desc: key !== "__name" }));
   }
@@ -193,6 +208,12 @@ export default function TestsPhysiquesPage() {
               >
                 📈 Évolution{previousSession ? ` ${sessionLabels.get(previousSession)} → ${sessionLabels.get(session)}` : ""}
               </button>
+              <button
+                className={`px-4 py-2 text-sm font-bold ${viewMode === "fiche" ? "bg-gold-500 text-ink-900" : "bg-white/5 text-slate-200 hover:bg-white/10"}`}
+                onClick={() => setViewMode("fiche")}
+              >
+                👤 Fiche individuelle
+              </button>
             </div>
             <label className="text-sm font-semibold text-white">Séance de tests</label>
             <select className="input w-auto" value={session} onChange={(e) => setPickedSession(e.target.value)}>
@@ -202,7 +223,16 @@ export default function TestsPhysiquesPage() {
                 </option>
               ))}
             </select>
-            {showEvolution ? (
+            {viewMode === "fiche" ? (
+              <select className="input w-auto" value={fichePlayer?.id ?? ""} onChange={(e) => setFicheId(e.target.value)}>
+                {ficheCandidates.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.jersey_number != null ? `#${p.jersey_number} ` : ""}
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : showEvolution ? (
               <span className="text-xs text-slate-300">
                 Résultat {sessionLabels.get(session)} <span className="text-slate-400">(résultat {sessionLabels.get(previousSession!)})</span>{" "}
                 <span className="font-bold text-green-400">▲ mieux</span> <span className="font-bold text-red-400">▼ moins bien</span>
@@ -220,6 +250,11 @@ export default function TestsPhysiquesPage() {
             )}
           </div>
 
+          {viewMode === "fiche" ? (
+            <div className="card overflow-x-auto">
+              {fiche ? <div dangerouslySetInnerHTML={{ __html: fiche }} /> : <p className="text-sm text-slate-500">Aucun résultat à cette séance.</p>}
+            </div>
+          ) : (
           <div className="card overflow-x-auto px-3">
             <table className="w-full text-sm border-separate border-spacing-0 table-auto">
               <thead>
@@ -307,6 +342,7 @@ export default function TestsPhysiquesPage() {
               <p className="text-xs text-slate-500 pt-2">🩹 Blessé lors du test</p>
             )}
           </div>
+          )}
         </>
       )}
 
