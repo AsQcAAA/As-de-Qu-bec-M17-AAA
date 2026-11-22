@@ -267,7 +267,10 @@ export default function DashboardPage() {
     (todayGame && todayGameEvents.find((e) => norm(e.title ?? "").includes(norm(todayGame.opponent)))) ?? todayGameEvents[0];
   const ourTeam = LHEQ_M17_AAA_TEAMS.find((t) => t.slug === "as-de-quebec");
   const todayPractice = todayEvents.find((e) => e.event_type === "practice");
-  const todayIsDayOff = isDayOff(todayEvents);
+  // Congé inscrit à l'horaire, ou fin de semaine sans rien de prévu (congé
+  // implicite, même règle que la page du jour et le calendrier).
+  const todayIsDayOff = !todayGame && (isDayOff(todayEvents) || (isWeekendDay(todayKey) && todayEvents.length === 0));
+  const dayOffTitle = todayEvents.find((e) => isDayOff([e]))?.title?.trim() || "Congé";
   const todayIndividualMeetings = todayEvents.filter((e) => e.event_type === "individual_meeting");
   const hasMeetingCard = !todayIsDayOff && todayIndividualMeetings.length > 0;
 
@@ -307,9 +310,11 @@ export default function DashboardPage() {
             </h1>
             <p className="text-slate-300 text-sm mt-1">Clique sur une journée pour voir l'alignement, l'horaire, les rencontres et la pratique.</p>
           </div>
-          <button onClick={() => setShowAbsencePopup(true)} className="btn-secondary text-sm shrink-0">
-            🩹 Absences
-          </button>
+          {!todayIsDayOff && (
+            <button onClick={() => setShowAbsencePopup(true)} className="btn-secondary text-sm shrink-0">
+              🩹 Absences
+            </button>
+          )}
         </div>
 
         {weeklyTheme && (
@@ -512,9 +517,25 @@ export default function DashboardPage() {
             </div>
           </Link>
           </div>
+        ) : todayIsDayOff ? (
+          // Journée de congé : rien à saisir, une seule grosse bannière.
+          <div className="relative overflow-hidden rounded-3xl border-2 border-gold-400/30 bg-gradient-to-br from-ink-800/80 via-ink-900/85 to-black/90 px-4 py-12 sm:py-16 text-center">
+            <span
+              className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-[36rem] max-w-[130%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500/10 blur-3xl"
+              aria-hidden
+            />
+            <div className="relative text-6xl sm:text-7xl" aria-hidden>
+              🌴
+            </div>
+            <div className="relative mt-3 font-black text-5xl sm:text-7xl uppercase tracking-widest text-gold-400 drop-shadow-[0_2px_10px_rgba(253,202,55,0.35)]">
+              Congé
+            </div>
+            {dayOffTitle.toLowerCase() !== "congé" && (
+              <div className="relative mt-3 text-sm sm:text-base font-semibold text-slate-300">{dayOffTitle}</div>
+            )}
+          </div>
         ) : (
-          <div className={`grid ${todayIsDayOff ? "sm:grid-cols-2" : hasMeetingCard ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
-            {!todayIsDayOff && (
+          <div className={`grid ${hasMeetingCard ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
             <button
               onClick={() => setSelectedDate(todayKey)}
               className="text-left rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-gold-400/40 transition-colors p-4 flex flex-col gap-1"
@@ -523,7 +544,6 @@ export default function DashboardPage() {
               <span className="text-sm text-white font-medium">{dailyReport ? "Rempli aujourd'hui — modifier" : "Remplir maintenant"}</span>
               {dailyReport?.practice_theme && <span className="text-xs text-slate-400 truncate">{dailyReport.practice_theme}</span>}
             </button>
-            )}
             {hasMeetingCard && (
               <button
                 onClick={() => setShowMeetingsPopup(true)}
