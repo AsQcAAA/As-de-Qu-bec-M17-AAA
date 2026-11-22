@@ -220,6 +220,9 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
   // régulier — Delarosbil excepté, il s'entraîne avec le groupe.
   const players = allPlayers.filter((p) => !p.is_call_up || p.id === DAILY_CALL_UP_EXCEPTION_ID);
   const meetingPlayerIds = new Set(meetings.map((m) => m.player_id));
+  // Bannière d'absences : pas les remplaçants (même exception que ci-dessus).
+  const shownIds = new Set(players.map((p) => p.id));
+  const shownAbsences = knownAbsences.filter((a) => shownIds.has(a.player_id));
   // Vendredi : jamais de pratique/alignement (sauf s'il y a un match ce jour-là).
   const noPractice = isNoPracticeDay(date) && !game;
   // Une fin de semaine sans rien de prévu (pas de match, pas d'évènement) est
@@ -281,9 +284,9 @@ export default function JourContent({ date, onClose }: { date: string; onClose?:
       {/* Absences connues d'avance (école, suspension, remplacement M18...) —
           visibles dès l'ouverture de la journée, pas seulement une fois la
           pratique/le match commencé. */}
-      {knownAbsences.length > 0 && (
+      {shownAbsences.length > 0 && (
         <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-2 text-sm text-amber-900 flex flex-wrap gap-x-4 gap-y-1">
-          {knownAbsences.map((a) => {
+          {shownAbsences.map((a) => {
             const p = playerById.get(a.player_id);
             if (!p) return null;
             return (
