@@ -8,6 +8,13 @@ import type { Player } from "@/lib/types";
  * Envoi aux joueurs (à leur famille) de la fiche de leurs tests physiques :
  * résultats, classement dans l'équipe et évolution depuis la séance précédente.
  */
+/** « du printemps 2026 », « de septembre 2026 », « d'octobre 2026 ». */
+function previousOf(label: string): string {
+  const l = label.toLowerCase();
+  if (/^(automne|hiver|printemps)/.test(l)) return `du ${l}`;
+  return /^[aeiouéh]/.test(l) ? `d'${l}` : `de ${l}`;
+}
+
 export default function TestsEmailModal({
   results,
   players,
@@ -51,7 +58,7 @@ export default function TestsEmailModal({
   const message =
     messageEdit ??
     `Salut {joueur},\n\nVoici tes résultats aux tests physiques (${label.toLowerCase()}) : ton classement dans l'équipe${
-      previousLabel ? ` et ton évolution par rapport aux tests du ${previousLabel.toLowerCase()}` : ""
+      previousLabel ? ` et ton évolution par rapport aux tests ${previousOf(previousLabel)}` : ""
     }.`;
 
   function toggle(id: string) {
