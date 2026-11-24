@@ -52,8 +52,11 @@ export function sessionLabel(date: string, allDates: string[]): string {
     return `${m >= 8 ? "A" : m <= 3 ? "H" : "P"}${d.slice(2, 4)}`;
   };
   const same = allDates.filter((d) => seasonOf(d) === seasonOf(date)).length;
-  return same > 1 ? date : seasonOf(date);
+  return same > 1 ? `${MONTHS_SHORT[Number(date.slice(5, 7)) - 1]} ${date.slice(2, 4)}` : seasonOf(date);
 }
+
+const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+const MONTHS_SHORT = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
 
 /** Nom de la séance en toutes lettres, pour les joueurs : « Automne 2026 », « Printemps 2026 », « Hiver 2027 ». */
 export function sessionName(date: string, allDates: string[]): string {
@@ -64,7 +67,7 @@ export function sessionName(date: string, allDates: string[]): string {
     const mm = Number(d.slice(5, 7));
     return d.slice(0, 4) === date.slice(0, 4) && (mm >= 8) === (m >= 8) && (mm <= 3) === (m <= 3);
   }).length;
-  return same > 1 ? `${base} (${date})` : base;
+  return same > 1 ? `${MONTHS[m - 1]} ${date.slice(0, 4)}` : base;
 }
 
 export function computeFiche(playerId: string, sessionDate: string, results: TestResultLike[], eligible: Set<string>): Fiche {

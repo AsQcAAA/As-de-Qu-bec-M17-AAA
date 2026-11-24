@@ -7,7 +7,7 @@ import { lastName } from "@/lib/players";
 import Modal from "@/components/Modal";
 import TestsEmailModal from "@/components/TestsEmailModal";
 import { useCoachDirectory } from "@/lib/useCoach";
-import { computeFiche, ficheHtml } from "@/lib/testsFiche";
+import { computeFiche, ficheHtml, sessionLabel } from "@/lib/testsFiche";
 import type { Player, PlayerTestResult } from "@/lib/types";
 
 /** Note marquant un résultat obtenu par un joueur blessé — affiché par un emoji dans le tableau. */
@@ -46,14 +46,7 @@ export default function TestsPhysiquesPage() {
    * même saison, on retombe sur la date pour les distinguer.
    */
   const sessionLabels = useMemo(() => {
-    const seasonOf = (date: string) => {
-      const month = Number(date.slice(5, 7));
-      const letter = month >= 8 ? "A" : month <= 3 ? "H" : "P";
-      return `${letter}${date.slice(2, 4)}`;
-    };
-    const counts = new Map<string, number>();
-    for (const d of sessionDates) counts.set(seasonOf(d), (counts.get(seasonOf(d)) ?? 0) + 1);
-    return new Map(sessionDates.map((d) => [d, (counts.get(seasonOf(d)) ?? 0) > 1 ? d : seasonOf(d)]));
+    return new Map(sessionDates.map((d) => [d, sessionLabel(d, sessionDates)]));
   }, [sessionDates]);
 
   // Séance affichée : la plus récente tant qu'on n'en choisit pas une autre.
