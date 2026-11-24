@@ -15,6 +15,7 @@ import JourContent from "@/components/JourContent";
 import AbsencePopupContent from "@/components/AbsencePopupContent";
 import IndividualMeetingsPopupContent from "@/components/IndividualMeetingsPopupContent";
 import FarandoleTuesdayPopup from "@/components/FarandoleTuesdayPopup";
+import FarandoleConflictPopup from "@/components/FarandoleConflictPopup";
 import LeagueUpdateReminder from "@/components/LeagueUpdateReminder";
 import DailyReportPopupContent from "@/components/DailyReportPopupContent";
 import WeeklyThemePopupContent from "@/components/WeeklyThemePopupContent";
@@ -297,6 +298,7 @@ export default function DashboardPage() {
       <PostGameUploadsReminder today={todayKey} />
       <LeagueUpdateReminder />
       <FarandoleTuesdayPopup />
+      <FarandoleConflictPopup />
 
       {/* Nouvelles consultations relevées dans la feuille de la clinique. */}
       <PhysioAlert />
