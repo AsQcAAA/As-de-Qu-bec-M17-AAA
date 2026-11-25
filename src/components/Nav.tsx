@@ -26,6 +26,7 @@ const TABS = [
   { href: "/reunions", label: "Meeting" },
   { href: "/bulletins", label: "Rencontres bulletins" },
   { href: "/team-building", label: "Team Building" },
+  { href: "/party-noel", label: "Party de Noël" },
   { href: "/medical", label: "Médical" },
   { href: "/remplacants", label: "Remplaçants" },
   { href: "/video-facebook", label: "Vidéo Facebook" },
