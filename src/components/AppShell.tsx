@@ -28,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // Les pages de diffusion sont castées sur la télé du vestiaire : ni menu, ni
   // marges, ni fond photo — l'écran ne doit montrer que l'horaire.
-  const isCast = pathname.startsWith("/diffusion") || pathname.startsWith("/rendez-vous");
+  const isCast = pathname.startsWith("/diffusion") || pathname.startsWith("/rendez-vous") || pathname.startsWith("/confirmation-party");
   const isPublicTool = PUBLIC_TOOL_ROUTES.some((p) => pathname.startsWith(p));
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   useEffect(() => {

@@ -83,7 +83,7 @@ export default function PartyNoelPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/party-noel-2026.webp"
+        src="/confirmation-party-visuel.webp"
         alt="Party de Noël des employés — Party de cabane à sucre, jeudi 17 décembre 18 h, La Bûche, Vieux-Québec, As & Chevaliers"
         className="w-full max-w-md mx-auto rounded-2xl shadow-lg"
       />
@@ -91,6 +91,25 @@ export default function PartyNoelPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Party de Noël des employés</h1>
         <p className="text-slate-400 text-sm">Jeudi 17 décembre, 18 h — La Bûche, Vieux-Québec</p>
+      </div>
+
+      <div className="card space-y-2">
+        <div className="text-xs font-bold uppercase tracking-widest text-gold-400">Lien public pour les employés</div>
+        <div className="flex gap-2 flex-wrap items-center">
+          <code className="text-sm break-all flex-1">https://as-de-qu-bec-m17-aaa.vercel.app/confirmation-party</code>
+          <button
+            className="btn-secondary text-sm"
+            onClick={() => {
+              navigator.clipboard?.writeText("https://as-de-qu-bec-m17-aaa.vercel.app/confirmation-party").then(
+                () => alert("Lien copié"),
+                () => {}
+              );
+            }}
+          >
+            Copier
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">Chaque employé y inscrit son nom et sa réponse ; elle apparaît ici. Les employés ne voient pas la liste.</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-center">
