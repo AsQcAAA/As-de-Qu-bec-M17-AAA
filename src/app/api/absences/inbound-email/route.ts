@@ -9,6 +9,8 @@ import {
   isSchoolActivityAbsenceEmail,
   stripHtml,
 } from "@/lib/schoolAbsenceEmail";
+import { extractCancelledName, isStarCancellationEmail } from "@/lib/schoolTracking";
+import { processSchoolStarEmail } from "@/lib/schoolInbound";
 
 /**
  * Webhook Resend (event "email.received") pour l'adresse dédiée aux
@@ -88,7 +90,8 @@ async function handle(req: NextRequest) {
   }
 
   const subject = event.data.subject ?? "";
-  if (!isSchoolActivityAbsenceEmail(subject)) {
+  const cancellation = isStarCancellationEmail(subject);
+  if (!isSchoolActivityAbsenceEmail(subject) && !cancellation) {
     return NextResponse.json({ ok: true, skipped: "subject" });
   }
 
@@ -99,14 +102,48 @@ async function handle(req: NextRequest) {
     console.error("[absences/inbound-email] Échec de récupération du courriel", await emailRes.text());
     return NextResponse.json({ error: "Courriel introuvable chez Resend." }, { status: 502 });
   }
-  const email = (await emailRes.json()) as { text: string | null; html: string | null };
+  const email = (await emailRes.json()) as { text: string | null; html: string | null; from?: string | null; created_at?: string | null };
   const body = email.text || (email.html ? stripHtml(email.html) : "");
+
+  // Suivi scolaire des 5 équipes + transfert automatique aux entraîneurs.
+  const school = await processSchoolStarEmail({
+    subject,
+    body,
+    from: email.from ?? null,
+    receivedAt: email.created_at ?? null,
+    emailId: event.data.email_id,
+  });
+
+  if (cancellation) {
+    // L'école annule la convocation : on retire l'absence « Période étoilée »
+    // créée automatiquement pour ce joueur M17 ce jour-là (rien d'autre).
+    const date = extractFrenchDate(subject) ?? extractFrenchDate(body);
+    const name = extractCancelledName(body);
+    const removed: string[] = [];
+    if (date && name) {
+      const service = createServiceClient();
+      const { data: players } = await service.from("players").select("id, full_name").eq("active", true);
+      const match = matchPlayerName(name, players ?? []);
+      if (match) {
+        const { data: gone } = await service
+          .from("absences")
+          .delete()
+          .eq("player_id", match.id)
+          .eq("absence_date", date)
+          .eq("reason", "ecole")
+          .ilike("detail", "%toil%")
+          .select("id");
+        if (gone && gone.length > 0) removed.push(name);
+      }
+    }
+    return NextResponse.json({ ok: true, cancellation: true, removed, school });
+  }
 
   const names = extractConvokedPlayerNames(body);
   const date = extractFrenchDate(subject) ?? extractFrenchDate(body);
   if (names.length === 0 || !date) {
     console.error("[absences/inbound-email] Nom ou date introuvable dans le gabarit attendu.", { subject });
-    return NextResponse.json({ ok: true, skipped: "gabarit_non_reconnu" });
+    return NextResponse.json({ ok: true, skipped: "gabarit_non_reconnu", school });
   }
 
   // Un courriel peut convoquer plusieurs élèves, dont certains ne sont pas à
@@ -142,5 +179,5 @@ async function handle(req: NextRequest) {
   }
   if (unknown.length > 0) console.error("[absences/inbound-email] Élèves hors effectif (ignorés).", { unknown });
 
-  return NextResponse.json({ ok: true, absence_date: date, recorded, already, unknown });
+  return NextResponse.json({ ok: true, absence_date: date, recorded, already, unknown, school });
 }

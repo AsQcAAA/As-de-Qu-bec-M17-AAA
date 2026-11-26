@@ -91,6 +91,9 @@ export default function DirectionGeneralePage() {
           <Link href="/direction-generale/distribution" className="btn-secondary">
             👥 Distribution monétaire
           </Link>
+          <Link href="/direction-generale/suivi-scolaire" className="btn-secondary">
+            🎓 Suivi scolaire
+          </Link>
           <button className="btn" onClick={() => (showForm ? setShowForm(false) : startNew())}>
             {showForm ? "Annuler" : "+ Nouvelle note"}
           </button>
