@@ -95,11 +95,11 @@ export const SUBJECT_LABELS: Record<string, string> = {
 };
 const label = (s: string) => SUBJECT_LABELS[s] ?? s;
 
-export function bilanText(teamName: string, coachFirst: string, rows: BilanRow[]): string {
+export function bilanText(teamName: string, coachFirst: string, rows: BilanRow[], withMeeting = true): string {
   const total = rows.reduce((s, r) => s + r.past, 0);
   return `Bonjour ${coachFirst},
 
-Voici le bilan à jour des périodes étoilées de l'équipe ${teamName} depuis le 1er septembre : ${total} période${total > 1 ? "s" : ""} étoilée${total > 1 ? "s" : ""} à ce jour pour l'équipe. Le détail par joueur est ci-dessous (les convocations annulées par l'école ne sont pas comptées), avec les résultats de la 1re étape : la moyenne générale et les matières sous 70 %.`;
+Voici le bilan à jour des périodes étoilées de l'équipe ${teamName} depuis le 1er septembre : ${total} période${total > 1 ? "s" : ""} étoilée${total > 1 ? "s" : ""} à ce jour pour l'équipe. Le détail par joueur est ci-dessous, avec les résultats de la 1re étape : la moyenne générale et les matières sous 70 %.${withMeeting ? "\n\nJe vais rencontrer avec toi, à l'école, les joueurs en difficulté." : ""}`;
 }
 
 export function bilanHtml(rows: BilanRow[]): string {
