@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
   const recipients: string[] = (team.coach_emails as string[]).length > 0 ? team.coach_emails : team.code === "M17AAA" ? [coachEmail] : [];
   if (recipients.length === 0) return NextResponse.json({ error: `Aucun courriel d'entraîneur pour ${team.name}.` }, { status: 400 });
 
-  const [{ data: roster }, { data: periods }] = await Promise.all([
+  const [{ data: roster }, { data: periods }, { data: results }] = await Promise.all([
     service.from("school_roster").select("id, jersey, full_name").eq("team_code", team.code),
     service.from("school_star_periods").select("roster_id, period_date, status").eq("status", "convoquee"),
+    service.from("school_term_results").select("roster_id, average, grades").eq("term", 1),
   ]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
   const rows: BilanRow[] = (roster ?? [])
@@ -39,12 +40,21 @@ export async function POST(req: NextRequest) {
       const mine = (periods ?? []).filter((p) => p.roster_id === r.id).map((p) => p.period_date as string).sort();
       const past = mine.filter((d) => d <= today);
       const upcoming = mine.filter((d) => d > today);
-      return { jersey: r.jersey, name: r.full_name, past: past.length, upcoming: upcoming.length, last: past.at(-1) ?? null, next: upcoming[0] ?? null };
+      const res = (results ?? []).find((x) => x.roster_id === r.id);
+      const grades = (res?.grades ?? []) as { s: string; v: number }[];
+      return {
+        jersey: r.jersey,
+        name: r.full_name,
+        past: past.length,
+        upcoming: upcoming.length,
+        average: (res?.average as number | null) ?? null,
+        weak: grades.filter((g) => g.v < 70).sort((a, b) => a.v - b.v),
+      };
     })
     .sort((a, b) => b.past - a.past || b.upcoming - a.upcoming || a.name.localeCompare(b.name));
 
   const first = (team.coach_name ?? "").split(" ")[0] || "coach";
-  const text = bilanText(team.name, first, rows);
+  const text = bilanText(team.name, first, rows, team.code !== "M17AAA");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: `Jean Grignon-Francke <${coachEmail}>`,

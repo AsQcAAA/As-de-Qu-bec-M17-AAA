@@ -82,18 +82,24 @@ export interface BilanRow {
   name: string;
   past: number;
   upcoming: number;
-  last: string | null;
-  next: string | null;
+  /** Moyenne générale de la 1re étape. */
+  average: number | null;
+  /** Matières sous 70 % à la 1re étape. */
+  weak: { s: string; v: number }[];
 }
 
-const DATE_FMT = new Intl.DateTimeFormat("fr-CA", { day: "numeric", month: "long", timeZone: "UTC" });
-const fmtDate = (d: string) => DATE_FMT.format(new Date(`${d}T12:00:00Z`));
+export const SUBJECT_LABELS: Record<string, string> = {
+  EDU: "Éduc. phys.", SCI: "Sciences", MAT: "Maths", HIS: "Histoire", GEO: "Géo", FRA: "Français", ANG: "Anglais",
+  MUS: "Musique", CCQ: "Culture et citoyenneté", ARP: "Arts plastiques", CHI: "Chimie", PHY: "Physique",
+  MON: "Monde contemporain", FIN: "Éduc. financière", SEC: "Option", PLA: "Arts plastiques", ENR: "Enrichissement",
+};
+const label = (s: string) => SUBJECT_LABELS[s] ?? s;
 
-export function bilanText(teamName: string, coachFirst: string, rows: BilanRow[]): string {
+export function bilanText(teamName: string, coachFirst: string, rows: BilanRow[], withMeeting = true): string {
   const total = rows.reduce((s, r) => s + r.past, 0);
   return `Bonjour ${coachFirst},
 
-Voici le bilan à jour des périodes étoilées de l'équipe ${teamName} depuis le 1er septembre : ${total} période${total > 1 ? "s" : ""} étoilée${total > 1 ? "s" : ""} à ce jour pour l'équipe. Le détail par joueur est ci-dessous (les convocations annulées par l'école ne sont pas comptées).`;
+Voici le bilan à jour des périodes étoilées de l'équipe ${teamName} depuis le 1er septembre : ${total} période${total > 1 ? "s" : ""} étoilée${total > 1 ? "s" : ""} à ce jour pour l'équipe. Le détail par joueur est ci-dessous (les convocations annulées par l'école ne sont pas comptées), avec les résultats de la 1re étape : la moyenne générale et les matières sous 70 %.${withMeeting ? "\n\nJe vais rencontrer avec toi, à l'école, les joueurs en difficulté." : ""}`;
 }
 
 export function bilanHtml(rows: BilanRow[]): string {
@@ -102,17 +108,25 @@ export function bilanHtml(rows: BilanRow[]): string {
   const body = rows
     .map((r, i) => {
       const color = r.past >= 6 ? "#b91c1c" : r.past >= 3 ? "#b45309" : "#1a1a1a";
-      return `<tr style="background:${i % 2 ? "#fafafa" : "#fff"};"><td style="${td}">${r.jersey ?? ""}</td><td style="${td}font-weight:bold;">${escapeHtml(r.name)}</td><td style="${td}text-align:center;font-weight:bold;color:${color};">${r.past}</td><td style="${td}text-align:center;">${r.upcoming || "—"}</td><td style="${td}">${r.last ? fmtDate(r.last) : "—"}</td><td style="${td}">${r.next ? fmtDate(r.next) : "—"}</td></tr>`;
+      const weak = r.weak.length
+        ? r.weak
+            .map((g) => `<span style="display:inline-block;margin:1px 2px;padding:1px 6px;border-radius:4px;font-size:12px;font-weight:bold;background:${g.v < 60 ? "#fee2e2" : "#fef3c7"};color:${g.v < 60 ? "#b91c1c" : "#92400e"};">${escapeHtml(label(g.s))} ${g.v}</span>`)
+            .join("")
+        : r.average == null
+          ? `<span style="color:#9ca3af;">—</span>`
+          : `<span style="color:#15803d;">Aucune</span>`;
+      const avgColor = r.average != null && r.average < 70 ? "#b45309" : "#1a1a1a";
+      return `<tr style="background:${i % 2 ? "#fafafa" : "#fff"};vertical-align:top;"><td style="${td}">${r.jersey ?? ""}</td><td style="${td}font-weight:bold;">${escapeHtml(r.name)}</td><td style="${td}text-align:center;font-weight:bold;color:${color};">${r.past}</td><td style="${td}text-align:center;">${r.upcoming || "—"}</td><td style="${td}text-align:center;font-weight:bold;color:${avgColor};">${r.average ?? "—"}</td><td style="${td}">${weak}</td></tr>`;
     })
     .join("");
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;border:1px solid #e5e7eb;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;">
-<tr><th style="${th}">#</th><th style="${th}">Joueur</th><th style="${th}text-align:center;">À ce jour</th><th style="${th}text-align:center;">À venir</th><th style="${th}">Dernière</th><th style="${th}">Prochaine</th></tr>
+<tr><th style="${th}">#</th><th style="${th}">Joueur</th><th style="${th}text-align:center;">Étoilées à ce jour</th><th style="${th}text-align:center;">À venir</th><th style="${th}text-align:center;">Moy. 1re étape</th><th style="${th}">Matières sous 70 %</th></tr>
 ${body}
 </table>`;
 }
 
 export function bilanPlain(rows: BilanRow[]): string {
   return rows
-    .map((r) => `${r.jersey != null ? `#${r.jersey} ` : ""}${r.name} : ${r.past}${r.upcoming ? ` (+${r.upcoming} à venir)` : ""}`)
+    .map((r) => `${r.jersey != null ? `#${r.jersey} ` : ""}${r.name} : ${r.past} étoilée(s)${r.upcoming ? ` (+${r.upcoming} à venir)` : ""} — moy. 1re étape : ${r.average ?? "—"}${r.weak.length ? ` — sous 70 % : ${r.weak.map((g) => `${label(g.s)} ${g.v}`).join(", ")}` : ""}`)
     .join("\n");
 }
