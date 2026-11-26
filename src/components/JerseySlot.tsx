@@ -117,7 +117,13 @@ export default function JerseySlot({
   const selectedIsCallUpOption = selected ? callUpOptions.some((p) => p.id === selected.id) : false;
   // Joueur utilisé hors de sa position naturelle (un défenseur à l'attaque, par
   // exemple) : c'est permis, mais ça doit se voir d'un coup d'œil.
-  const outOfPosition = Boolean(selected && expectedPosition && selected.position !== expectedPosition);
+  // Alex Blais joue aux deux positions (attaque et défense) : jamais signalé.
+  const outOfPosition = Boolean(
+    selected &&
+      expectedPosition &&
+      selected.position !== expectedPosition &&
+      !(expectedPosition !== "G" && selected.position !== "G" && /\bblais\b/i.test(selected.full_name))
+  );
 
   return (
     <div className="group/slot flex flex-col items-center gap-1.5 w-32">
