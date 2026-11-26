@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => b.past - a.past || b.upcoming - a.upcoming || a.name.localeCompare(b.name));
 
   const first = (team.coach_name ?? "").split(" ")[0] || "coach";
-  const text = bilanText(team.name, first, rows, team.code !== "M17AAA");
+  const text = bilanText(team.name, first, rows);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: `Jean Grignon-Francke <${coachEmail}>`,
