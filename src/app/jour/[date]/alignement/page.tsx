@@ -1192,9 +1192,8 @@ export default function AlignementRapidePage({ params }: { params: Promise<{ dat
                           </span>
                           {/* Seule la position hors gabarit est signalée ;
                               le statut de remplaçant n'a pas à figurer sur la
-                              feuille remise au banc. Exception : Alex Blais,
-                              défenseur qui joue régulièrement à l'attaque. */}
-                          {p.position !== t.position && !(p.position === "D" && t.position === "F" && /\bblais\b/i.test(p.full_name)) && (
+                              feuille remise au banc. */}
+                          {p.position !== t.position && (
                             <span className="block text-[8.5pt] font-semibold uppercase tracking-wide">
                               {p.position === "D" ? "Défenseur" : p.position === "F" ? "Attaquant" : "Gardien"}
                             </span>
