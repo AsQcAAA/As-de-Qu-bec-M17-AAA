@@ -9,7 +9,7 @@
 ## Règles de travail
 - **Toujours `git commit` + `git push` sur `main` après chaque modification de code**, sans attendre qu'on le demande. Terminer le message de commit par la ligne `Co-Authored-By:` du modèle utilisé.
 - Vérifier avec `npx tsc --noEmit` (et `npm run build` si le changement est important) avant de pousser.
-- **Migrations Supabase** : créer `supabase/migration_NNN.sql` dans le dépôt (prochain numéro : 069) **et** l'appliquer à la base si un connecteur Supabase est disponible. Toute nouvelle table doit inclure `GRANT ... TO authenticated, service_role` (obligatoire dès le 30 oct. 2026). Demander avant toute opération destructive (drop, delete massif).
+- **Migrations Supabase** : créer `supabase/migration_NNN.sql` dans le dépôt (prochain numéro : 070) **et** l'appliquer à la base si un connecteur Supabase est disponible. Toute nouvelle table doit inclure `GRANT ... TO authenticated, service_role` (obligatoire dès le 30 oct. 2026). Demander avant toute opération destructive (drop, delete massif).
 - Si aucun connecteur Supabase n'est disponible (session cloud), écrire la migration dans le dépôt et dire clairement à l'utilisateur qu'elle reste **à appliquer** dans l'éditeur SQL Supabase.
 - Variables d'environnement utilisées (valeurs jamais dans le dépôt) : `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `COACH_EMAIL`, `REMINDER_FROM_EMAIL`, `CRON_SECRET`, `ANTHROPIC_API_KEY`, `TESTS_SHEET_ID`.
 - Ne jamais envoyer de courriel aux parents ou aux joueurs sans demande explicite. Les essais d'envoi vont uniquement à l'entraîneur-chef.

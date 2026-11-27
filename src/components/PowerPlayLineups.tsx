@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import FormationMap, { type FormationValue } from "@/components/FormationMap";
 import type { Lineup } from "@/lib/types";
@@ -36,14 +36,63 @@ export default function PowerPlayLineups({
   const [showPp3, setShowPp3] = useState<boolean>(() => clean(lineup?.pp3_map).markers.length > 0);
   const [showTv, setShowTv] = useState<boolean>(lineup?.show_pp_tv ?? false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pending = useRef<Record<string, () => Promise<void>>>({});
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const current = useRef({ pp1_map: pp1, pp2_map: pp2, pp3_map: pp3 });
+  const [saveError, setSaveError] = useState(false);
 
+  /** Un envoi à la fois, dans l'ordre : un ancien état n'écrase jamais le plus récent. */
+  function enqueue(run: () => Promise<void>) {
+    const p = queue.current.then(run, run);
+    queue.current = p.then(() => setSaveError(false), () => setSaveError(true));
+  }
+
+  function flushAll() {
+    for (const k of Object.keys(pending.current)) {
+      clearTimeout(timers.current[k]);
+      const run = pending.current[k];
+      delete pending.current[k];
+      enqueue(run);
+    }
+  }
+
+  useEffect(() => {
+    const onHide = () => flushAll();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+      flushAll(); // en quittant la page, le dernier changement part quand même
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Geste sur la glace : enregistré tout de suite. Note : à la fin de la frappe. */
   function save(key: "pp1_map" | "pp2_map" | "pp3_map", value: FormationValue) {
+    const prev = current.current[key];
+    current.current = { ...current.current, [key]: value };
     ({ pp1_map: setPp1, pp2_map: setPp2, pp3_map: setPp3 })[key](value);
-    clearTimeout(timers.current[key]);
-    timers.current[key] = setTimeout(async () => {
+    const run = async () => {
       const l = lineup ?? (await ensureLineup());
       if (!l) return;
-      await supabase.from("lineups").update({ [key]: value }).eq("id", l.id);
+      const { error } = await supabase.from("lineups").update({ [key]: value }).eq("id", l.id);
+      if (error) throw error;
+    };
+    clearTimeout(timers.current[key]);
+    const noteOnly =
+      prev.note !== value.note &&
+      JSON.stringify(prev.markers) === JSON.stringify(value.markers) &&
+      JSON.stringify(prev.arrows ?? []) === JSON.stringify(value.arrows ?? []);
+    if (!noteOnly) {
+      delete pending.current[key];
+      enqueue(run);
+      return;
+    }
+    pending.current[key] = run;
+    timers.current[key] = setTimeout(() => {
+      delete pending.current[key];
+      enqueue(run);
     }, 500);
   }
 
@@ -55,6 +104,7 @@ export default function PowerPlayLineups({
 
   return (
     <div className="space-y-4">
+    {saveError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">Un changement de power play n&apos;a pas pu être enregistré. Vérifie ta connexion puis modifie à nouveau le jeu.</div>}
     <label className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">
       <input type="checkbox" checked={showTv} onChange={(e) => toggleTv(e.target.checked)} />
       Afficher les power plays sur la TV de cette journée

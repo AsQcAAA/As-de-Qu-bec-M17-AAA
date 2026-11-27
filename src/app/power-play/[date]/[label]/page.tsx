@@ -34,6 +34,13 @@ const KIND = ["pp", "bo", "fo"] as const;
 const HINT = ["Zone offensive, but en haut.", "Sortie de zone, glace complète (notre zone en bas).", "Mise au jeu en zone offensive."];
 const STARTS: ([number, number][] | null)[] = [null, BO_START, FO_START];
 const PHASES: PpPhase[] = [0, 1, 2];
+const now = () => Date.now();
+
+/** Seule la note a changé (saisie au clavier) : on peut attendre la fin de la frappe pour enregistrer. */
+function noteOnly(a: FormationValue | null | undefined, b: FormationValue) {
+  if (!a) return false;
+  return a.note !== b.note && JSON.stringify(a.markers) === JSON.stringify(b.markers) && JSON.stringify(a.arrows ?? []) === JSON.stringify(b.arrows ?? []);
+}
 
 export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: string; label: string }> }) {
   const { date, label: rawLabel } = use(params);
@@ -93,6 +100,10 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   /** Enregistrements en attente (anti-rebond), vidés au départ de la page pour ne jamais perdre un changement. */
   const pending = useRef<Record<string, () => Promise<unknown>>>({});
   const [saveError, setSaveError] = useState(false);
+  /** Envois en cours (file) : tant qu'il y en a, les mises à jour venues d'un autre appareil attendent. */
+  const inflight = useRef(0);
+  const lastLocalEdit = useRef(0);
+  const [saving, setSaving] = useState(false);
 
   /**
    * File d'enregistrement : un seul envoi à la fois. Sans elle, deux envois
@@ -101,13 +112,31 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
    */
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   function enqueue(run: () => Promise<unknown>) {
-    const p = queue.current.then(run, run);
+    inflight.current += 1;
+    setSaving(true);
+    const tracked = () =>
+      run().finally(() => {
+        inflight.current -= 1;
+        if (inflight.current === 0 && Object.keys(pending.current).length === 0) setSaving(false);
+      });
+    const p = queue.current.then(tracked, tracked);
     queue.current = p.catch(() => undefined);
     return p;
   }
 
-  function schedule(k: string, run: () => Promise<unknown>, delay = 400) {
+  /**
+   * Enregistrement : immédiat pour un geste sur la glace (joueur déplacé, flèche),
+   * court délai seulement pendant la saisie de la note (une frappe = un envoi sinon).
+   */
+  function schedule(k: string, run: () => Promise<unknown>, delay = 0) {
+    lastLocalEdit.current = now();
     clearTimeout(timers.current[k]);
+    if (delay === 0) {
+      delete pending.current[k];
+      enqueue(run).then(() => setSaveError(false), () => setSaveError(true));
+      return;
+    }
+    setSaving(true);
     pending.current[k] = run;
     timers.current[k] = setTimeout(() => {
       delete pending.current[k];
@@ -139,31 +168,81 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
   function change(phase: PpPhase, value: FormationValue) {
     const cur = unitRef.current;
     if (!cur) return;
+    const prev = phase === 0 ? cur.inzone : phase === 1 ? cur.breakout : cur.faceoff;
     const next = { ...cur, ...(phase === 0 ? { inzone: value } : phase === 1 ? { breakout: value } : { faceoff: value }) };
     unitRef.current = next;
     setUnit(next);
-    schedule(`main-${phase}`, () => persistPhase(supabase, next, phase, value));
+    schedule(`main-${phase}`, () => persistPhase(supabase, next, phase, value), noteOnly(prev, value) ? 500 : 0);
   }
 
-  function saveExtras(extra: PpExtra[], immediate = false) {
+  function saveExtras(extra: PpExtra[], typing = false) {
     const cur = unitRef.current;
     if (!cur) return;
     const next = { ...cur, extra };
     unitRef.current = next;
     setUnit(next);
-    if (immediate) {
-      clearTimeout(timers.current.extra);
-      delete pending.current.extra;
-      enqueue(() => persistExtra(supabase, next, extra)).catch(() => setSaveError(true));
-    } else schedule("extra", () => persistExtra(supabase, next, extra));
+    schedule("extra", () => persistExtra(supabase, next, extra), typing ? 500 : 0);
   }
+
+  /** Modifie une glace supplémentaire à partir de l'état le plus récent (jamais d'une copie périmée). */
+  function changeExtra(id: string, v: FormationValue) {
+    const cur = unitRef.current;
+    if (!cur) return;
+    const old = cur.extra.find((x) => x.id === id);
+    saveExtras(
+      cur.extra.map((x) => (x.id === id ? { ...x, map: v } : x)),
+      !!old && noteOnly(old.map, v)
+    );
+  }
+
+  /**
+   * Synchronisation en direct : quand un autre appareil modifie cette unité,
+   * on recharge — seulement si rien n'est en cours d'envoi ici, pour ne jamais
+   * écraser un changement local.
+   */
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (inflight.current > 0 || Object.keys(pending.current).length > 0 || now() - lastLocalEdit.current < 1500) {
+          refresh();
+          return;
+        }
+        const { units, error } = await loadUnits(supabase);
+        if (error) return;
+        if (inflight.current > 0 || Object.keys(pending.current).length > 0 || now() - lastLocalEdit.current < 1500) return;
+        const found = units.find((u) => u.date === date && u.label === label);
+        const cur = unitRef.current;
+        if (!found || !cur) return;
+        const merged = { ...found, breakout: found.breakout ?? cur.breakout, faceoff: found.faceoff ?? cur.faceoff };
+        if (JSON.stringify(merged) === JSON.stringify(cur)) return;
+        unitRef.current = merged;
+        setUnit(merged);
+        setAllUnits(units);
+      }, 400);
+    };
+    const channel = supabase
+      .channel(`pp-unit-${date}-${label}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pp_units", filter: `unit_date=eq.${date}` }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "lineups", filter: `lineup_date=eq.${date}` }, refresh)
+      .subscribe();
+    const onFocus = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onFocus);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, label]);
 
   /** Nouvelle glace de la même phase : mêmes 5 joueurs aux positions de départ, jeu à redessiner. */
   function addExtra(phase: PpPhase) {
     if (!unit) return;
     const count = unit.extra.filter((x) => x.phase === phase).length + 2;
     const map: FormationValue = phase === 0 ? { markers: unit.inzone.markers.map((m) => ({ ...m, id: newExtraId() })), note: "" } : seedPhase(unit.inzone, STARTS[phase]!);
-    saveExtras([...unit.extra, { id: newExtraId(), phase, title: `${PHASE_SHORT[phase]} ${count}`, map }], true);
+    saveExtras([...unit.extra, { id: newExtraId(), phase, title: `${PHASE_SHORT[phase]} ${count}`, map }]);
   }
 
   /** Jeux d'une phase dans les autres unités (du plus récent au plus ancien) : source possible d'une copie. */
@@ -192,7 +271,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
       markers: src.map.markers.map((m) => ({ ...m, id: newExtraId() })),
       arrows: src.map.arrows?.map((a) => ({ ...a, id: newExtraId() })),
     };
-    saveExtras([...unit.extra, { id: newExtraId(), phase, title: "", map }], true);
+    saveExtras([...unit.extra, { id: newExtraId(), phase, title: "", map }]);
   }
 
   /** Supprime le jeu 1 d'une phase : le jeu 2 devient le jeu 1, la phase n'est jamais laissée vide. */
@@ -204,7 +283,9 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
     if (!window.confirm(`Supprimer le jeu 1 ? Le jeu 2 prendra sa place.${warn}`)) return;
     const rest = unit.extra.filter((x) => x.id !== first.id);
     const next = { ...unit, extra: rest, ...(phase === 0 ? { inzone: first.map } : phase === 1 ? { breakout: first.map } : { faceoff: first.map }) };
+    unitRef.current = next;
     setUnit(next);
+    lastLocalEdit.current = now();
     enqueue(() => persistPhase(supabase, next, phase, first.map)).catch(() => setSaveError(true));
     enqueue(() => persistExtra(supabase, next, rest)).catch(() => setSaveError(true));
   }
@@ -301,7 +382,12 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
               {unit.label}
               {unit.color ? ` — chandail ${PP_COLOR_LABEL[unit.color].toLowerCase()}` : ""}
             </h1>
-            <p className="text-slate-400 text-sm capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</p>
+            <p className="text-slate-400 text-sm">
+              <span className="capitalize">{format(parseISO(unit.date), "EEEE d MMMM yyyy", { locale: fr })}</span>
+              <span className={`ml-3 text-xs ${saveError ? "text-red-400" : saving ? "text-amber-300" : "text-emerald-400"}`}>
+                {saveError ? "⚠ Non enregistré" : saving ? "Enregistrement…" : "✓ Enregistré"}
+              </span>
+            </p>
           </div>
           <div className="flex gap-2 flex-wrap">
             {unit.fromLineup && (
@@ -390,7 +476,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
                       title={extra ? "" : m.title}
                       subtitle={HINT[ph]}
                       value={m.value}
-                      onChange={(v) => (extra ? saveExtras(unit.extra.map((x) => (x.id === extra.id ? { ...x, map: v } : x))) : change(ph, v))}
+                      onChange={(v) => (extra ? changeExtra(extra.id, v) : change(ph, v))}
                       markerColor={fill}
                     />
                     {!extra && unit.extra.some((x) => x.phase === ph) && (
@@ -401,7 +487,7 @@ export default function PowerPlayUnitPage({ params }: { params: Promise<{ date: 
                     {extra && (
                       <button
                         className="text-xs text-red-400 hover:underline"
-                        onClick={() => window.confirm("Supprimer ce jeu ?") && saveExtras(unit.extra.filter((x) => x.id !== extra.id), true)}
+                        onClick={() => window.confirm("Supprimer ce jeu ?") && saveExtras(unit.extra.filter((x) => x.id !== extra.id))}
                       >
                         Supprimer ce jeu
                       </button>
